@@ -27,17 +27,6 @@ select {
   font: inherit;
 }
 
-.app-shell {
-  min-height: 100vh;
-  padding: 24px;
-}
-
-.hero-strip {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 56px 0;
-}
-
 .eyebrow {
   margin: 0 0 12px;
   color: #146b5a;
@@ -62,4 +51,195 @@ h1 {
   color: #4d5f58;
   font-size: 1.05rem;
   line-height: 1.6;
+}
+
+.workspace {
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 1480px;
+  margin: 0 auto 24px;
+}
+
+.topbar h1 {
+  max-width: 760px;
+  font-size: clamp(2rem, 4vw, 4.5rem);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(360px, 1fr) minmax(280px, 420px);
+  gap: 16px;
+  max-width: 1480px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.panel {
+  border: 1px solid rgba(20, 107, 90, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 20px 60px rgba(16, 32, 27, 0.06);
+  padding: 18px;
+}
+
+.builder,
+.middle-stack,
+.transparency {
+  display: grid;
+  gap: 14px;
+}
+
+.segmented,
+.preset-board,
+.scenario-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.segmented {
+  grid-template-columns: 1fr 1fr;
+}
+
+.segmented button,
+.preset-board button {
+  border: 1px solid rgba(20, 107, 90, 0.18);
+  border-radius: 8px;
+  background: #f8fbf9;
+  color: #12342d;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.segmented button.active {
+  background: #0f766e;
+  color: white;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: #50645d;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+input {
+  width: 100%;
+  border: 1px solid rgba(20, 107, 90, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #10201b;
+  background: white;
+}
+
+.quote-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.label {
+  margin: 0 0 6px;
+  color: #667a73;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.status {
+  border-radius: 8px;
+  padding: 12px;
+  font-weight: 800;
+}
+
+.status.good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status.warn,
+.warning,
+.snapshot-banner {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.warning,
+.snapshot-banner {
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.section-title h2 {
+  margin: 0;
+  color: #12342d;
+  font-size: 1.05rem;
+}
+
+.section-title span {
+  color: #667a73;
+  font-size: 0.82rem;
+}
+
+.oracle-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.oracle-meta div,
+.leg-row {
+  border: 1px solid rgba(20, 107, 90, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfdfb;
+}
+
+.oracle-meta dt,
+.leg-row span {
+  color: #667a73;
+  font-size: 0.75rem;
+}
+
+.oracle-meta dd {
+  margin: 4px 0 0;
+  font-weight: 800;
+}
+
+.leg-list {
+  display: grid;
+  gap: 8px;
+}
+
+.leg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 1040px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quote-summary {
+    grid-template-columns: 1fr 1fr;
+  }
 }
