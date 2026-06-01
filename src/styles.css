@@ -117,6 +117,13 @@ h1 {
   cursor: pointer;
 }
 
+.preset-board button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
 .segmented button.active {
   background: #0f766e;
   color: white;
@@ -227,11 +234,42 @@ input {
   gap: 8px;
 }
 
+.scenario {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.scenario-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.scenario-values span,
+.scenario small {
+  color: #10201b;
+}
+
 .leg-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.leg-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 4px;
+  min-width: 0;
+}
+
+.leg-row > div:last-child {
+  justify-content: flex-end;
 }
 
 @media (max-width: 1040px) {
@@ -241,5 +279,20 @@ input {
 
   .quote-summary {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace {
+    padding: 24px;
+  }
+
+  .topbar {
+    gap: 16px;
+  }
+
+  .quote-summary,
+  .oracle-meta {
+    grid-template-columns: 1fr;
   }
 }
