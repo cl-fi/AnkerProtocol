@@ -7,6 +7,7 @@ import type {
 } from './types';
 import { aprFromCoupon, daysBetween } from './units';
 import { buildStrikeLadder } from './strikeGrid';
+import { simulatePayoff } from './payoff';
 
 export function buildDualInvestmentLegIntents(
   input: DualInvestmentInput,
@@ -53,7 +54,7 @@ export function compileDualInvestment(input: {
   const days = daysBetween(input.nowMs ?? Date.now(), input.oracle.expiryMs);
   const executable = coupon > 0 && legs.every((leg) => leg.executable);
 
-  return {
+  const quote: StructuredProductQuote = {
     id: `dual-${input.oracle.oracleId}-${input.input.targetPrice}-${input.input.floorPrice}`,
     productType: 'dual-investment',
     title: `Target Buy BTC at ${input.input.targetPrice.toLocaleString('en-US')}`,
@@ -68,4 +69,5 @@ export function compileDualInvestment(input: {
     warning: coupon <= 0 ? 'Current leg costs leave no positive coupon.' : undefined,
     scenarios: [],
   };
+  return { ...quote, scenarios: simulatePayoff(quote) };
 }

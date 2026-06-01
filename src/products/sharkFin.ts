@@ -1,5 +1,6 @@
 import type { LegIntent, LegQuote, OracleMarket, SharkFinInput, StructuredProductQuote } from './types';
 import { aprFromCoupon, daysBetween } from './units';
+import { simulatePayoff } from './payoff';
 
 export function buildSharkFinLegIntents(input: SharkFinInput, oracle: OracleMarket): LegIntent[] {
   return [
@@ -39,7 +40,7 @@ export function compileSharkFin(input: {
   const coupon = yieldBudget - totalLegCost;
   const executable = coupon >= 0 && legs.every((leg) => leg.executable);
 
-  return {
+  const quote: StructuredProductQuote = {
     id: `shark-${input.oracle.oracleId}-${input.input.lowerBound}-${input.input.upperBound}`,
     productType: 'shark-fin',
     title: `BTC Shark Fin ${input.input.lowerBound.toLocaleString('en-US')} - ${input.input.upperBound.toLocaleString('en-US')}`,
@@ -54,4 +55,5 @@ export function compileSharkFin(input: {
     warning: coupon < 0 ? 'Assumed yield cannot fund the quoted option package.' : undefined,
     scenarios: [],
   };
+  return { ...quote, scenarios: simulatePayoff(quote) };
 }
