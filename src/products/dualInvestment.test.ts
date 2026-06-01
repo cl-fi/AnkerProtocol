@@ -1,0 +1,33 @@
+import { describe, expect, it } from 'vitest';
+import { compileDualInvestment } from './dualInvestment';
+import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
+
+describe('compileDualInvestment', () => {
+  it('builds an UP ladder and computes positive coupon from quoted legs', () => {
+    const quote = compileDualInvestment({
+      input: {
+        principal: 1_000,
+        targetPrice: 73_000,
+        floorPrice: 58_000,
+        stepSize: 2_000,
+      },
+      oracle: lastKnownMarketSnapshot,
+      quotedLegs: [
+        { id: 'up-58000', askCost: 3, askPrice: 0.21, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
+        { id: 'up-60000', askCost: 3, askPrice: 0.2, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
+        { id: 'up-62000', askCost: 3, askPrice: 0.19, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
+        { id: 'up-64000', askCost: 3, askPrice: 0.18, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
+        { id: 'up-66000', askCost: 3, askPrice: 0.17, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
+        { id: 'up-68000', askCost: 3, askPrice: 0.16, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
+        { id: 'up-70000', askCost: 3, askPrice: 0.15, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
+        { id: 'up-72000', askCost: 3, askPrice: 0.14, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
+      ],
+    });
+
+    expect(quote.legs).toHaveLength(8);
+    expect(quote.reserve).toBeCloseTo(794.5205479452);
+    expect(quote.totalLegCost).toBe(24);
+    expect(quote.coupon).toBeCloseTo(181.4794520548);
+    expect(quote.executable).toBe(true);
+  });
+});
