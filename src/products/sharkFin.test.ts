@@ -1,8 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { compileSharkFin } from './sharkFin';
+import { buildSharkFinLegIntents, compileSharkFin } from './sharkFin';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
 
 describe('compileSharkFin', () => {
+  it('sizes the range leg from term yield rather than annual yield', () => {
+    const nowMs = Date.now();
+    const [leg] = buildSharkFinLegIntents(
+      {
+        principal: 1_000,
+        lowerBound: 74_000,
+        upperBound: 86_000,
+        stepSize: 2_000,
+        baseApr: 0.05,
+      },
+      { ...lastKnownMarketSnapshot, expiryMs: nowMs + 7 * 86_400_000 },
+      nowMs,
+    );
+
+    expect(leg.quantity).toBeCloseTo((1_000 * 0.05 * 7) / 365, 6);
+  });
+
   it('uses yield budget to fund quoted range legs', () => {
     const quote = compileSharkFin({
       input: {

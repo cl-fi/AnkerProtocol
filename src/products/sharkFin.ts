@@ -2,7 +2,13 @@ import type { LegIntent, LegQuote, OracleMarket, SharkFinInput, StructuredProduc
 import { aprFromCoupon, daysBetween } from './units';
 import { simulatePayoff } from './payoff';
 
-export function buildSharkFinLegIntents(input: SharkFinInput, oracle: OracleMarket): LegIntent[] {
+export function buildSharkFinLegIntents(
+  input: SharkFinInput,
+  oracle: OracleMarket,
+  nowMs = Date.now(),
+): LegIntent[] {
+  const days = daysBetween(nowMs, oracle.expiryMs);
+  const yieldBudget = input.principal * input.baseApr * (days / 365);
   return [
     {
       id: `range-${input.lowerBound}-${input.upperBound}`,
@@ -11,7 +17,7 @@ export function buildSharkFinLegIntents(input: SharkFinInput, oracle: OracleMark
       expiryMs: oracle.expiryMs,
       lowerStrike: input.lowerBound,
       higherStrike: input.upperBound,
-      quantity: input.principal * input.baseApr,
+      quantity: yieldBudget,
       description: `Range ${input.lowerBound.toLocaleString('en-US')} - ${input.upperBound.toLocaleString('en-US')}`,
     },
   ];
@@ -23,7 +29,8 @@ export function compileSharkFin(input: {
   quotedLegs: Partial<LegQuote>[];
   nowMs?: number;
 }): StructuredProductQuote {
-  const legIntents = buildSharkFinLegIntents(input.input, input.oracle);
+  const nowMs = input.nowMs ?? Date.now();
+  const legIntents = buildSharkFinLegIntents(input.input, input.oracle, nowMs);
   const legs = legIntents.map((intent, index) => ({
     ...intent,
     askPrice: input.quotedLegs[index]?.askPrice ?? 0,
@@ -33,7 +40,6 @@ export function compileSharkFin(input: {
     executable: input.quotedLegs[index]?.executable ?? false,
     error: input.quotedLegs[index]?.error,
   }));
-  const nowMs = input.nowMs ?? Date.now();
   const days = daysBetween(nowMs, input.oracle.expiryMs);
   const yieldBudget = input.input.principal * input.input.baseApr * (days / 365);
   const totalLegCost = legs.reduce((sum, leg) => sum + leg.askCost, 0);

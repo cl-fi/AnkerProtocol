@@ -1,7 +1,53 @@
+import { SuiJsonRpcClient, getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
+import { Transaction } from '@mysten/sui/transactions';
+import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import type { LegIntent, LegQuote } from '../products/types';
+import { toChainPrice } from '../products/units';
+
+const DEV_INSPECT_SENDER =
+  '0x0000000000000000000000000000000000000000000000000000000000000001';
+const QUOTE_ASSET_SCALE = 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals;
 
 export interface QuoteProvider {
   quoteLegs(legs: LegIntent[]): Promise<LegQuote[]>;
+}
+
+export function normalizePreviewResult(input: { mintCost: string | number; redeemPayout: string | number }) {
+  return {
+    askCost: Number(input.mintCost),
+    redeemPreview: Number(input.redeemPayout),
+  };
+}
+
+function toQuoteBaseUnits(value: number): bigint {
+  return BigInt(Math.max(1, Math.round(value * QUOTE_ASSET_SCALE)));
+}
+
+function fromQuoteBaseUnits(value: bigint): number {
+  return Number(value) / QUOTE_ASSET_SCALE;
+}
+
+function readU64Le(bytes: number[]): bigint {
+  const view = new DataView(Uint8Array.from(bytes).buffer);
+  return view.getBigUint64(0, true);
+}
+
+function parseDevInspectAmounts(result: unknown): { mintCost: bigint; redeemPayout: bigint } {
+  const data = result as {
+    error?: string | null;
+    results?: Array<{ returnValues?: [number[], string][] }>;
+  };
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  const returnValues = data.results?.at(-1)?.returnValues;
+  if (!returnValues || returnValues.length < 2) {
+    throw new Error('DevInspect did not return mint/redeem amounts.');
+  }
+  return {
+    mintCost: readU64Le(returnValues[0][0]),
+    redeemPayout: readU64Le(returnValues[1][0]),
+  };
 }
 
 export class SnapshotQuoteProvider implements QuoteProvider {
@@ -19,24 +65,98 @@ export class SnapshotQuoteProvider implements QuoteProvider {
         redeemPreview: Math.max(0, askPrice - 0.02) * leg.quantity,
         quoteTimestampMs: now,
         executable: false,
-        error: 'Using stale snapshot pricing until live preview is connected.',
+        error: 'Using stale snapshot pricing until live preview succeeds.',
       };
     });
   }
 }
 
 export class LivePreviewQuoteProvider implements QuoteProvider {
+  private readonly client = new SuiJsonRpcClient({
+    network: 'testnet',
+    url: getJsonRpcFullnodeUrl('testnet'),
+  });
+
   constructor(private readonly fallback: QuoteProvider = new SnapshotQuoteProvider()) {}
 
   async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
-    try {
-      return await this.previewLegs(legs);
-    } catch {
-      return this.fallback.quoteLegs(legs);
-    }
+    return Promise.all(
+      legs.map(async (leg) => {
+        try {
+          return await this.previewLeg(leg);
+        } catch (error) {
+          const [fallback] = await this.fallback.quoteLegs([leg]);
+          return {
+            ...fallback,
+            error: error instanceof Error ? error.message : fallback.error,
+          };
+        }
+      }),
+    );
   }
 
-  private async previewLegs(_legs: LegIntent[]): Promise<LegQuote[]> {
-    throw new Error('Live preview adapter is not connected in this task.');
+  private async previewLeg(leg: LegIntent): Promise<LegQuote> {
+    const tx = new Transaction();
+    const key = this.buildKey(tx, leg);
+    tx.moveCall({
+      target:
+        leg.instrumentType === 'range'
+          ? `${DEEPBOOK_PREDICT.packageId}::predict::get_range_trade_amounts`
+          : `${DEEPBOOK_PREDICT.packageId}::predict::get_trade_amounts`,
+      arguments: [
+        tx.object(DEEPBOOK_PREDICT.predictObjectId),
+        tx.object(leg.oracleId),
+        key,
+        tx.pure.u64(toQuoteBaseUnits(leg.quantity)),
+        tx.object.clock(),
+      ],
+    });
+
+    const result = await this.client.devInspectTransactionBlock({
+      sender: DEV_INSPECT_SENDER,
+      transactionBlock: tx,
+    });
+    const rawAmounts = parseDevInspectAmounts(result);
+    const amounts = normalizePreviewResult({
+      mintCost: fromQuoteBaseUnits(rawAmounts.mintCost),
+      redeemPayout: fromQuoteBaseUnits(rawAmounts.redeemPayout),
+    });
+    return {
+      ...leg,
+      askPrice: leg.quantity === 0 ? 0 : amounts.askCost / leg.quantity,
+      askCost: amounts.askCost,
+      redeemPreview: amounts.redeemPreview,
+      quoteTimestampMs: Date.now(),
+      executable: true,
+    };
+  }
+
+  private buildKey(tx: Transaction, leg: LegIntent) {
+    if (leg.instrumentType === 'range') {
+      if (leg.lowerStrike === undefined || leg.higherStrike === undefined) {
+        throw new Error('Range leg requires lower and higher strikes.');
+      }
+      return tx.moveCall({
+        target: `${DEEPBOOK_PREDICT.packageId}::range_key::new`,
+        arguments: [
+          tx.pure.id(leg.oracleId),
+          tx.pure.u64(leg.expiryMs),
+          tx.pure.u64(toChainPrice(leg.lowerStrike)),
+          tx.pure.u64(toChainPrice(leg.higherStrike)),
+        ],
+      });
+    }
+    if (leg.strike === undefined) {
+      throw new Error('Binary leg requires strike.');
+    }
+    return tx.moveCall({
+      target: `${DEEPBOOK_PREDICT.packageId}::market_key::new`,
+      arguments: [
+        tx.pure.id(leg.oracleId),
+        tx.pure.u64(leg.expiryMs),
+        tx.pure.u64(toChainPrice(leg.strike)),
+        tx.pure.bool(leg.isUp ?? true),
+      ],
+    });
   }
 }

@@ -5,7 +5,7 @@ export function PresetQuoteBoard({
   spot: number;
   onSelectTarget: (target: number) => void;
 }) {
-  const presets = [0.95, 0.92, 0.9, 0.88].map((ratio) => Math.round(spot * ratio));
+  const presets = [1.03, 1.02, 1.01, 1.005].map((ratio) => Math.round(spot * ratio));
   return (
     <div className="preset-board">
       {presets.map((target) => (
