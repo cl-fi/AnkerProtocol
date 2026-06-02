@@ -26,7 +26,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -104,12 +105,40 @@ a {
   border-bottom-color: #0f766e;
 }
 
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  width: min(100%, 1360px);
+  margin: -14px auto 0;
+  padding: 0 28px 24px;
+}
+
+.mode-tabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid rgba(20, 107, 90, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64756f;
+  font-size: 0.9rem;
+  font-weight: 860;
+}
+
+.mode-tabs a.active {
+  background: #0f766e;
+  color: #ffffff;
+}
+
 .wallet-area {
   margin-left: auto;
 }
 
 .dual-hero,
 .product-section,
+.calculation-section,
 .offer-section,
 .quote-detail,
 .transparency-note,
@@ -171,6 +200,15 @@ a {
   padding-bottom: 32px;
 }
 
+.calculation-section {
+  padding-top: 18px;
+  padding-bottom: 32px;
+}
+
+.calculation-hero {
+  padding-bottom: 36px;
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -186,6 +224,16 @@ a {
   font-size: 1.45rem;
   line-height: 1.25;
   letter-spacing: 0;
+}
+
+.section-kicker {
+  display: block;
+  margin-bottom: 8px;
+  color: #0f766e;
+  font-size: 0.76rem;
+  font-weight: 920;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .asset-controls {
@@ -299,11 +347,39 @@ a {
 .pair-stat,
 .detail-panel,
 .quote-summary,
-.table-shell {
+.table-shell,
+.oracle-grid > div,
+.custom-grid label {
   border: 1px solid rgba(20, 107, 90, 0.15);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 18px 54px rgba(16, 32, 27, 0.06);
+}
+
+.oracle-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.oracle-grid > div {
+  display: grid;
+  gap: 8px;
+  min-height: 84px;
+  padding: 16px;
+}
+
+.oracle-grid span,
+.custom-grid span,
+.scan-meta {
+  color: #64756f;
+  font-size: 0.8rem;
+  font-weight: 760;
+}
+
+.oracle-grid strong {
+  color: #10201b;
+  font-size: 1.04rem;
 }
 
 .pair-main {
@@ -355,6 +431,66 @@ a {
   color: #64756f;
   font-size: 0.9rem;
   font-weight: 760;
+}
+
+.ghost-button,
+.small-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(20, 107, 90, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0a3a34;
+  font-weight: 850;
+}
+
+.expiry-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.expiry-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(20, 107, 90, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64756f;
+  font-size: 0.82rem;
+  font-weight: 820;
+}
+
+.expiry-select select {
+  min-width: 250px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #10201b;
+  font-weight: 850;
+}
+
+.ghost-button {
+  min-height: 40px;
+  padding: 0 14px;
+}
+
+.small-action {
+  min-width: 72px;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.scan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: -4px 0 16px;
 }
 
 .direction-tabs {
@@ -464,6 +600,25 @@ a {
   color: #0f8b62;
 }
 
+.offer-table .binance-apr {
+  color: #33443f;
+  font-size: 0.9rem;
+  font-weight: 860;
+}
+
+.offer-table .binance-apr.muted,
+.offer-table .muted-cell {
+  color: #8a9a95;
+}
+
+.offer-table .edge-cell {
+  color: #a24b2b;
+}
+
+.offer-table .edge-cell.positive {
+  color: #0f8b62;
+}
+
 .quote-badge {
   display: inline-flex;
   align-items: center;
@@ -483,6 +638,15 @@ a {
 .quote-badge.preview {
   background: #fff5df;
   color: #9a6414;
+}
+
+.quote-badge.neutral {
+  background: #eef2f1;
+  color: #64756f;
+}
+
+.scan-table {
+  min-width: 1320px;
 }
 
 .subscribe-button {
@@ -520,9 +684,38 @@ a {
   padding-bottom: 16px;
 }
 
-.quote-summary {
+.custom-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.custom-grid label {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.custom-grid input,
+.custom-grid select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(20, 107, 90, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #10201b;
+  padding: 0 12px;
+  font-weight: 840;
+}
+
+.preview-action {
+  margin-top: 16px;
+  border: 0;
+}
+
+.quote-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   overflow: hidden;
 }
 
@@ -550,8 +743,39 @@ a {
   margin-top: 18px;
 }
 
+.coming-soon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
 .detail-panel {
   padding: 22px;
+}
+
+.coming-soon-grid .detail-panel {
+  min-height: 210px;
+}
+
+.coming-soon-grid p {
+  margin: 0;
+  color: #51645d;
+  font-size: 0.92rem;
+  font-weight: 660;
+  line-height: 1.65;
+}
+
+.empty-preview,
+.error-panel {
+  color: #51645d;
+  font-weight: 760;
+  line-height: 1.6;
+}
+
+.error-panel {
+  border-color: rgba(154, 100, 20, 0.26);
+  background: #fff9ed;
+  color: #70430f;
 }
 
 .detail-title {
@@ -612,6 +836,11 @@ a {
   color: #51645d;
   font-size: 0.9rem;
   font-weight: 720;
+}
+
+.calculation-note {
+  padding-top: 4px;
+  padding-bottom: 26px;
 }
 
 .transparency-note span {
@@ -742,6 +971,9 @@ a {
   }
 
   .pair-strip,
+  .oracle-grid,
+  .custom-grid,
+  .coming-soon-grid,
   .quote-summary,
   .detail-grid,
   .footer-columns {
@@ -765,7 +997,9 @@ a {
 @media (max-width: 640px) {
   .top-nav,
   .dual-hero,
+  .mode-tabs,
   .product-section,
+  .calculation-section,
   .offer-section,
   .quote-detail,
   .transparency-note,
@@ -860,6 +1094,18 @@ a {
   .section-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .expiry-controls,
+  .expiry-select {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .expiry-select select {
+    width: 100%;
+    min-width: 0;
   }
 
   .transparency-note {

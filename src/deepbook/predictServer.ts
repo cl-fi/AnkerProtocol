@@ -17,6 +17,9 @@ export interface PredictOracleListItem {
   status: string;
 }
 
+const MIN_TRADABLE_TIME_MS = 5 * 60_000;
+const MIN_PRODUCT_EXPIRY_MS = 2 * 86_400_000;
+
 export function parseStatus(payload: unknown): PredictStatus {
   const data = payload as { max_checkpoint_lag?: number; max_time_lag_seconds?: number };
   return {
@@ -80,6 +83,25 @@ export async function fetchPredictStatus(): Promise<PredictStatus> {
 export async function fetchActiveBtcOracles(predictId: string): Promise<PredictOracleListItem[]> {
   const data = await fetchJson<PredictOracleListItem[]>(`/predicts/${predictId}/oracles`);
   return data.filter((oracle) => oracle.underlying_asset === 'BTC' && oracle.status === 'active');
+}
+
+export function selectNearestTradableOracle(
+  oracles: PredictOracleListItem[],
+  nowMs = Date.now(),
+  minTimeToExpiryMs = MIN_TRADABLE_TIME_MS,
+) {
+  const sorted = [...oracles].sort((a, b) => a.expiry - b.expiry);
+  return sorted.find((oracle) => oracle.expiry - nowMs > minTimeToExpiryMs) ?? sorted[0];
+}
+
+export function filterProductExpiryOracles(
+  oracles: PredictOracleListItem[],
+  nowMs = Date.now(),
+  minTimeToExpiryMs = MIN_PRODUCT_EXPIRY_MS,
+) {
+  return [...oracles]
+    .filter((oracle) => oracle.expiry - nowMs >= minTimeToExpiryMs)
+    .sort((a, b) => a.expiry - b.expiry);
 }
 
 export async function fetchOracleMarket(

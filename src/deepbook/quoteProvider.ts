@@ -32,7 +32,10 @@ function readU64Le(bytes: number[]): bigint {
   return view.getBigUint64(0, true);
 }
 
-function parseDevInspectAmounts(result: unknown): { mintCost: bigint; redeemPayout: bigint } {
+export function parseDevInspectLegAmounts(
+  result: unknown,
+  expectedLegCount: number,
+): Array<{ mintCost: bigint; redeemPayout: bigint }> {
   const data = result as {
     error?: string | null;
     results?: Array<{ returnValues?: [number[], string][] }>;
@@ -40,14 +43,69 @@ function parseDevInspectAmounts(result: unknown): { mintCost: bigint; redeemPayo
   if (data.error) {
     throw new Error(data.error);
   }
-  const returnValues = data.results?.at(-1)?.returnValues;
-  if (!returnValues || returnValues.length < 2) {
-    throw new Error('DevInspect did not return mint/redeem amounts.');
+  const amounts =
+    data.results
+      ?.map((entry) => entry.returnValues)
+      .filter((returnValues): returnValues is [number[], string][] => Boolean(returnValues && returnValues.length >= 2))
+      .map((returnValues) => ({
+        mintCost: readU64Le(returnValues[0][0]),
+        redeemPayout: readU64Le(returnValues[1][0]),
+      })) ?? [];
+
+  if (amounts.length !== expectedLegCount) {
+    throw new Error(`DevInspect returned ${amounts.length} leg quotes, expected ${expectedLegCount}.`);
   }
-  return {
-    mintCost: readU64Le(returnValues[0][0]),
-    redeemPayout: readU64Le(returnValues[1][0]),
-  };
+  return amounts;
+}
+
+function parseDevInspectAmounts(result: unknown): { mintCost: bigint; redeemPayout: bigint } {
+  return parseDevInspectLegAmounts(result, 1)[0];
+}
+
+function buildKey(tx: Transaction, leg: LegIntent) {
+  if (leg.instrumentType === 'range') {
+    if (leg.lowerStrike === undefined || leg.higherStrike === undefined) {
+      throw new Error('Range leg requires lower and higher strikes.');
+    }
+    return tx.moveCall({
+      target: `${DEEPBOOK_PREDICT.packageId}::range_key::new`,
+      arguments: [
+        tx.pure.id(leg.oracleId),
+        tx.pure.u64(leg.expiryMs),
+        tx.pure.u64(toChainPrice(leg.lowerStrike)),
+        tx.pure.u64(toChainPrice(leg.higherStrike)),
+      ],
+    });
+  }
+  if (leg.strike === undefined) {
+    throw new Error('Binary leg requires strike.');
+  }
+  return tx.moveCall({
+    target: `${DEEPBOOK_PREDICT.packageId}::market_key::new`,
+    arguments: [
+      tx.pure.id(leg.oracleId),
+      tx.pure.u64(leg.expiryMs),
+      tx.pure.u64(toChainPrice(leg.strike)),
+      tx.pure.bool(leg.isUp ?? true),
+    ],
+  });
+}
+
+function addPreviewCall(tx: Transaction, leg: LegIntent) {
+  const key = buildKey(tx, leg);
+  tx.moveCall({
+    target:
+      leg.instrumentType === 'range'
+        ? `${DEEPBOOK_PREDICT.packageId}::predict::get_range_trade_amounts`
+        : `${DEEPBOOK_PREDICT.packageId}::predict::get_trade_amounts`,
+    arguments: [
+      tx.object(DEEPBOOK_PREDICT.predictObjectId),
+      tx.object(leg.oracleId),
+      key,
+      tx.pure.u64(toQuoteBaseUnits(leg.quantity)),
+      tx.object.clock(),
+    ],
+  });
 }
 
 export class SnapshotQuoteProvider implements QuoteProvider {
@@ -97,20 +155,7 @@ export class LivePreviewQuoteProvider implements QuoteProvider {
 
   private async previewLeg(leg: LegIntent): Promise<LegQuote> {
     const tx = new Transaction();
-    const key = this.buildKey(tx, leg);
-    tx.moveCall({
-      target:
-        leg.instrumentType === 'range'
-          ? `${DEEPBOOK_PREDICT.packageId}::predict::get_range_trade_amounts`
-          : `${DEEPBOOK_PREDICT.packageId}::predict::get_trade_amounts`,
-      arguments: [
-        tx.object(DEEPBOOK_PREDICT.predictObjectId),
-        tx.object(leg.oracleId),
-        key,
-        tx.pure.u64(toQuoteBaseUnits(leg.quantity)),
-        tx.object.clock(),
-      ],
-    });
+    addPreviewCall(tx, leg);
 
     const result = await this.client.devInspectTransactionBlock({
       sender: DEV_INSPECT_SENDER,
@@ -130,33 +175,37 @@ export class LivePreviewQuoteProvider implements QuoteProvider {
       executable: true,
     };
   }
+}
 
-  private buildKey(tx: Transaction, leg: LegIntent) {
-    if (leg.instrumentType === 'range') {
-      if (leg.lowerStrike === undefined || leg.higherStrike === undefined) {
-        throw new Error('Range leg requires lower and higher strikes.');
-      }
-      return tx.moveCall({
-        target: `${DEEPBOOK_PREDICT.packageId}::range_key::new`,
-        arguments: [
-          tx.pure.id(leg.oracleId),
-          tx.pure.u64(leg.expiryMs),
-          tx.pure.u64(toChainPrice(leg.lowerStrike)),
-          tx.pure.u64(toChainPrice(leg.higherStrike)),
-        ],
+export class BatchedLivePreviewQuoteProvider implements QuoteProvider {
+  private readonly client = new SuiJsonRpcClient({
+    network: 'testnet',
+    url: getJsonRpcFullnodeUrl('testnet'),
+  });
+
+  async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
+    if (legs.length === 0) return [];
+    const tx = new Transaction();
+    legs.forEach((leg) => addPreviewCall(tx, leg));
+
+    const result = await this.client.devInspectTransactionBlock({
+      sender: DEV_INSPECT_SENDER,
+      transactionBlock: tx,
+    });
+    const amounts = parseDevInspectLegAmounts(result, legs.length);
+    return legs.map((leg, index) => {
+      const normalized = normalizePreviewResult({
+        mintCost: fromQuoteBaseUnits(amounts[index].mintCost),
+        redeemPayout: fromQuoteBaseUnits(amounts[index].redeemPayout),
       });
-    }
-    if (leg.strike === undefined) {
-      throw new Error('Binary leg requires strike.');
-    }
-    return tx.moveCall({
-      target: `${DEEPBOOK_PREDICT.packageId}::market_key::new`,
-      arguments: [
-        tx.pure.id(leg.oracleId),
-        tx.pure.u64(leg.expiryMs),
-        tx.pure.u64(toChainPrice(leg.strike)),
-        tx.pure.bool(leg.isUp ?? true),
-      ],
+      return {
+        ...leg,
+        askPrice: leg.quantity === 0 ? 0 : normalized.askCost / leg.quantity,
+        askCost: normalized.askCost,
+        redeemPreview: normalized.redeemPreview,
+        quoteTimestampMs: Date.now(),
+        executable: true,
+      };
     });
   }
 }

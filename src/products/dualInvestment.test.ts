@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compileDualInvestment } from './dualInvestment';
+import { buildDualInvestmentLegIntents, compileDualInvestment } from './dualInvestment';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
 
 describe('compileDualInvestment', () => {
@@ -29,5 +29,23 @@ describe('compileDualInvestment', () => {
     expect(quote.totalLegCost).toBe(24);
     expect(quote.coupon).toBeCloseTo(181.4794520548);
     expect(quote.executable).toBe(true);
+  });
+
+  it('builds the requested number of legs and sizes the final interval to the target', () => {
+    const legs = buildDualInvestmentLegIntents(
+      {
+        principal: 1_000,
+        targetPrice: 73_000,
+        floorPrice: 58_000,
+        targetLegCount: 6,
+      },
+      lastKnownMarketSnapshot,
+    );
+
+    expect(legs.map((leg) => leg.strike)).toEqual([58_000, 60_500, 63_000, 65_500, 68_000, 70_500]);
+    expect(legs).toHaveLength(6);
+    expect(legs.reduce((sum, leg) => sum + leg.quantity, 0)).toBeCloseTo(
+      (1_000 / 73_000) * (73_000 - 58_000),
+    );
   });
 });

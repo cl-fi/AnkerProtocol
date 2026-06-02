@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import { LivePreviewQuoteProvider, SnapshotQuoteProvider } from '../deepbook/quoteProvider';
+import { BatchedLivePreviewQuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
 import { buildSharkFinLegIntents, compileSharkFin } from '../products/sharkFin';
 import type { DualInvestmentInput, OracleMarket, ProductType, SharkFinInput } from '../products/types';
 
-const quoteProvider = new LivePreviewQuoteProvider(new SnapshotQuoteProvider());
+const quoteProvider = new BatchedLivePreviewQuoteProvider();
 
 export interface StructuredQuoteState {
   productType: ProductType;

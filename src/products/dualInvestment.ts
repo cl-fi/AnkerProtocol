@@ -6,27 +6,63 @@ import type {
   StructuredProductQuote,
 } from './types';
 import { aprFromCoupon, daysBetween } from './units';
-import { buildStrikeLadder } from './strikeGrid';
+import { alignToGrid, buildStrikeLadder } from './strikeGrid';
 import { simulatePayoff } from './payoff';
+
+interface LadderInterval {
+  strike: number;
+  width: number;
+}
+
+function buildLadderIntervals(input: DualInvestmentInput, oracle: OracleMarket): LadderInterval[] {
+  if (input.targetPrice <= input.floorPrice) return [];
+
+  if (input.targetLegCount !== undefined) {
+    const targetLegCount = Math.max(1, Math.floor(input.targetLegCount));
+    const rawWidth = (input.targetPrice - input.floorPrice) / targetLegCount;
+    const strikes: number[] = [];
+
+    for (let index = 0; index < targetLegCount; index += 1) {
+      const rawStrike = input.floorPrice + rawWidth * index;
+      const strike = alignToGrid(rawStrike, oracle.minStrike, oracle.tickSize).aligned;
+      if (strike >= input.floorPrice && strike < input.targetPrice && !strikes.includes(strike)) {
+        strikes.push(strike);
+      }
+    }
+
+    return strikes.map((strike, index) => {
+      const nextStrike = strikes[index + 1] ?? input.targetPrice;
+      return {
+        strike,
+        width: Math.max(0, nextStrike - strike),
+      };
+    });
+  }
+
+  const stepSize = input.stepSize ?? input.targetPrice - input.floorPrice;
+  return buildStrikeLadder({
+    floor: input.floorPrice,
+    target: input.targetPrice,
+    step: stepSize,
+  }).map((strike) => ({
+    strike,
+    width: Math.min(stepSize, input.targetPrice - strike),
+  }));
+}
 
 export function buildDualInvestmentLegIntents(
   input: DualInvestmentInput,
   oracle: OracleMarket,
 ): LegIntent[] {
   const targetBtcAmount = input.principal / input.targetPrice;
-  const quantityPerStep = targetBtcAmount * input.stepSize;
-  return buildStrikeLadder({
-    floor: input.floorPrice,
-    target: input.targetPrice,
-    step: input.stepSize,
-  }).map((strike) => ({
+  return buildLadderIntervals(input, oracle).map(({ strike, width }) => ({
     id: `up-${strike}`,
     instrumentType: 'binary-up',
     oracleId: oracle.oracleId,
     expiryMs: oracle.expiryMs,
     strike,
     isUp: true,
-    quantity: quantityPerStep,
+    quantity: targetBtcAmount * width,
     description: `UP ${strike.toLocaleString('en-US')}`,
   }));
 }

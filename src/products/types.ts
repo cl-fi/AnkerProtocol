@@ -1,5 +1,7 @@
 export type ProductType = 'dual-investment' | 'shark-fin';
 
+export type PrincipalAsset = 'dUSDC' | 'DBTC';
+
 export type LegInstrumentType = 'binary-up' | 'range';
 
 export interface OracleMarket {
@@ -54,6 +56,8 @@ export interface StructuredProductQuote {
   productType: ProductType;
   title: string;
   principal: number;
+  principalAsset?: PrincipalAsset;
+  quoteAsset?: 'dUSDC';
   oracle: OracleMarket;
   legs: LegQuote[];
   totalLegCost: number;
@@ -69,7 +73,8 @@ export interface DualInvestmentInput {
   principal: number;
   targetPrice: number;
   floorPrice: number;
-  stepSize: number;
+  stepSize?: number;
+  targetLegCount?: number;
 }
 
 export interface SharkFinInput {
