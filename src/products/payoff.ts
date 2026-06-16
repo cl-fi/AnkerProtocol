@@ -20,6 +20,9 @@ export function simulatePayoff(
       if (leg.instrumentType === 'binary-up') {
         return leg.strike !== undefined && settlementPrice > leg.strike;
       }
+      if (leg.instrumentType === 'binary-down') {
+        return leg.strike !== undefined && settlementPrice <= leg.strike;
+      }
       if (leg.instrumentType === 'range') {
         return (
           leg.lowerStrike !== undefined &&

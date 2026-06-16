@@ -112,8 +112,13 @@ export class SnapshotQuoteProvider implements QuoteProvider {
   async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
     const now = Date.now();
     return legs.map((leg) => {
-      const moneyness =
-        leg.strike === undefined ? 0.35 : Math.max(0.04, Math.min(0.92, 1 - leg.strike / 100_000));
+      const rawMoneyness =
+        leg.strike === undefined
+          ? 0.35
+          : leg.instrumentType === 'binary-down'
+            ? leg.strike / 100_000
+            : 1 - leg.strike / 100_000;
+      const moneyness = Math.max(0.04, Math.min(0.92, rawMoneyness));
       const askPrice = leg.instrumentType === 'range' ? 0.18 : moneyness;
       const askCost = askPrice * leg.quantity;
       return {

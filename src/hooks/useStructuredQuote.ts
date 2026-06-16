@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { BatchedLivePreviewQuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
-import { buildSharkFinLegIntents, compileSharkFin } from '../products/sharkFin';
+import { buildVerifiedSharkFinQuote } from './useSharkFinQuote';
 import type { DualInvestmentInput, OracleMarket, ProductType, SharkFinInput } from '../products/types';
 
 const quoteProvider = new BatchedLivePreviewQuoteProvider();
@@ -22,9 +22,7 @@ export async function buildStructuredQuote(input: {
     return compileDualInvestment({ input: input.state.dualInput, oracle: input.oracle, quotedLegs });
   }
 
-  const intents = buildSharkFinLegIntents(input.state.sharkInput, input.oracle);
-  const quotedLegs = await quoteProvider.quoteLegs(intents);
-  return compileSharkFin({ input: input.state.sharkInput, oracle: input.oracle, quotedLegs });
+  return buildVerifiedSharkFinQuote({ productInput: input.state.sharkInput, oracle: input.oracle });
 }
 
 export function useDefaultStructuredQuoteState(spot: number): StructuredQuoteState {
@@ -39,10 +37,12 @@ export function useDefaultStructuredQuoteState(spot: number): StructuredQuoteSta
       },
       sharkInput: {
         principal: 1_000,
+        direction: 'bullish',
         lowerBound: Math.round(spot),
-        upperBound: Math.round(spot * 1.06),
-        stepSize: 1_000,
-        baseApr: 0.05,
+        upperBound: Math.round(spot * 1.1),
+        currentApr: 0.08,
+        baseApr: 0.02,
+        targetLegCount: 6,
       },
     }),
     [spot],

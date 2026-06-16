@@ -1,8 +1,10 @@
 export type ProductType = 'dual-investment' | 'shark-fin';
 
-export type PrincipalAsset = 'dUSDC' | 'DBTC';
+export type PrincipalAsset = 'dUSDC' | 'DBTC' | 'USDsui';
 
-export type LegInstrumentType = 'binary-up' | 'range';
+export type LegInstrumentType = 'binary-up' | 'binary-down' | 'range';
+
+export type SharkFinDirection = 'bullish' | 'bearish';
 
 export interface OracleMarket {
   predictId: string;
@@ -47,8 +49,25 @@ export interface ScenarioOutcome {
   finalUsdc: number;
   btcEquivalent?: number;
   coupon: number;
+  apr?: number;
+  realizedLegCount?: number;
   realizedLegIds: string[];
   expiredLegIds: string[];
+}
+
+export interface SharkFinMetrics {
+  direction: SharkFinDirection;
+  currentApr: number;
+  baseApr: number;
+  maxApr: number;
+  termDays: number;
+  projectedCurrentYield: number;
+  baseCoupon: number;
+  optionBudget: number;
+  optionBudgetUsed: number;
+  leftoverBudget: number;
+  payoutPerLeg: number;
+  maxExtraPayout: number;
 }
 
 export interface StructuredProductQuote {
@@ -57,13 +76,14 @@ export interface StructuredProductQuote {
   title: string;
   principal: number;
   principalAsset?: PrincipalAsset;
-  quoteAsset?: 'dUSDC';
+  quoteAsset?: 'dUSDC' | 'USDsui';
   oracle: OracleMarket;
   legs: LegQuote[];
   totalLegCost: number;
   reserve: number;
   coupon: number;
   apr: number;
+  sharkFin?: SharkFinMetrics;
   executable: boolean;
   warning?: string;
   scenarios: ScenarioOutcome[];
@@ -79,8 +99,11 @@ export interface DualInvestmentInput {
 
 export interface SharkFinInput {
   principal: number;
+  direction: SharkFinDirection;
   lowerBound: number;
   upperBound: number;
-  stepSize: number;
+  currentApr: number;
   baseApr: number;
+  stepSize?: number;
+  targetLegCount?: number;
 }

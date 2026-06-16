@@ -1,27 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
-import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
-import {
-  filterProductExpiryOracles,
-  fetchActiveBtcOracles,
-  fetchOracleMarket,
-  fetchPredictStatus,
-  selectNearestTradableOracle,
-} from '../deepbook/predictServer';
+import { fetchOracleMarket, fetchPredictStatus, selectNearestTradableOracle } from '../deepbook/predictServer';
+import type { CuratedOracleListItem, CuratedOracleMarketResponse } from '../server/curatedOracles';
 
-const PRODUCT_MIN_TIME_TO_EXPIRY_MS = 7 * 86_400_000;
+async function fetchCuratedBtcOracles(): Promise<CuratedOracleListItem[]> {
+  const response = await fetch('/api/markets/btc-oracles');
+  if (!response.ok) {
+    throw new Error(`Curated oracle request failed: ${response.status} ${response.statusText}`);
+  }
+  const payload = (await response.json()) as CuratedOracleMarketResponse;
+  return payload.oracles;
+}
 
 export function useMarketData(selectedOracleId?: string) {
   return useQuery({
     queryKey: ['deepbook-market', selectedOracleId],
     queryFn: async () => {
       const status = await fetchPredictStatus();
-      const oracles = await fetchActiveBtcOracles(DEEPBOOK_PREDICT.predictObjectId);
-      const productOracles = filterProductExpiryOracles(oracles);
+      const productOracles = await fetchCuratedBtcOracles();
       const selected =
         productOracles.find((oracle) => oracle.oracle_id === selectedOracleId) ??
-        selectNearestTradableOracle(productOracles, Date.now(), PRODUCT_MIN_TIME_TO_EXPIRY_MS) ??
-        selectNearestTradableOracle(oracles, Date.now(), PRODUCT_MIN_TIME_TO_EXPIRY_MS);
+        selectNearestTradableOracle(productOracles, Date.now(), 0);
       if (!selected) {
         return { market: lastKnownMarketSnapshot, productOracles: [], selectedOracleId: undefined, staleSnapshot: true };
       }

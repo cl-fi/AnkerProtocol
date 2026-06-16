@@ -1,12 +1,12 @@
 {
-  "name": "deepharbor",
+  "name": "anker-protocol",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit -p tsconfig.json && vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -17,6 +17,7 @@
     "@mysten/sui": "^2.17.0",
     "@tanstack/react-query": "^5.80.0",
     "lucide-react": "^0.468.0",
+    "next": "^14.2.30",
     "recharts": "^2.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

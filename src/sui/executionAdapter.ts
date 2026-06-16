@@ -19,10 +19,10 @@ export interface ExecutionAdapter {
 export const previewOnlyExecutionAdapter: ExecutionAdapter = {
   state: 'preview-only',
   async buildOpenTransaction() {
-    throw new Error('DeepHarbor V1 is quote-and-preview only until the execution adapter is enabled.');
+    throw new Error('Anker Protocol V1 is quote-and-preview only until the execution adapter is enabled.');
   },
   async buildRedeemTransaction() {
-    throw new Error('DeepHarbor V1 is quote-and-preview only until the execution adapter is enabled.');
+    throw new Error('Anker Protocol V1 is quote-and-preview only until the execution adapter is enabled.');
   },
   async trackPositions() {
     return [];

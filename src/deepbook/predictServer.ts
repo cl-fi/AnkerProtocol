@@ -69,7 +69,8 @@ export function parseOracleState(
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${PREDICT_SERVER_URL}${path}`);
+  const baseUrl = typeof window === 'undefined' ? PREDICT_SERVER_URL : '/api/predict';
+  const response = await fetch(`${baseUrl}${path}`, { cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`Predict server request failed: ${response.status} ${response.statusText}`);
   }

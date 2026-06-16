@@ -1,5 +1,7 @@
-import { ConnectButton } from '@mysten/dapp-kit-react/ui';
+'use client';
+
 import { Activity, RefreshCw, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import Link from 'next/link';
 import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
@@ -13,6 +15,7 @@ import type { PredictOracleListItem } from '../deepbook/predictServer';
 import { buildDualInvestmentScanInputs, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
 import { formatTimeToExpiry } from '../products/timeFormat';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
+import { AppHeader } from './AppHeader';
 
 const DEFAULT_PRINCIPAL = 1_000;
 type DualInvestmentMode = 'target-buy' | 'target-sale';
@@ -67,30 +70,6 @@ function statusClass(row: { status: DualInvestmentScanRow['status'] }) {
   return 'quote-badge preview';
 }
 
-function modeFromHash(): DualInvestmentMode {
-  if (typeof window === 'undefined') return 'target-buy';
-  return window.location.hash === '#target-sale' ? 'target-sale' : 'target-buy';
-}
-
-function ProductNav() {
-  return (
-    <nav className="product-nav" aria-label="Products">
-      <a className="active" href="#dual-investment">
-        Dual Investment
-      </a>
-      <a href="#shark-fin" aria-disabled="true">
-        Shark Fin
-      </a>
-      <a href="#templates" aria-disabled="true">
-        Templates
-      </a>
-      <a href="#auto-roll" aria-disabled="true">
-        Auto Roll
-      </a>
-    </nav>
-  );
-}
-
 function DualInvestmentModeTabs({
   mode,
   onChange,
@@ -100,20 +79,20 @@ function DualInvestmentModeTabs({
 }) {
   return (
     <nav className="mode-tabs" aria-label="Dual Investment direction">
-      <a
+      <Link
         className={mode === 'target-buy' ? 'active' : ''}
-        href="#dual-investment"
+        href="/app/dual-investment"
         onClick={() => onChange('target-buy')}
       >
         Target Buy
-      </a>
-      <a
+      </Link>
+      <Link
         className={mode === 'target-sale' ? 'active' : ''}
-        href="#target-sale"
+        href="/app/dual-investment?mode=target-sale"
         onClick={() => onChange('target-sale')}
       >
         Target Sale
-      </a>
+      </Link>
     </nav>
   );
 }
@@ -238,7 +217,7 @@ function ScanBoard({
               <th>Legs</th>
               <th>Interval</th>
               <th>Coupon</th>
-              <th>DeepHarbor APR</th>
+              <th>Anker APR</th>
               <th>Binance APR</th>
               <th>Edge</th>
               <th>Ask Cost</th>
@@ -270,7 +249,7 @@ function ScanBoard({
                   <td data-label="Legs">{row.input.targetLegCount}</td>
                   <td data-label="Interval">{formatPrice(interval)}</td>
                   <td data-label="Coupon">{row.quote ? `${formatAmount(row.quote.coupon)} dUSDC` : '--'}</td>
-                  <td className={row.status === 'live' ? 'apr-cell' : ''} data-label="DeepHarbor APR">
+                  <td className={row.status === 'live' ? 'apr-cell' : ''} data-label="Anker APR">
                     {row.quote ? formatApr(row.quote.apr) : '--'}
                   </td>
                   <td data-label="Binance APR">
@@ -519,8 +498,8 @@ function QuoteDetail({
   );
 }
 
-export function DualInvestmentPage() {
-  const [mode, setMode] = useState<DualInvestmentMode>(modeFromHash);
+export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode?: DualInvestmentMode }) {
+  const [mode, setMode] = useState<DualInvestmentMode>(initialMode);
   const [selectedOracleId, setSelectedOracleId] = useState<string | undefined>();
   const marketQuery = useMarketData(selectedOracleId);
   const market = marketQuery.data?.market;
@@ -550,10 +529,8 @@ export function DualInvestmentPage() {
   const [isPreviewing, setIsPreviewing] = useState(false);
 
   useEffect(() => {
-    const handleHashChange = () => setMode(modeFromHash());
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+    setMode(initialMode);
+  }, [initialMode]);
 
   useEffect(() => {
     if (defaultBuyInput.targetPrice > 0) {
@@ -588,16 +565,7 @@ export function DualInvestmentPage() {
 
   return (
     <main className="dual-page" id="dual-investment">
-      <header className="top-nav">
-        <div className="brand-mark">
-          <span className="harbor-mark" />
-          DeepHarbor
-        </div>
-        <ProductNav />
-        <div className="wallet-area">
-          <ConnectButton />
-        </div>
-      </header>
+      <AppHeader activeProduct="dual-investment" />
 
       <section className="dual-hero calculation-hero">
         <div>
@@ -693,7 +661,7 @@ export function DualInvestmentPage() {
           </span>
         ) : (
           <span>
-            DeepHarbor compiles each custom quote into Predict UP legs. The final Subscribe transaction should re-check
+            Anker Protocol compiles each custom quote into Predict UP legs. The final Subscribe transaction should re-check
             the quote with max-cost protection before minting.
           </span>
         )}

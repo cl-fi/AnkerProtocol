@@ -1,8 +1,12 @@
 export const PREDICT_SERVER_URL = 'https://predict-server.testnet.mystenlabs.com';
 
 export const DEEPBOOK_PREDICT = {
-  packageId: '0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138',
-  predictObjectId: '0xc8736204d12f0a7277c86388a68bf8a194b0a14c5538ad13f22cbd8e2a38028a',
+  packageId:
+    process.env.NEXT_PUBLIC_DEEPBOOK_PREDICT_PACKAGE_ID ??
+    '0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138',
+  predictObjectId:
+    process.env.NEXT_PUBLIC_DEEPBOOK_PREDICT_OBJECT_ID ??
+    '0xc8736204d12f0a7277c86388a68bf8a194b0a14c5538ad13f22cbd8e2a38028a',
   quoteAssetType:
     '0xe95040085976bfd54a1a07225cd46c8a2b4e8e2b6732f140a0fc49850ba73e1a::dusdc::DUSDC',
   quoteAssetDecimals: 6,
@@ -10,3 +14,4 @@ export const DEEPBOOK_PREDICT = {
 } as const;
 
 export const TESTNET_GRPC_URL = 'https://fullnode.testnet.sui.io:443';
+export const SUI_NETWORK = process.env.NEXT_PUBLIC_SUI_NETWORK ?? 'testnet';
