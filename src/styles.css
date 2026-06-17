@@ -649,6 +649,65 @@ a {
   padding: 0 12px;
 }
 
+.redeem-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(20, 107, 90, 0.11);
+}
+
+.redeem-action > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  min-width: 0;
+}
+
+.redeem-action span,
+.redeem-action strong {
+  color: #64756f;
+  font-size: 0.78rem;
+  font-weight: 820;
+}
+
+.redeem-action strong {
+  color: #10201b;
+}
+
+.execution-message,
+.execution-error {
+  margin: 12px 0 0;
+  color: #64756f;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.execution-message a {
+  display: inline-flex;
+  margin-left: 12px;
+  color: #0f766e;
+  text-decoration: none;
+}
+
+.execution-error {
+  color: #a24b2b;
+}
+
+.validation-good {
+  color: #0f766e;
+}
+
+.validation-warn {
+  color: #a24b2b;
+}
+
+.validation-neutral {
+  color: #64756f;
+}
+
 .scan-meta {
   display: flex;
   flex-wrap: wrap;

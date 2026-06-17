@@ -3,7 +3,7 @@ import { fetchActiveBtcOracles, fetchOracleMarket, fetchPredictStatus } from '..
 import { BatchedLivePreviewQuoteProvider } from '../deepbook/quoteProvider';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import { buildDualInvestmentLegIntents } from '../products/dualInvestment';
-import type { OracleMarket } from '../products/types';
+import type { LegQuote, OracleMarket } from '../products/types';
 
 const MIN_PRODUCT_READY_EXPIRY_MS = 12 * 60 * 60_000;
 const CURATED_ORACLE_CACHE_MS = 15_000;
@@ -86,6 +86,20 @@ function representativeTargetBuyInput(market: OracleMarket) {
   };
 }
 
+export function quoteReadinessFromLegQuotes(
+  quotes: Array<Pick<LegQuote, 'executable' | 'error'>>,
+): OracleReadiness {
+  const failedQuote = quotes.find((quote) => !quote.executable);
+  if (failedQuote) {
+    return {
+      stateReady: true,
+      quoteReady: false,
+      reason: failedQuote.error ?? 'Representative Target Buy quote is not mintable.',
+    };
+  }
+  return { stateReady: true, quoteReady: true };
+}
+
 async function getOracleReadiness(input: {
   oracle: PredictOracleListItem;
   serverLagSeconds: number;
@@ -112,8 +126,8 @@ async function getOracleReadiness(input: {
       return { stateReady: true, quoteReady: false, reason: 'No valid Target Buy legs.' };
     }
 
-    await input.quoteProvider.quoteLegs(legIntents);
-    return { stateReady: true, quoteReady: true };
+    const legQuotes = await input.quoteProvider.quoteLegs(legIntents);
+    return quoteReadinessFromLegQuotes(legQuotes);
   } catch (error) {
     return {
       stateReady: false,

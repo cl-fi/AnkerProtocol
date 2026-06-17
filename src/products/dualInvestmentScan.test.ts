@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
-import { buildDualInvestmentScanInputs, classifyScanQuote } from './dualInvestmentScan';
+import { buildDualInvestmentScanInputs, classifyScanQuote, scanQuoteDisplayMetrics } from './dualInvestmentScan';
 
 describe('buildDualInvestmentScanInputs', () => {
   it('builds descending 500-dollar target-buy rows from spot with six legs by default', () => {
@@ -43,5 +43,41 @@ describe('classifyScanQuote', () => {
   it('does not mark a fully quoted row live when the coupon is not positive', () => {
     expect(classifyScanQuote({ executable: false, coupon: 0 })).toBe('no-coupon');
     expect(classifyScanQuote({ executable: true, coupon: 1 })).toBe('live');
+  });
+});
+
+describe('scanQuoteDisplayMetrics', () => {
+  it('zeros coupon and hides protocol economics when a scan quote is unavailable', () => {
+    expect(
+      scanQuoteDisplayMetrics({
+        status: 'unavailable',
+        quote: {
+          coupon: 0.01,
+          apr: 0.5937,
+          totalLegCost: 0.38,
+        },
+      }),
+    ).toEqual({
+      coupon: 0,
+      apr: null,
+      totalLegCost: null,
+    });
+  });
+
+  it('keeps live quote economics visible', () => {
+    expect(
+      scanQuoteDisplayMetrics({
+        status: 'live',
+        quote: {
+          coupon: 0.04,
+          apr: 1.8861,
+          totalLegCost: 0.34,
+        },
+      }),
+    ).toEqual({
+      coupon: 0.04,
+      apr: 1.8861,
+      totalLegCost: 0.34,
+    });
   });
 });

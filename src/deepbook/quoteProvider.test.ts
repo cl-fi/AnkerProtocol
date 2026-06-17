@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizePreviewResult, parseDevInspectLegAmounts } from './quoteProvider';
+import { applyPredictMintBounds, normalizePreviewResult, parseDevInspectLegAmounts } from './quoteProvider';
 
 describe('normalizePreviewResult', () => {
   it('normalizes mint cost and redeem payout', () => {
@@ -35,5 +35,29 @@ describe('parseDevInspectLegAmounts', () => {
       { mintCost: 1n, redeemPayout: 2n },
       { mintCost: 3n, redeemPayout: 4n },
     ]);
+  });
+});
+
+describe('applyPredictMintBounds', () => {
+  it('marks quoted legs outside the Predict mint ask bounds as not executable', () => {
+    const quote = applyPredictMintBounds(
+      {
+        id: 'up-64667',
+        instrumentType: 'binary-up',
+        oracleId: '0xoracle',
+        expiryMs: 1,
+        strike: 64_667,
+        isUp: true,
+        quantity: 1,
+        description: 'UP 64,667',
+      },
+      { askCost: 1.001, redeemPreview: 0 },
+      123,
+      { minAskPrice: 0.01, maxAskPrice: 0.99 },
+    );
+
+    expect(quote.askPrice).toBeCloseTo(1.001);
+    expect(quote.executable).toBe(false);
+    expect(quote.error).toContain('outside Predict mint bounds');
   });
 });

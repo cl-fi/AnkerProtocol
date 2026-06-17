@@ -10,6 +10,8 @@ export const DEEPBOOK_PREDICT = {
   quoteAssetType:
     '0xe95040085976bfd54a1a07225cd46c8a2b4e8e2b6732f140a0fc49850ba73e1a::dusdc::DUSDC',
   quoteAssetDecimals: 6,
+  minAskPrice: 0.01,
+  maxAskPrice: 0.99,
   underlyingAsset: 'BTC',
 } as const;
 

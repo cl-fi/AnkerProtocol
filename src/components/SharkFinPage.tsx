@@ -121,6 +121,7 @@ function OracleSnapshot({
         <div>
           <span className="section-kicker">Live DeepBook Predict Oracle</span>
           <h2>Nearest BTC Expiry</h2>
+          <p className="price-context">Oracle selector: live-ready BTC markets only, filtered by Anker server wrapper.</p>
         </div>
         <div className="expiry-controls">
           <label className="expiry-select">

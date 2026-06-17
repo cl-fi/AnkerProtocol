@@ -47,3 +47,22 @@ export function classifyScanQuote(input: Pick<StructuredProductQuote, 'coupon' |
   if (input.coupon <= 0) return 'no-coupon';
   return input.executable ? 'live' : 'unavailable';
 }
+
+export function scanQuoteDisplayMetrics(input: {
+  status: ScanQuoteStatus;
+  quote: Pick<StructuredProductQuote, 'coupon' | 'apr' | 'totalLegCost'> | null;
+}) {
+  if (input.status !== 'live' || !input.quote) {
+    return {
+      coupon: 0,
+      apr: null,
+      totalLegCost: null,
+    };
+  }
+
+  return {
+    coupon: input.quote.coupon,
+    apr: input.quote.apr,
+    totalLegCost: input.quote.totalLegCost,
+  };
+}

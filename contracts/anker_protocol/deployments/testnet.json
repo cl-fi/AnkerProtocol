@@ -1,0 +1,11 @@
+{
+  "network": "testnet",
+  "chainId": "4c78adac",
+  "publisher": "0xe0785bf894f38e0ae78b5d261cf34fbffe93ad6de19fea71d810bb4920da8d76",
+  "packageId": "0xf8fc120ddb43b29bab88fb42588f94db9d1af34164969d2d76400f068c5a7640",
+  "registryId": "0xf9d64b058a640f05a7f2c7ec3e289399c41124900f9e6dc73840cf96df7bb63c",
+  "adminCapId": "0xdb8b99921a44c216c5c864ddec9df21bfb4a09cc0d97287e4940e6be615c2478",
+  "upgradeCapId": "0xbe3cb6c635ab2ccced9ee3370bfae1ed7c88017e24b813ae70874cf6d4bb013e",
+  "publishDigest": "BoKKnVdeKccDh9C1W1huPsvBDmojH3qLMR3CMKnfkhHU",
+  "publishedAtMs": 1781630797478
+}

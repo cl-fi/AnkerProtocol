@@ -48,4 +48,31 @@ describe('compileDualInvestment', () => {
       (1_000 / 73_000) * (73_000 - 58_000),
     );
   });
+
+  it('surfaces non-mintable leg errors as the quote warning', () => {
+    const quote = compileDualInvestment({
+      input: {
+        principal: 1_000,
+        targetPrice: 73_000,
+        floorPrice: 72_000,
+        targetLegCount: 1,
+      },
+      oracle: lastKnownMarketSnapshot,
+      quotedLegs: [
+        {
+          id: 'up-72000',
+          askCost: 1,
+          askPrice: 1.001,
+          redeemPreview: 0,
+          executable: false,
+          quoteTimestampMs: 1,
+          error: 'Ask price 1.0010 is outside Predict mint bounds 0.01-0.99.',
+        },
+      ],
+    });
+
+    expect(quote.coupon).toBeGreaterThan(0);
+    expect(quote.executable).toBe(false);
+    expect(quote.warning).toContain('outside Predict mint bounds');
+  });
 });

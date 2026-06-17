@@ -4,20 +4,20 @@ import { Activity, RefreshCw, ShieldCheck, SlidersHorizontal } from 'lucide-reac
 import Link from 'next/link';
 import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import {
-  findBinanceDualInvestmentMatch,
-  type BinanceDualInvestmentProduct,
-} from '../deepbook/binanceDualInvestment';
-import { useBinanceDualInvestment } from '../hooks/useBinanceDualInvestment';
 import { useDualInvestmentScan, buildVerifiedDualInvestmentQuote } from '../hooks/useDualInvestmentScan';
 import { useMarketData } from '../hooks/useMarketData';
 import type { PredictOracleListItem } from '../deepbook/predictServer';
-import { buildDualInvestmentScanInputs, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
+import {
+  buildDualInvestmentScanInputs,
+  scanQuoteDisplayMetrics,
+  type DualInvestmentScanRow,
+} from '../products/dualInvestmentScan';
 import { formatTimeToExpiry } from '../products/timeFormat';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
 import { AppHeader } from './AppHeader';
+import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
 
-const DEFAULT_PRINCIPAL = 1_000;
+const DEFAULT_PRINCIPAL = 5;
 type DualInvestmentMode = 'target-buy' | 'target-sale';
 const SMOOTHNESS_OPTIONS = [
   { label: 'Efficient', value: 3 },
@@ -114,6 +114,7 @@ function OracleSnapshot({
         <div>
           <span className="section-kicker">Live DeepBook Predict Oracle</span>
           <h2>Nearest BTC Expiry</h2>
+          <p className="price-context">Oracle selector: live-ready BTC markets only, filtered by Anker server wrapper.</p>
         </div>
         <div className="expiry-controls">
           <label className="expiry-select">
@@ -169,9 +170,6 @@ function ScanBoard({
   market,
   rows,
   isFetching,
-  binanceProducts,
-  isBinanceFetching,
-  binanceError,
   updatedAt,
   onUse,
   onRefresh,
@@ -179,9 +177,6 @@ function ScanBoard({
   market?: OracleMarket;
   rows: DualInvestmentScanRow[];
   isFetching: boolean;
-  binanceProducts: BinanceDualInvestmentProduct[];
-  isBinanceFetching: boolean;
-  binanceError?: string;
   updatedAt?: number;
   onUse: (input: DualInvestmentInput) => void;
   onRefresh: () => void;
@@ -203,8 +198,6 @@ function ScanBoard({
         <span>Default ladder: 6 Predict UP legs</span>
         <span>Filter: targets must be strictly below live spot</span>
         <span>Grid: nearest 500 dUSDC target below spot, then step down</span>
-        <span>Binance compare: BTC/USDC Buy Low</span>
-        <span>{isBinanceFetching ? 'Binance: refreshing' : binanceError ? 'Binance: unavailable' : 'Binance: live'}</span>
         <span>{updatedAt ? `Last quote: ${formatTime(updatedAt)}` : 'Waiting for live quote'}</span>
       </div>
       <div className="table-shell">
@@ -218,8 +211,6 @@ function ScanBoard({
               <th>Interval</th>
               <th>Coupon</th>
               <th>Anker APR</th>
-              <th>Binance APR</th>
-              <th>Edge</th>
               <th>Ask Cost</th>
               <th>Status</th>
               <th>Action</th>
@@ -228,14 +219,7 @@ function ScanBoard({
           <tbody>
             {rows.map((row) => {
               const interval = (row.input.targetPrice - row.input.floorPrice) / (row.input.targetLegCount ?? 1);
-              const binanceMatch = row.quote
-                ? findBinanceDualInvestmentMatch({
-                    products: binanceProducts,
-                    targetPrice: row.input.targetPrice,
-                    settlementTimeMs: row.quote.oracle.expiryMs,
-                  })
-                : undefined;
-              const aprEdge = row.quote && binanceMatch ? row.quote.apr - binanceMatch.apr : undefined;
+              const displayMetrics = scanQuoteDisplayMetrics(row);
               return (
                 <tr key={`${row.input.targetPrice}-${row.input.floorPrice}`}>
                   <td data-label="Target Buy">
@@ -248,27 +232,12 @@ function ScanBoard({
                   <td data-label="Floor">{formatPrice(row.input.floorPrice)}</td>
                   <td data-label="Legs">{row.input.targetLegCount}</td>
                   <td data-label="Interval">{formatPrice(interval)}</td>
-                  <td data-label="Coupon">{row.quote ? `${formatAmount(row.quote.coupon)} dUSDC` : '--'}</td>
+                  <td data-label="Coupon">{`${formatAmount(displayMetrics.coupon)} dUSDC`}</td>
                   <td className={row.status === 'live' ? 'apr-cell' : ''} data-label="Anker APR">
-                    {row.quote ? formatApr(row.quote.apr) : '--'}
-                  </td>
-                  <td data-label="Binance APR">
-                    {binanceMatch ? (
-                      <span className={binanceMatch.canPurchase ? 'binance-apr' : 'binance-apr muted'}>
-                        {formatApr(binanceMatch.apr)}
-                      </span>
-                    ) : (
-                      <span className="muted-cell">{binanceError ? 'Unavailable' : 'No match'}</span>
-                    )}
-                  </td>
-                  <td
-                    className={aprEdge !== undefined && aprEdge >= 0 ? 'edge-cell positive' : 'edge-cell'}
-                    data-label="Edge"
-                  >
-                    {aprEdge !== undefined ? formatApr(aprEdge) : '--'}
+                    {displayMetrics.apr !== null ? formatApr(displayMetrics.apr) : '--'}
                   </td>
                   <td data-label="Ask Cost">
-                    {row.quote ? `${formatAmount(row.quote.totalLegCost)} dUSDC` : '--'}
+                    {displayMetrics.totalLegCost !== null ? `${formatAmount(displayMetrics.totalLegCost)} dUSDC` : '--'}
                   </td>
                   <td data-label="Status">
                     <span className={statusClass(row)} title={row.error}>
@@ -404,9 +373,11 @@ function formatQuotePrincipal(quote: StructuredProductQuote) {
 function QuoteDetail({
   quote,
   error,
+  productInput,
 }: {
   quote: StructuredProductQuote | null;
   error: string | null;
+  productInput: DualInvestmentInput;
 }) {
   if (error) {
     return (
@@ -494,6 +465,8 @@ function QuoteDetail({
           </div>
         </article>
       </div>
+
+      <TargetBuyExecutionPanel quote={quote} productInput={productInput} />
     </section>
   );
 }
@@ -510,7 +483,6 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
     principal: DEFAULT_PRINCIPAL,
     enabled: !isTargetSale,
   });
-  const binanceQuery = useBinanceDualInvestment({ market, enabled: Boolean(market) && !isTargetSale });
   const defaultBuyInput = useMemo(() => {
     if (!market) {
       return {
@@ -620,14 +592,10 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
           <ScanBoard
             market={market}
             rows={scanQuery.data ?? []}
-            isFetching={scanQuery.isFetching || binanceQuery.isFetching}
-            binanceProducts={binanceQuery.data ?? []}
-            isBinanceFetching={binanceQuery.isFetching}
-            binanceError={binanceQuery.error instanceof Error ? binanceQuery.error.message : undefined}
+            isFetching={scanQuery.isFetching}
             updatedAt={scanQuery.dataUpdatedAt || undefined}
             onRefresh={() => {
               void scanQuery.refetch();
-              void binanceQuery.refetch();
             }}
             onUse={(input) => {
               setCustomInput(input);
@@ -650,7 +618,7 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
         </>
       )}
 
-      {!isTargetSale && <QuoteDetail quote={previewQuote} error={previewError} />}
+      {!isTargetSale && <QuoteDetail quote={previewQuote} error={previewError} productInput={customInput} />}
 
       <div className="transparency-note calculation-note">
         <SlidersHorizontal size={18} />

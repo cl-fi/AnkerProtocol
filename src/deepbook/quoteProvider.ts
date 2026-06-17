@@ -12,10 +12,42 @@ export interface QuoteProvider {
   quoteLegs(legs: LegIntent[]): Promise<LegQuote[]>;
 }
 
+export interface PredictMintBounds {
+  minAskPrice: number;
+  maxAskPrice: number;
+}
+
+export const DEFAULT_PREDICT_MINT_BOUNDS: PredictMintBounds = {
+  minAskPrice: DEEPBOOK_PREDICT.minAskPrice,
+  maxAskPrice: DEEPBOOK_PREDICT.maxAskPrice,
+};
+
 export function normalizePreviewResult(input: { mintCost: string | number; redeemPayout: string | number }) {
   return {
     askCost: Number(input.mintCost),
     redeemPreview: Number(input.redeemPayout),
+  };
+}
+
+export function applyPredictMintBounds(
+  leg: LegIntent,
+  amounts: { askCost: number; redeemPreview: number },
+  quoteTimestampMs = Date.now(),
+  bounds: PredictMintBounds = DEFAULT_PREDICT_MINT_BOUNDS,
+): LegQuote {
+  const askPrice = leg.quantity === 0 ? 0 : amounts.askCost / leg.quantity;
+  const mintable = leg.quantity > 0 && askPrice >= bounds.minAskPrice && askPrice <= bounds.maxAskPrice;
+
+  return {
+    ...leg,
+    askPrice,
+    askCost: amounts.askCost,
+    redeemPreview: amounts.redeemPreview,
+    quoteTimestampMs,
+    executable: mintable,
+    error: mintable
+      ? undefined
+      : `Ask price ${askPrice.toFixed(4)} is outside Predict mint bounds ${bounds.minAskPrice}-${bounds.maxAskPrice}.`,
   };
 }
 
@@ -171,14 +203,7 @@ export class LivePreviewQuoteProvider implements QuoteProvider {
       mintCost: fromQuoteBaseUnits(rawAmounts.mintCost),
       redeemPayout: fromQuoteBaseUnits(rawAmounts.redeemPayout),
     });
-    return {
-      ...leg,
-      askPrice: leg.quantity === 0 ? 0 : amounts.askCost / leg.quantity,
-      askCost: amounts.askCost,
-      redeemPreview: amounts.redeemPreview,
-      quoteTimestampMs: Date.now(),
-      executable: true,
-    };
+    return applyPredictMintBounds(leg, amounts);
   }
 }
 
@@ -203,14 +228,7 @@ export class BatchedLivePreviewQuoteProvider implements QuoteProvider {
         mintCost: fromQuoteBaseUnits(amounts[index].mintCost),
         redeemPayout: fromQuoteBaseUnits(amounts[index].redeemPayout),
       });
-      return {
-        ...leg,
-        askPrice: leg.quantity === 0 ? 0 : normalized.askCost / leg.quantity,
-        askCost: normalized.askCost,
-        redeemPreview: normalized.redeemPreview,
-        quoteTimestampMs: Date.now(),
-        executable: true,
-      };
+      return applyPredictMintBounds(leg, normalized);
     });
   }
 }

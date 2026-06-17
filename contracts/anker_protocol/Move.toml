@@ -1,0 +1,9 @@
+[package]
+name = "anker_protocol"
+edition = "2024.beta"
+version = "0.0.1"
+
+[dependencies]
+
+[addresses]
+anker_protocol = "0x0"

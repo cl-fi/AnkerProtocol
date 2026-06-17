@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 
-export type ActiveProduct = 'dual-investment' | 'shark-fin';
+export type ActiveProduct = 'dual-investment' | 'shark-fin' | 'dashboard';
 
 const WalletConnectButton = dynamic(
   () => import('./WalletConnectButton').then((module) => module.WalletConnectButton),
@@ -27,11 +27,8 @@ export function AppHeader({ activeProduct }: { activeProduct?: ActiveProduct }) 
         <Link className={activeProduct === 'shark-fin' ? 'active' : ''} href="/app/shark-fin">
           Shark Fin
         </Link>
-        <Link href="/app/templates" aria-disabled="true">
-          Templates
-        </Link>
-        <Link href="/app/auto-roll" aria-disabled="true">
-          Auto Roll
+        <Link className={activeProduct === 'dashboard' ? 'active' : ''} href="/app/dashboard">
+          Dashboard
         </Link>
       </nav>
       <div className="wallet-area">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PredictOracleListItem } from '../deepbook/predictServer';
-import { curateBtcOracles, type OracleReadiness } from './curatedOracles';
+import { curateBtcOracles, quoteReadinessFromLegQuotes, type OracleReadiness } from './curatedOracles';
 
 function oracle(input: Partial<PredictOracleListItem> & { oracle_id: string; expiry: number }): PredictOracleListItem {
   return {
@@ -87,5 +87,22 @@ describe('curateBtcOracles', () => {
     );
 
     expect(curated.map((item) => item.oracle_id)).toEqual(['ready']);
+  });
+});
+
+describe('quoteReadinessFromLegQuotes', () => {
+  it('does not mark an oracle quote-ready when representative legs are not mintable', () => {
+    const readiness = quoteReadinessFromLegQuotes([
+      {
+        executable: false,
+        error: 'Ask price 1.0010 is outside Predict mint bounds 0.01-0.99.',
+      },
+    ]);
+
+    expect(readiness).toEqual({
+      stateReady: true,
+      quoteReady: false,
+      reason: 'Ask price 1.0010 is outside Predict mint bounds 0.01-0.99.',
+    });
   });
 });

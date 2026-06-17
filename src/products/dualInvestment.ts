@@ -89,6 +89,7 @@ export function compileDualInvestment(input: {
   const coupon = input.input.principal - reserve - totalLegCost;
   const days = daysBetween(input.nowMs ?? Date.now(), input.oracle.expiryMs);
   const executable = coupon > 0 && legs.every((leg) => leg.executable);
+  const legWarning = legs.find((leg) => !leg.executable && leg.error)?.error;
 
   const quote: StructuredProductQuote = {
     id: `dual-${input.oracle.oracleId}-${input.input.targetPrice}-${input.input.floorPrice}`,
@@ -102,7 +103,7 @@ export function compileDualInvestment(input: {
     coupon,
     apr: aprFromCoupon(coupon, input.input.principal, days),
     executable,
-    warning: coupon <= 0 ? 'Current leg costs leave no positive coupon.' : undefined,
+    warning: coupon <= 0 ? 'Current leg costs leave no positive coupon.' : legWarning,
     scenarios: [],
   };
   return { ...quote, scenarios: simulatePayoff(quote) };
