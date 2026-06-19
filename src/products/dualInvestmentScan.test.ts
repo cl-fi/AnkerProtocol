@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
-import { buildDualInvestmentScanInputs, classifyScanQuote, scanQuoteDisplayMetrics } from './dualInvestmentScan';
+import { parseOracleState } from '../deepbook/predictServer';
+import oracleFixture from '../test/fixtures/oracleState.json';
+import { buildDualInvestmentScanInputs, scanQuoteDisplayMetrics } from './dualInvestmentScan';
 
 describe('buildDualInvestmentScanInputs', () => {
   it('builds descending 500-dollar target-buy rows from spot with six legs by default', () => {
@@ -37,23 +39,40 @@ describe('buildDualInvestmentScanInputs', () => {
     expect(rows[0].targetPrice).toBe(67_000);
     expect(rows.every((row) => row.targetPrice < 67_500)).toBe(true);
   });
-});
 
-describe('classifyScanQuote', () => {
-  it('does not mark a fully quoted row live when the coupon is not positive', () => {
-    expect(classifyScanQuote({ executable: false, coupon: 0 })).toBe('no-coupon');
-    expect(classifyScanQuote({ executable: true, coupon: 1 })).toBe('live');
+  it('uses oracle SVI to avoid a too-deep default floor when pricing parameters are available', () => {
+    const market = parseOracleState(oracleFixture, { serverLagSeconds: 1 });
+    const [row] = buildDualInvestmentScanInputs({
+      market,
+      principal: 1_000,
+      targetRows: 1,
+    });
+
+    expect(row.targetPrice).toBe(73_000);
+    expect(row.floorPrice).toBeGreaterThan(68_000);
+    expect(row.floorPrice).toBeLessThan(row.targetPrice);
   });
 });
 
 describe('scanQuoteDisplayMetrics', () => {
-  it('zeros coupon and hides protocol economics when a scan quote is unavailable', () => {
+  it('zeros coupon and hides protocol economics when a scan quote is missing', () => {
     expect(
       scanQuoteDisplayMetrics({
-        status: 'unavailable',
+        quote: null,
+      }),
+    ).toEqual({
+      coupon: 0,
+      apr: null,
+      totalLegCost: null,
+    });
+  });
+
+  it('zeros APR when the indicative coupon is not positive', () => {
+    expect(
+      scanQuoteDisplayMetrics({
         quote: {
-          coupon: 0.01,
-          apr: 0.5937,
+          coupon: -0.01,
+          apr: -0.5937,
           totalLegCost: 0.38,
         },
       }),
@@ -64,10 +83,9 @@ describe('scanQuoteDisplayMetrics', () => {
     });
   });
 
-  it('keeps live quote economics visible', () => {
+  it('keeps positive indicative quote economics visible', () => {
     expect(
       scanQuoteDisplayMetrics({
-        status: 'live',
         quote: {
           coupon: 0.04,
           apr: 1.8861,

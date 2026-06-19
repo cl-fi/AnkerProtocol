@@ -86,6 +86,13 @@ function assertPreflightSuccess(result: unknown) {
   }
 }
 
+function allowsUnsimulatedTransactions() {
+  return (
+    process.env.DEMO_ALLOW_UNSIMULATED_TX === 'true' ||
+    process.env.NEXT_PUBLIC_DEMO_ALLOW_UNSIMULATED_TX === 'true'
+  );
+}
+
 export async function preflightTransaction({
   client,
   sender,
@@ -110,8 +117,14 @@ export async function preflightTransaction({
     return { status: 'success', engine: 'devInspectTransactionBlock' };
   }
 
-  return {
-    status: 'skipped',
-    reason: 'Current Sui client does not expose transaction simulation.',
-  };
+  if (allowsUnsimulatedTransactions()) {
+    return {
+      status: 'skipped',
+      reason: 'Current Sui client does not expose transaction simulation.',
+    };
+  }
+
+  throw new Error(
+    'Transaction simulation is unavailable. Set DEMO_ALLOW_UNSIMULATED_TX=true only for local demo bypasses.',
+  );
 }

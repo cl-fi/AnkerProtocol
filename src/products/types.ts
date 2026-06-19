@@ -1,10 +1,8 @@
-export type ProductType = 'dual-investment' | 'shark-fin';
+export type ProductType = 'dual-investment';
 
 export type PrincipalAsset = 'dUSDC' | 'DBTC' | 'USDsui';
 
 export type LegInstrumentType = 'binary-up' | 'binary-down' | 'range';
-
-export type SharkFinDirection = 'bullish' | 'bearish';
 
 export interface OracleMarket {
   predictId: string;
@@ -19,6 +17,27 @@ export interface OracleMarket {
   spotTimestampMs: number;
   sviTimestampMs: number;
   serverLagSeconds: number;
+  svi?: SviParameters;
+  predictPricing?: PredictPricingState;
+}
+
+export interface SviParameters {
+  a: number;
+  b: number;
+  rho: number;
+  m: number;
+  sigma: number;
+}
+
+export interface PredictPricingState {
+  baseSpread: number;
+  minSpread: number;
+  utilizationMultiplier: number;
+  minAskPrice: number;
+  maxAskPrice: number;
+  vaultBalance: number;
+  vaultTotalMtm: number;
+  vaultUtilization: number;
 }
 
 export interface LegIntent {
@@ -55,21 +74,6 @@ export interface ScenarioOutcome {
   expiredLegIds: string[];
 }
 
-export interface SharkFinMetrics {
-  direction: SharkFinDirection;
-  currentApr: number;
-  baseApr: number;
-  maxApr: number;
-  termDays: number;
-  projectedCurrentYield: number;
-  baseCoupon: number;
-  optionBudget: number;
-  optionBudgetUsed: number;
-  leftoverBudget: number;
-  payoutPerLeg: number;
-  maxExtraPayout: number;
-}
-
 export interface StructuredProductQuote {
   id: string;
   productType: ProductType;
@@ -82,8 +86,9 @@ export interface StructuredProductQuote {
   totalLegCost: number;
   reserve: number;
   coupon: number;
+  targetPrice?: number;
+  floorPrice?: number;
   apr: number;
-  sharkFin?: SharkFinMetrics;
   executable: boolean;
   warning?: string;
   scenarios: ScenarioOutcome[];
@@ -93,17 +98,6 @@ export interface DualInvestmentInput {
   principal: number;
   targetPrice: number;
   floorPrice: number;
-  stepSize?: number;
-  targetLegCount?: number;
-}
-
-export interface SharkFinInput {
-  principal: number;
-  direction: SharkFinDirection;
-  lowerBound: number;
-  upperBound: number;
-  currentApr: number;
-  baseApr: number;
   stepSize?: number;
   targetLegCount?: number;
 }

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TargetBuyExecutionPanelView } from './TargetBuyExecutionPanel';
 
@@ -24,7 +24,7 @@ describe('TargetBuyExecutionPanelView', () => {
     expect(screen.getByRole('button', { name: 'Subscribe Target Buy' })).toBeDisabled();
   });
 
-  it('shows create manager when the wallet has no PredictManager', () => {
+  it('asks the wallet to create a product container before subscription when none is available', () => {
     render(
       <TargetBuyExecutionPanelView
         hasAccount
@@ -37,8 +37,9 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('Create a PredictManager before subscribing.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Create Predict Manager' })).toBeEnabled();
+    expect(screen.getByText('Create a product container for this structured note before subscribing.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Create Product Container' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Subscribe Target Buy' })).toBeDisabled();
   });
 
   it('enables subscribe when wallet, manager, and executable quote are ready', () => {
@@ -55,7 +56,7 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('PredictManager 0xabc is ready.')).toBeVisible();
+    expect(screen.getByText('Product container 0xabc is ready.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Subscribe Target Buy' })).toBeEnabled();
   });
 
@@ -95,5 +96,63 @@ describe('TargetBuyExecutionPanelView', () => {
 
     expect(screen.getByText('Transaction submitted: 0xdigest')).toBeVisible();
     expect(screen.getByRole('link', { name: 'View Dashboard' })).toHaveAttribute('href', '/app/dashboard');
+  });
+
+  it('surfaces the awaiting-signature execution state while a wallet transaction is pending', () => {
+    render(
+      <TargetBuyExecutionPanelView
+        hasAccount
+        hasManager
+        isQuoteExecutable={true}
+        isLoadingManagers={false}
+        isPending
+        managerId="0xabc"
+        onCreateManager={() => undefined}
+        onSubscribe={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('Awaiting wallet signature.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Waiting for wallet...' })).toBeDisabled();
+  });
+
+  it('surfaces the transaction-failed execution state when execution returns an error', () => {
+    render(
+      <TargetBuyExecutionPanelView
+        hasAccount
+        hasManager
+        isQuoteExecutable={true}
+        isLoadingManagers={false}
+        isPending={false}
+        managerId="0xabc"
+        error="Preflight failed: MoveAbort in predict::mint"
+        onCreateManager={() => undefined}
+        onSubscribe={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('Transaction failed. Review the error and retry.')).toBeVisible();
+    expect(screen.getByText('Preflight failed: MoveAbort in predict::mint')).toBeVisible();
+  });
+
+  it('surfaces the quote-expired execution state separately from transaction failures', () => {
+    const { container } = render(
+      <TargetBuyExecutionPanelView
+        hasAccount
+        hasManager
+        isQuoteExecutable={true}
+        isLoadingManagers={false}
+        isPending={false}
+        managerId="0xabc"
+        error="Quote expired. Refresh pricing before signing."
+        onCreateManager={() => undefined}
+        onSubscribe={() => undefined}
+      />,
+    );
+
+    const status = container.querySelector('.execution-status');
+    expect(status).not.toBeNull();
+    expect(within(status as HTMLElement).getByText('Quote expired. Refresh pricing before signing.')).toBeVisible();
+    expect(screen.queryByText('Transaction failed. Review the error and retry.')).toBeNull();
   });
 });

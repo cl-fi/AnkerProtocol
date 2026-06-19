@@ -4,6 +4,7 @@ import oracleFixture from '../test/fixtures/oracleState.json';
 import {
   filterProductExpiryOracles,
   parseOracleState,
+  parsePredictPricingState,
   parseStatus,
   selectNearestTradableOracle,
 } from './predictServer';
@@ -23,6 +24,32 @@ describe('predictServer parsers', () => {
     expect(parsed.minStrike).toBe(50000);
     expect(parsed.tickSize).toBe(1);
     expect(parsed.status).toBe('active');
+    expect(parsed.svi).toEqual({
+      a: 0.000018652,
+      b: 0.001284769,
+      rho: -0.709081279,
+      m: -0.00188903,
+      sigma: 0.001665076,
+    });
+  });
+
+  it('parses Predict vault utilization pricing state', () => {
+    expect(
+      parsePredictPricingState({
+        vault_balance: '1000000000',
+        total_mtm: '250000000',
+        utilization: '0.25',
+      }),
+    ).toEqual({
+      baseSpread: 0.02,
+      minSpread: 0.005,
+      utilizationMultiplier: 2,
+      minAskPrice: 0.01,
+      maxAskPrice: 0.99,
+      vaultBalance: 1000,
+      vaultTotalMtm: 250,
+      vaultUtilization: 0.25,
+    });
   });
 
   it('skips active oracles that are too close to expiry', () => {

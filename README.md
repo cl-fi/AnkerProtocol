@@ -127,13 +127,13 @@ The product keeps the CEX mental model:
 
 but replaces opaque exchange pricing with on-chain, inspectable Predict positions.
 
-### 4. Wallet-owned product notes
+### 4. Wallet-owned strategy receipts
 
-Every subscription can create an Anker `ProductNote` object on Sui. The note records the product parameters, Predict manager, oracle, strikes, quantities, costs, fee policy, and redemption status.
+Every subscription can create an Anker `ProductNote` object on Sui. In the current testnet version this is best understood as a wallet-owned strategy receipt: it records the product parameters, Predict manager, oracle, strikes, quantities, costs, fee policy, and redemption status. It is not yet a fully trustless vault share with protocol-enforced Predict position allocation.
 
 ### 5. Honest testnet scope
 
-The DeepBook Predict manager model is still evolving. Instead of forcing a pooled vault share too early, V1 uses wallet-native notes and a dashboard that reflects the actual PredictManager state. This keeps the demo functional today while preserving a clean path toward tokenized vault shares later.
+The DeepBook Predict manager model is still evolving. Instead of forcing a pooled vault share too early, V1 uses wallet-native notes and a dashboard that reflects the actual product-container state. This keeps the demo functional today while preserving a clean path toward tokenized vault shares later.
 
 ## DeepBook Predict Integration
 
@@ -150,11 +150,14 @@ Anker integrates DeepBook Predict in four places:
 3. **Quote preview**
    - The app batches Predict quote preview calls through Sui `devInspect`.
    - Each leg gets a real ask cost and executable status.
+   - Custom preview surfaces minimum payout, maximum loss, option budget, holding-period return, quote validity, liquidity status, and max-cost slippage limit next to APR.
 
 4. **Execution and claim path**
-   - Users can create a PredictManager.
-   - Subscribe flow prepares Predict mint calls and creates an Anker ProductNote.
-   - Dashboard checks PredictManager balances and positions.
+   - Users first create a product container for the structured note.
+   - Subscribe flow only uses an unallocated wallet-owned product container, backed by a DeepBook PredictManager, then prepares Predict mint calls and creates an Anker ProductNote with that dedicated container id.
+   - Signing is gated by a short-lived `QuoteEnvelope`, a signing-time re-quote of the exact legs, max quoted cost bounds, and transaction preflight.
+   - Dashboard checks product container balances, deposited cash, event-indexed allocated positions, held legs, lifecycle state, manager isolation, and backing ratio.
+   - Dashboard paginates `ProductNote` Move events by event type and builds a lightweight `owner -> notes`, `manager -> notes`, `note -> transactions`, and `note -> settlement` index; the local subscription digest cache is only a fallback.
    - Claim can redeem open Predict legs before withdrawing dUSDC, or withdraw directly if the legs were already redeemed permissionlessly.
 
 ## On-chain Contract
@@ -177,12 +180,13 @@ Digest:      BoKKnVdeKccDh9C1W1huPsvBDmojH3qLMR3CMKnfkhHU
 The contract provides:
 
 - `Registry` for protocol fee policy
+- `AdminCap` for fee policy administration
 - `ProductNote` as a wallet-owned record of structured product subscriptions
 - `ProductSubscribed` event
 - `ProductRedeemed` event
 - fee capture on claim
 
-The V1 contract is deliberately lightweight. It records the product and fee layer while leaving Predict position custody with the user's PredictManager until DeepBook Predict's production position model stabilizes.
+The current testnet contract is deliberately lightweight. It records product terms, fee policy, lifecycle status, and the user's PredictManager relationship as a wallet-owned strategy receipt while leaving Predict position custody with the user's PredictManager. It is not yet a fully trustless vault share with protocol-enforced allocation, fee capture, or settlement. DeepBook Predict's current `create_manager` entry returns the new manager ID, while deposit and mint require a mutable PredictManager object, so Anker keeps manager creation as a separate wallet transaction and fails closed unless a dedicated wallet-owned manager is available for subscription. Because DeepBook Predict mint does not currently expose an atomic max-cost parameter in this app, Anker still relies on short quote TTLs, signing-time re-quotes, and preflight rather than claiming full on-chain price protection.
 
 ## App Flow
 
@@ -194,7 +198,7 @@ flowchart LR
   D --> E["DeepBook Predict Legs"]
   E --> F["Sui devInspect Quote Preview"]
   B --> G["Wallet Transaction"]
-  G --> H["PredictManager"]
+  G --> H["Product container"]
   G --> I["Anker ProductNote"]
   I --> J["Dashboard"]
   H --> J
@@ -221,14 +225,14 @@ For a five-minute hackathon demo, the recommended flow is:
    - strikes
    - dUSDC payout quantities
    - ask costs
-   - coupon and APR
+   - coupon, APR, minimum payout, maximum loss, quote validity, liquidity status, and max-cost slippage limit
 5. Subscribe with a wallet:
-   - create PredictManager if needed
+   - create a product container if needed
    - mint Predict legs
    - create ProductNote
 6. Open Dashboard:
    - show owned ProductNotes
-   - show PredictManager dUSDC balance and held legs
+   - show product container dUSDC balance and held legs
    - claim dUSDC after expiry
 
 The story is product-first: users do not need to understand binary options to use Anker, but the option construction is fully visible when they want to inspect it.
@@ -278,11 +282,23 @@ NEXT_PUBLIC_ANKER_PACKAGE_ID=0xf8fc120ddb43b29bab88fb42588f94db9d1af34164969d2d7
 NEXT_PUBLIC_ANKER_REGISTRY_ID=0xf9d64b058a640f05a7f2c7ec3e289399c41124900f9e6dc73840cf96df7bb63c
 ```
 
+The `/api/predict/[...path]` wrapper is intentionally narrow: it only proxies the Predict endpoints used by the app,
+uses an 8s upstream timeout, caps responses at 1 MB, adds `stale-while-revalidate` cache headers, and applies a basic
+per-client rate limit before fetching upstream.
+
 ## Verification
+
+```bash
+npm run ci
+```
+
+`npm run ci` runs lint guardrails, unit tests, Move contract tests, a production Next.js build, and browser e2e tests.
+Individual checks:
 
 ```bash
 npm run lint
 npm test
+npm run test:move
 npm run build
 npm run test:e2e
 ```
@@ -290,9 +306,11 @@ npm run test:e2e
 Move tests:
 
 ```bash
-cd contracts/anker_protocol
-sui move test
+npm run test:move
 ```
+
+`npm run lint` runs TypeScript checks plus Anker-specific guardrails that block reviewed dangerous patterns such as
+first-manager selection, principal-plus-coupon settlement shortcuts, and live Shark Fin frontend paths.
 
 ## Roadmap
 
@@ -321,7 +339,7 @@ V1 is cash-settled in dUSDC because the current testnet path does not provide a 
 
 ### Tokenized vault shares
 
-Tokenized vault shares are intentionally not forced into V1. They become the right abstraction when PredictManager position ownership and production settlement flows stabilize. At that point Anker can support:
+Tokenized vault shares are intentionally not forced into V1. They become the right abstraction when product container ownership and production settlement flows stabilize. At that point Anker can support:
 
 - pooled strategy series
 - auto-roll keepers

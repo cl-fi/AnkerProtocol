@@ -24,7 +24,7 @@ describe('buildCurrentAprResponse', () => {
     await expect(response.json()).resolves.toEqual(snapshot);
   });
 
-  it('returns the configured fallback when Current is unavailable', async () => {
+  it('returns fallback data as unavailable when Current is unreachable', async () => {
     const response = await buildCurrentAprResponse({
       fetchSnapshot: async () => {
         throw new Error('upstream failed');
@@ -32,8 +32,9 @@ describe('buildCurrentAprResponse', () => {
       nowMs: 1_780_000_000_000,
     });
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining('Current USDsui APR is unavailable'),
       totalApr: 0.08,
       source: 'current-api-fallback',
     });

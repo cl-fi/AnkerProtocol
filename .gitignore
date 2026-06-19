@@ -7,3 +7,4 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 contracts/**/build/
+contracts/**/package_summaries/

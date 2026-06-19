@@ -2,13 +2,29 @@ import type { ScenarioOutcome, StructuredProductQuote } from './types';
 
 function defaultSettlementPrices(quote: StructuredProductQuote): number[] {
   const spot = quote.oracle.spot;
-  return [
+  const spotScenarios = [
     Math.round(spot * 0.8),
     Math.round(spot * 0.9),
     Math.round(spot),
     Math.round(spot * 1.1),
     Math.round(spot * 1.2),
   ];
+  const boundaryScenarios = quote.legs.flatMap((leg) => {
+    const boundaries =
+      leg.instrumentType === 'range'
+        ? [leg.lowerStrike, leg.higherStrike]
+        : [leg.strike];
+    return boundaries.flatMap((boundary) =>
+      boundary === undefined ? [] : [Math.round(boundary - 1), Math.round(boundary), Math.round(boundary + 1)],
+    );
+  });
+  const productBoundaries = [quote.floorPrice, quote.targetPrice]
+    .filter((price): price is number => price !== undefined)
+    .map((price) => Math.round(price));
+
+  return [...new Set([...spotScenarios, ...boundaryScenarios, ...productBoundaries].filter((price) => price > 0))].sort(
+    (left, right) => left - right,
+  );
 }
 
 export function simulatePayoff(

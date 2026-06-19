@@ -1,12 +1,14 @@
 import { fromChainPrice } from '../products/units';
 
 export type AnkerProductNoteStatus = 'open' | 'redeemed';
-export type AnkerProductNoteType = 'dual-investment' | 'shark-fin';
+export type AnkerProductNoteType = 'dual-investment';
 
 export interface AnkerProductNoteLeg {
   strike: number;
   quantity: number;
   cost: number;
+  quantityBaseUnits: bigint;
+  costBaseUnits: bigint;
 }
 
 export interface AnkerProductNoteRecord {
@@ -18,8 +20,11 @@ export interface AnkerProductNoteRecord {
   oracleId: string;
   expiryMs: number;
   principal: number;
+  principalBaseUnits: bigint;
   reserve: number;
+  reserveBaseUnits: bigint;
   coupon: number;
+  couponBaseUnits: bigint;
   targetPrice: number;
   floorPrice: number;
   lowerBound: number;
@@ -31,7 +36,9 @@ export interface AnkerProductNoteRecord {
   legs: AnkerProductNoteLeg[];
   status: AnkerProductNoteStatus;
   redeemedPayout: number;
+  redeemedPayoutBaseUnits: bigint;
   redeemedFee: number;
+  redeemedFeeBaseUnits: bigint;
 }
 
 export interface AnkerPortfolioConfig {
@@ -49,8 +56,36 @@ function scaleForDecimals(decimals: number) {
   return 10 ** decimals;
 }
 
-function quoteAmount(value: unknown, decimals: number) {
-  return Number(asString(value) || 0) / scaleForDecimals(decimals);
+function quoteAmount(value: bigint, decimals: number) {
+  return Number(value) / scaleForDecimals(decimals);
+}
+
+const U64_MAX = (1n << 64n) - 1n;
+
+function u64String(value: unknown): string | null {
+  if (typeof value === 'bigint') return value >= 0n && value <= U64_MAX ? value.toString() : null;
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value >= 0 ? String(value) : null;
+  if (typeof value !== 'string' || !/^(0|[1-9]\d*)$/.test(value)) return null;
+  return value;
+}
+
+function u64Bigint(value: unknown): bigint | null {
+  const text = u64String(value);
+  if (text === null) return null;
+  const parsed = BigInt(text);
+  return parsed <= U64_MAX ? parsed : null;
+}
+
+function u64Number(value: unknown): number | null {
+  const parsed = u64Bigint(value);
+  if (parsed === null || parsed > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+  return Number(parsed);
+}
+
+function chainPrice(value: unknown): number | null {
+  const parsed = u64Bigint(value);
+  if (parsed === null || parsed > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+  return fromChainPrice(parsed.toString());
 }
 
 function asString(value: unknown): string {
@@ -60,10 +95,6 @@ function asString(value: unknown): string {
     return asString((value as { id: unknown }).id);
   }
   return '';
-}
-
-function asNumber(value: unknown): number {
-  return Number(asString(value) || 0);
 }
 
 function asBoolean(value: unknown): boolean {
@@ -128,12 +159,15 @@ function getObjectFields(object: unknown): UnknownRecord | null {
   return null;
 }
 
-function productTypeFromKind(kind: number): AnkerProductNoteType {
-  return kind === 1 ? 'shark-fin' : 'dual-investment';
+function productTypeFromKind(kind: number): AnkerProductNoteType | null {
+  if (kind === 0) return 'dual-investment';
+  return null;
 }
 
-function statusFromValue(status: number): AnkerProductNoteStatus {
-  return status === 1 ? 'redeemed' : 'open';
+function statusFromValue(status: number): AnkerProductNoteStatus | null {
+  if (status === 0) return 'open';
+  if (status === 1) return 'redeemed';
+  return null;
 }
 
 export function parseOwnedProductNotes(
@@ -150,35 +184,89 @@ export function parseOwnedProductNotes(
     const strikes = asVector(fields.strikes);
     const quantities = asVector(fields.quantities);
     const costs = asVector(fields.costs);
+    if (strikes.length !== quantities.length || strikes.length !== costs.length) return [];
+
+    const productKind = u64Number(fields.product_kind);
+    const productType = productKind === null ? null : productTypeFromKind(productKind);
+    const statusValue = u64Number(fields.status);
+    const status = statusValue === null ? null : statusFromValue(statusValue);
+    const expiryMs = u64Number(fields.expiry_ms);
+    const principalBaseUnits = u64Bigint(fields.principal_amount);
+    const reserveBaseUnits = u64Bigint(fields.reserve_amount);
+    const couponBaseUnits = u64Bigint(fields.coupon_amount);
+    const redeemedPayoutBaseUnits = u64Bigint(fields.redeemed_payout_amount);
+    const redeemedFeeBaseUnits = u64Bigint(fields.redeemed_fee_amount);
+    const targetPrice = chainPrice(fields.target_price);
+    const floorPrice = chainPrice(fields.floor_price);
+    const lowerBound = chainPrice(fields.lower_bound);
+    const upperBound = chainPrice(fields.upper_bound);
+    const aprBps = u64Number(fields.apr_bps);
+    const feeBps = u64Number(fields.fee_bps);
+    const parsedLegs = strikes.map((strike, index) => {
+      const strikePrice = chainPrice(strike);
+      const quantityBaseUnits = u64Bigint(quantities[index]);
+      const costBaseUnits = u64Bigint(costs[index]);
+      if (strikePrice === null || quantityBaseUnits === null || costBaseUnits === null) return null;
+      return {
+        strike: strikePrice,
+        quantity: quoteAmount(quantityBaseUnits, config.quoteAssetDecimals),
+        quantityBaseUnits,
+        cost: quoteAmount(costBaseUnits, config.quoteAssetDecimals),
+        costBaseUnits,
+      };
+    });
+
+    if (
+      productType === null ||
+      status === null ||
+      expiryMs === null ||
+      principalBaseUnits === null ||
+      reserveBaseUnits === null ||
+      couponBaseUnits === null ||
+      redeemedPayoutBaseUnits === null ||
+      redeemedFeeBaseUnits === null ||
+      targetPrice === null ||
+      floorPrice === null ||
+      lowerBound === null ||
+      upperBound === null ||
+      aprBps === null ||
+      feeBps === null ||
+      parsedLegs.some((leg) => leg === null)
+    ) {
+      return [];
+    }
+
+    const legs = parsedLegs as AnkerProductNoteLeg[];
 
     return [
       {
         noteId: getObjectId(object),
-        productType: productTypeFromKind(asNumber(fields.product_kind)),
+        productType,
         productId: decodeProductId(fields.product_id),
         owner: asString(fields.owner),
         managerId: asString(fields.manager_id),
         oracleId: asString(fields.oracle_id),
-        expiryMs: asNumber(fields.expiry_ms),
-        principal: quoteAmount(fields.principal_amount, config.quoteAssetDecimals),
-        reserve: quoteAmount(fields.reserve_amount, config.quoteAssetDecimals),
-        coupon: quoteAmount(fields.coupon_amount, config.quoteAssetDecimals),
-        targetPrice: fromChainPrice(asString(fields.target_price)),
-        floorPrice: fromChainPrice(asString(fields.floor_price)),
-        lowerBound: fromChainPrice(asString(fields.lower_bound)),
-        upperBound: fromChainPrice(asString(fields.upper_bound)),
+        expiryMs,
+        principal: quoteAmount(principalBaseUnits, config.quoteAssetDecimals),
+        principalBaseUnits,
+        reserve: quoteAmount(reserveBaseUnits, config.quoteAssetDecimals),
+        reserveBaseUnits,
+        coupon: quoteAmount(couponBaseUnits, config.quoteAssetDecimals),
+        couponBaseUnits,
+        targetPrice,
+        floorPrice,
+        lowerBound,
+        upperBound,
         isBullish: asBoolean(fields.is_bullish),
         usesMockCurrentDeposit: asBoolean(fields.uses_mock_current_deposit),
-        apr: asNumber(fields.apr_bps) / 10_000,
-        feeBps: asNumber(fields.fee_bps),
-        legs: strikes.map((strike, index) => ({
-          strike: fromChainPrice(asString(strike)),
-          quantity: quoteAmount(quantities[index], config.quoteAssetDecimals),
-          cost: quoteAmount(costs[index], config.quoteAssetDecimals),
-        })),
-        status: statusFromValue(asNumber(fields.status)),
-        redeemedPayout: quoteAmount(fields.redeemed_payout_amount, config.quoteAssetDecimals),
-        redeemedFee: quoteAmount(fields.redeemed_fee_amount, config.quoteAssetDecimals),
+        apr: aprBps / 10_000,
+        feeBps,
+        legs,
+        status,
+        redeemedPayout: quoteAmount(redeemedPayoutBaseUnits, config.quoteAssetDecimals),
+        redeemedPayoutBaseUnits,
+        redeemedFee: quoteAmount(redeemedFeeBaseUnits, config.quoteAssetDecimals),
+        redeemedFeeBaseUnits,
       },
     ];
   });

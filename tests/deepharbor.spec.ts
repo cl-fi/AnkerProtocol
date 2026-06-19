@@ -68,9 +68,8 @@ test('supports selecting a scan row and running a custom preview', async ({ page
   await page.getByRole('button', { name: 'Use' }).first().click();
   await expect(page.getByLabel('Target Buy Price')).not.toHaveValue('0');
   await page.getByRole('button', { name: 'Preview Live Quote' }).click();
-  await expect(page.locator('.quote-detail')).toContainText(/DeepBook Predict Legs|Payoff Preview|failed|MoveAbort|DevInspect/i, {
-    timeout: 30_000,
-  });
+  await expect(page.locator('.quote-detail')).toContainText(/DeepBook Predict Legs|Payoff Preview/i, { timeout: 30_000 });
+  await expect(page.locator('.quote-detail')).not.toContainText(/failed|MoveAbort|DevInspect/i);
 });
 
 test('renders target sale as a coming-soon BTC-collateral product', async ({ page }) => {

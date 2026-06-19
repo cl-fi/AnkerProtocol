@@ -1,9 +1,6 @@
 import type { PredictOracleListItem } from '../deepbook/predictServer';
 import { fetchActiveBtcOracles, fetchOracleMarket, fetchPredictStatus } from '../deepbook/predictServer';
-import { BatchedLivePreviewQuoteProvider } from '../deepbook/quoteProvider';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
-import { buildDualInvestmentLegIntents } from '../products/dualInvestment';
-import type { LegQuote, OracleMarket } from '../products/types';
 
 const MIN_PRODUCT_READY_EXPIRY_MS = 12 * 60 * 60_000;
 const CURATED_ORACLE_CACHE_MS = 15_000;
@@ -50,9 +47,7 @@ export function curateBtcOracles(
     .forEach((oracle) => {
       const readiness = readinessByOracleId.get(oracle.oracle_id);
       const timeToExpiryMs = oracle.expiry - nowMs;
-      const productReady = Boolean(
-        readiness?.stateReady && readiness.quoteReady && timeToExpiryMs >= minProductReadyExpiryMs,
-      );
+      const productReady = Boolean(readiness?.stateReady && timeToExpiryMs >= minProductReadyExpiryMs);
       const item: CuratedOracleListItem = {
         ...oracle,
         stateReady: Boolean(readiness?.stateReady),
@@ -74,36 +69,9 @@ export function curateBtcOracles(
   return [...bestByKey.values()].sort((a, b) => a.expiry - b.expiry);
 }
 
-function representativeTargetBuyInput(market: OracleMarket) {
-  const targetStep = 500;
-  const roundedDownTarget = Math.floor(market.spot / targetStep) * targetStep;
-  const targetPrice = roundedDownTarget >= market.spot ? roundedDownTarget - targetStep : roundedDownTarget;
-  return {
-    principal: 1_000,
-    targetPrice,
-    floorPrice: Math.max(market.minStrike, targetPrice - 5_000),
-    targetLegCount: 6,
-  };
-}
-
-export function quoteReadinessFromLegQuotes(
-  quotes: Array<Pick<LegQuote, 'executable' | 'error'>>,
-): OracleReadiness {
-  const failedQuote = quotes.find((quote) => !quote.executable);
-  if (failedQuote) {
-    return {
-      stateReady: true,
-      quoteReady: false,
-      reason: failedQuote.error ?? 'Representative Target Buy quote is not mintable.',
-    };
-  }
-  return { stateReady: true, quoteReady: true };
-}
-
 async function getOracleReadiness(input: {
   oracle: PredictOracleListItem;
   serverLagSeconds: number;
-  quoteProvider: BatchedLivePreviewQuoteProvider;
 }): Promise<OracleReadiness> {
   try {
     const market = await fetchOracleMarket(input.oracle.oracle_id, {
@@ -121,13 +89,7 @@ async function getOracleReadiness(input: {
       return { stateReady: false, quoteReady: false, reason: 'Oracle state is incomplete.' };
     }
 
-    const legIntents = buildDualInvestmentLegIntents(representativeTargetBuyInput(market), market);
-    if (legIntents.length === 0) {
-      return { stateReady: true, quoteReady: false, reason: 'No valid Target Buy legs.' };
-    }
-
-    const legQuotes = await input.quoteProvider.quoteLegs(legIntents);
-    return quoteReadinessFromLegQuotes(legQuotes);
+    return { stateReady: true, quoteReady: true };
   } catch (error) {
     return {
       stateReady: false,
@@ -142,7 +104,6 @@ async function computeCuratedBtcOracleResponse(nowMs: number): Promise<CuratedOr
     fetchPredictStatus(),
     fetchActiveBtcOracles(DEEPBOOK_PREDICT.predictObjectId),
   ]);
-  const quoteProvider = new BatchedLivePreviewQuoteProvider();
   const candidateOracles = rawOracles.filter((oracle) => oracle.expiry - nowMs >= MIN_PRODUCT_READY_EXPIRY_MS);
   const readinessEntries = await Promise.all(
     candidateOracles.map(async (oracle) => [
@@ -150,7 +111,6 @@ async function computeCuratedBtcOracleResponse(nowMs: number): Promise<CuratedOr
       await getOracleReadiness({
         oracle,
         serverLagSeconds: status.maxTimeLagSeconds,
-        quoteProvider,
       }),
     ] as const),
   );

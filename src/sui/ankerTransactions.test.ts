@@ -3,11 +3,12 @@ import {
   buildClaimDualInvestmentNoteTransaction,
   buildCreatePredictManagerTransaction,
   buildRedeemDualInvestmentNoteTransaction,
-  buildRedeemDualInvestmentTransaction,
+  buildRedeemDualInvestmentPositionsTransaction,
   buildSubscribeDualInvestmentTransaction,
-  buildSubscribeSharkFinMockCurrentTransaction,
   type AnkerProtocolConfig,
 } from './ankerTransactions';
+import type { SettlementResult } from '../products/settlement';
+import { createQuoteEnvelope } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import type { AnkerProductNoteRecord } from './ankerPortfolio';
 
@@ -91,68 +92,6 @@ function quoteFixture(): StructuredProductQuote {
   };
 }
 
-function sharkFinQuoteFixture(): StructuredProductQuote {
-  return {
-    id: 'shark-demo',
-    productType: 'shark-fin',
-    title: 'Bullish BTC Shark Fin',
-    principal: 1_000,
-    principalAsset: 'USDsui',
-    quoteAsset: 'USDsui',
-    oracle: {
-      predictId: PREDICT_OBJECT_ID,
-      oracleId: ORACLE_ID,
-      underlyingAsset: 'BTC',
-      expiryMs: 1_781_683_200_000,
-      minStrike: 50_000,
-      tickSize: 1,
-      status: 'active',
-      spot: 66_172,
-      forward: 66_167,
-      spotTimestampMs: 1,
-      sviTimestampMs: 1,
-      serverLagSeconds: 1,
-    },
-    legs: [
-      {
-        id: 'up-70000',
-        instrumentType: 'binary-up',
-        oracleId: ORACLE_ID,
-        expiryMs: 1_781_683_200_000,
-        strike: 70_000,
-        isUp: true,
-        quantity: 1.5,
-        description: 'UP 70,000',
-        askPrice: 0.2,
-        askCost: 0.3,
-        redeemPreview: 0,
-        quoteTimestampMs: 1,
-        executable: true,
-      },
-    ],
-    totalLegCost: 0.3,
-    reserve: 1_000,
-    coupon: 0.38,
-    apr: 0.14,
-    sharkFin: {
-      direction: 'bullish',
-      currentApr: 0.08,
-      baseApr: 0.02,
-      maxApr: 0.14,
-      termDays: 7,
-      projectedCurrentYield: 1.53,
-      baseCoupon: 0.38,
-      optionBudget: 1.15,
-      optionBudgetUsed: 0.3,
-      leftoverBudget: 0.85,
-      payoutPerLeg: 1.5,
-      maxExtraPayout: 1.5,
-    },
-    executable: true,
-    scenarios: [],
-  };
-}
-
 function dualInputFixture(): DualInvestmentInput {
   return {
     principal: 1_000,
@@ -160,6 +99,16 @@ function dualInputFixture(): DualInvestmentInput {
     floorPrice: 61_000,
     targetLegCount: 2,
   };
+}
+
+function quoteEnvelopeFixture(quote = quoteFixture(), ttlMs = 30_000) {
+  return createQuoteEnvelope({
+    quote,
+    network: 'testnet',
+    quoteAssetDecimals: config.quoteAssetDecimals,
+    ttlMs,
+    slippageBps: 100,
+  });
 }
 
 function noteFixture(): AnkerProductNoteRecord {
@@ -172,8 +121,11 @@ function noteFixture(): AnkerProductNoteRecord {
     oracleId: ORACLE_ID,
     expiryMs: 1_781_683_200_000,
     principal: 1_000,
+    principalBaseUnits: 1_000_000_000n,
     reserve: 610,
+    reserveBaseUnits: 610_000_000n,
     coupon: 20,
+    couponBaseUnits: 20_000_000n,
     targetPrice: 66_000,
     floorPrice: 61_000,
     lowerBound: 0,
@@ -183,12 +135,24 @@ function noteFixture(): AnkerProductNoteRecord {
     apr: 1.9264,
     feeBps: 1_000,
     legs: [
-      { strike: 61_000, quantity: 10, cost: 2.1 },
-      { strike: 62_000, quantity: 12.5, cost: 3.125 },
+      { strike: 61_000, quantity: 10, quantityBaseUnits: 10_000_000n, cost: 2.1, costBaseUnits: 2_100_000n },
+      { strike: 62_000, quantity: 12.5, quantityBaseUnits: 12_500_000n, cost: 3.125, costBaseUnits: 3_125_000n },
     ],
     status: 'open',
     redeemedPayout: 0,
+    redeemedPayoutBaseUnits: 0n,
     redeemedFee: 0,
+    redeemedFeeBaseUnits: 0n,
+  };
+}
+
+function settlementFixture(overrides: Partial<SettlementResult> = {}): SettlementResult {
+  return {
+    grossPayoutBaseUnits: 1_020_000_000n,
+    performanceFeeBaseUnits: 2_000_000n,
+    netPayoutBaseUnits: 1_018_000_000n,
+    realizedLegs: [],
+    ...overrides,
   };
 }
 
@@ -200,11 +164,15 @@ describe('Anker transaction builders', () => {
   });
 
   it('builds a Target Buy subscribe PTB plan with deposit, Predict mints, and Anker note creation', () => {
+    const quote = quoteFixture();
+    const quoteEnvelope = quoteEnvelopeFixture(quote);
     const plan = buildSubscribeDualInvestmentTransaction({
       accountAddress: OWNER,
       managerId: MANAGER_ID,
       productInput: dualInputFixture(),
-      quote: quoteFixture(),
+      quote,
+      quoteEnvelope,
+      nowMs: 1,
       config,
     });
 
@@ -214,6 +182,7 @@ describe('Anker transaction builders', () => {
     expect(plan.legCosts).toEqual([2_100_000n, 3_125_000n]);
     expect(plan.targetPrice).toBe(66_000_000_000_000n);
     expect(plan.floorPrice).toBe(61_000_000_000_000n);
+    expect(new TextDecoder().decode(Uint8Array.from(plan.productIdBytes))).toBe(quoteEnvelope.productHash);
     expect(plan.calls).toEqual([
       `${PREDICT_PACKAGE_ID}::predict_manager::deposit`,
       `${PREDICT_PACKAGE_ID}::market_key::new`,
@@ -225,101 +194,115 @@ describe('Anker transaction builders', () => {
     ]);
   });
 
-  it('builds a Shark Fin mock-Current subscribe PTB plan', () => {
-    const plan = buildSubscribeSharkFinMockCurrentTransaction({
-      accountAddress: OWNER,
-      managerId: MANAGER_ID,
-      quote: sharkFinQuoteFixture(),
-      lowerBound: 70_000,
-      upperBound: 80_000,
-      config,
-    });
-
-    expect(plan.depositAmount).toBe(300_000n);
-    expect(plan.principalAmount).toBe(1_000_000_000n);
-    expect(plan.baseCouponAmount).toBe(380_000n);
-    expect(plan.currentYieldAmount).toBe(1_530_000n);
-    expect(plan.lowerBound).toBe(70_000_000_000_000n);
-    expect(plan.upperBound).toBe(80_000_000_000_000n);
-    expect(plan.calls).toEqual([
-      `${PREDICT_PACKAGE_ID}::predict_manager::deposit`,
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::mint`,
-      `${ANKER_PACKAGE_ID}::product_note::new_shark_fin_note_with_mock_current_deposit`,
-      'transferObjects',
-    ]);
+  it('rejects expired Target Buy quote envelopes before signing', () => {
+    expect(() =>
+      buildSubscribeDualInvestmentTransaction({
+        accountAddress: OWNER,
+        managerId: MANAGER_ID,
+        productInput: dualInputFixture(),
+        quote: quoteFixture(),
+        quoteEnvelope: quoteEnvelopeFixture(quoteFixture(), 1),
+        nowMs: 1_000,
+        config,
+      }),
+    ).toThrow('Quote expired');
   });
 
-  it('builds a redeem PTB plan that redeems Predict legs and records the Anker fee', () => {
-    const plan = buildRedeemDualInvestmentTransaction({
-      accountAddress: OWNER,
-      managerId: MANAGER_ID,
-      noteId: NOTE_ID,
-      quote: quoteFixture(),
-      feeAmount: 1.23,
-      payoutAmount: 1_030,
-      config,
-    });
+  it('rejects unsafe base-unit amount conversion before building a subscribe transaction', () => {
+    const quote = {
+      ...quoteFixture(),
+      principal: Number.MAX_SAFE_INTEGER / 1_000_000 + 1,
+    };
 
-    expect(plan.feeAmount).toBe(1_230_000n);
-    expect(plan.payoutAmount).toBe(1_030_000_000n);
-    expect(plan.netPayoutAmount).toBe(1_028_770_000n);
-    expect(plan.calls).toEqual([
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::redeem`,
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::redeem`,
-      `${PREDICT_PACKAGE_ID}::predict_manager::withdraw`,
-      `${PREDICT_PACKAGE_ID}::predict_manager::withdraw`,
-      `${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`,
-      'transferObjects',
-    ]);
+    expect(() =>
+      buildSubscribeDualInvestmentTransaction({
+        accountAddress: OWNER,
+        managerId: MANAGER_ID,
+        productInput: dualInputFixture(),
+        quote,
+        quoteEnvelope: quoteEnvelopeFixture(quote),
+        nowMs: 1,
+        config,
+      }),
+    ).toThrow('Quote principal exceeds safe integer range');
   });
 
-  it('builds a redeem PTB directly from an owned Anker ProductNote record', () => {
+  it('rejects invalid APR before encoding note metadata', () => {
+    const quote = {
+      ...quoteFixture(),
+      apr: -0.01,
+    };
+
+    expect(() =>
+      buildSubscribeDualInvestmentTransaction({
+        accountAddress: OWNER,
+        managerId: MANAGER_ID,
+        productInput: dualInputFixture(),
+        quote,
+        quoteEnvelope: quoteEnvelopeFixture(quote),
+        nowMs: 1,
+        config,
+      }),
+    ).toThrow('Quote APR must be a non-negative finite number');
+  });
+
+  it('rejects subscribe quotes from a different Predict deployment than the transaction config', () => {
+    const quote = {
+      ...quoteFixture(),
+      oracle: {
+        ...quoteFixture().oracle,
+        predictId: `0x${'9'.repeat(64)}`,
+      },
+    };
+
+    expect(() =>
+      buildSubscribeDualInvestmentTransaction({
+        accountAddress: OWNER,
+        managerId: MANAGER_ID,
+        productInput: dualInputFixture(),
+        quote,
+        quoteEnvelope: quoteEnvelopeFixture(quote),
+        nowMs: 1,
+        config,
+      }),
+    ).toThrow('Quote Predict object does not match configured Predict object.');
+  });
+
+  it('builds a redeem-position PTB directly from an owned Anker ProductNote record', () => {
     const plan = buildRedeemDualInvestmentNoteTransaction({
       accountAddress: OWNER,
       note: noteFixture(),
-      feeAmount: 2,
-      payoutAmount: 1_020,
       config,
     });
 
-    expect(plan.feeAmount).toBe(2_000_000n);
-    expect(plan.payoutAmount).toBe(1_020_000_000n);
-    expect(plan.netPayoutAmount).toBe(1_018_000_000n);
+    expect(plan.feeAmount).toBe(0n);
+    expect(plan.payoutAmount).toBe(0n);
+    expect(plan.netPayoutAmount).toBe(0n);
+    expect(plan.claimMode).toBe('redeem-positions');
     expect(plan.calls).toEqual([
       `${PREDICT_PACKAGE_ID}::market_key::new`,
       `${PREDICT_PACKAGE_ID}::predict::redeem`,
       `${PREDICT_PACKAGE_ID}::market_key::new`,
       `${PREDICT_PACKAGE_ID}::predict::redeem`,
-      `${PREDICT_PACKAGE_ID}::predict_manager::withdraw`,
-      `${PREDICT_PACKAGE_ID}::predict_manager::withdraw`,
-      `${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`,
-      'transferObjects',
     ]);
   });
 
   it('builds a claim PTB that redeems open Predict legs before withdrawing DUSDC', () => {
-    const plan = buildClaimDualInvestmentNoteTransaction({
+    const plan = buildRedeemDualInvestmentPositionsTransaction({
       accountAddress: OWNER,
       note: noteFixture(),
-      feeAmount: 2,
-      payoutAmount: 1_020,
-      redeemLegs: true,
       config,
     });
 
-    expect(plan.claimMode).toBe('redeem-and-withdraw');
+    expect(plan.claimMode).toBe('redeem-positions');
+    expect(plan.feeAmount).toBe(0n);
+    expect(plan.payoutAmount).toBe(0n);
+    expect(plan.netPayoutAmount).toBe(0n);
     expect(plan.calls).toEqual([
       `${PREDICT_PACKAGE_ID}::market_key::new`,
       `${PREDICT_PACKAGE_ID}::predict::redeem`,
       `${PREDICT_PACKAGE_ID}::market_key::new`,
       `${PREDICT_PACKAGE_ID}::predict::redeem`,
-      `${PREDICT_PACKAGE_ID}::predict_manager::withdraw`,
-      `${PREDICT_PACKAGE_ID}::predict_manager::withdraw`,
-      `${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`,
-      'transferObjects',
     ]);
   });
 
@@ -327,9 +310,7 @@ describe('Anker transaction builders', () => {
     const plan = buildClaimDualInvestmentNoteTransaction({
       accountAddress: OWNER,
       note: noteFixture(),
-      feeAmount: 2,
-      payoutAmount: 1_020,
-      redeemLegs: false,
+      settlement: settlementFixture(),
       config,
     });
 

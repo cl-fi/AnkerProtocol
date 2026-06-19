@@ -1,12 +1,10 @@
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from './types';
 import { alignToGrid } from './strikeGrid';
-
-export type ScanQuoteStatus = 'live' | 'no-coupon' | 'unavailable';
+import { estimateTargetBuyFloorPrice } from './predictPricing';
 
 export interface DualInvestmentScanRow {
   input: DualInvestmentInput;
   quote: StructuredProductQuote | null;
-  status: ScanQuoteStatus;
   error?: string;
 }
 
@@ -30,7 +28,11 @@ export function buildDualInvestmentScanInputs(input: {
     .filter((targetPrice) => targetPrice > input.market.minStrike && targetPrice < input.market.spot)
     .map((targetPrice) => {
       const floorPrice = alignToGrid(
-        Math.max(input.market.minStrike, targetPrice - floorDistance),
+        estimateTargetBuyFloorPrice({
+          market: input.market,
+          targetPrice,
+          fallbackFloorDistance: floorDistance,
+        }),
         input.market.minStrike,
         input.market.tickSize,
       ).aligned;
@@ -43,16 +45,10 @@ export function buildDualInvestmentScanInputs(input: {
     });
 }
 
-export function classifyScanQuote(input: Pick<StructuredProductQuote, 'coupon' | 'executable'>): ScanQuoteStatus {
-  if (input.coupon <= 0) return 'no-coupon';
-  return input.executable ? 'live' : 'unavailable';
-}
-
 export function scanQuoteDisplayMetrics(input: {
-  status: ScanQuoteStatus;
   quote: Pick<StructuredProductQuote, 'coupon' | 'apr' | 'totalLegCost'> | null;
 }) {
-  if (input.status !== 'live' || !input.quote) {
+  if (!input.quote || input.quote.coupon <= 0) {
     return {
       coupon: 0,
       apr: null,

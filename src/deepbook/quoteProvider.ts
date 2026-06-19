@@ -1,6 +1,7 @@
 import { SuiJsonRpcClient, getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
 import { Transaction } from '@mysten/sui/transactions';
-import { DEEPBOOK_PREDICT } from '../config/deepbook';
+import { DEEPBOOK_PREDICT, SUI_NETWORK } from '../config/deepbook';
+import { isDeterministicE2E } from '../config/runtimeModes';
 import type { LegIntent, LegQuote } from '../products/types';
 import { toChainPrice } from '../products/units';
 
@@ -51,8 +52,23 @@ export function applyPredictMintBounds(
   };
 }
 
-function toQuoteBaseUnits(value: number): bigint {
-  return BigInt(Math.max(1, Math.round(value * QUOTE_ASSET_SCALE)));
+export function toPreviewQuantityBaseUnits(value: number): bigint {
+  if (!Number.isFinite(value)) {
+    throw new Error('Preview quantity must be a finite number.');
+  }
+  if (value <= 0) {
+    throw new Error('Preview quantity must be greater than zero.');
+  }
+
+  const rounded = Math.round(value * QUOTE_ASSET_SCALE);
+  if (rounded <= 0) {
+    throw new Error('Preview quantity rounds to zero base units.');
+  }
+  if (!Number.isSafeInteger(rounded)) {
+    throw new Error('Preview quantity exceeds safe integer range.');
+  }
+
+  return BigInt(rounded);
 }
 
 function fromQuoteBaseUnits(value: bigint): number {
@@ -134,7 +150,7 @@ function addPreviewCall(tx: Transaction, leg: LegIntent) {
       tx.object(DEEPBOOK_PREDICT.predictObjectId),
       tx.object(leg.oracleId),
       key,
-      tx.pure.u64(toQuoteBaseUnits(leg.quantity)),
+      tx.pure.u64(toPreviewQuantityBaseUnits(leg.quantity)),
       tx.object.clock(),
     ],
   });
@@ -168,8 +184,8 @@ export class SnapshotQuoteProvider implements QuoteProvider {
 
 export class LivePreviewQuoteProvider implements QuoteProvider {
   private readonly client = new SuiJsonRpcClient({
-    network: 'testnet',
-    url: getJsonRpcFullnodeUrl('testnet'),
+    network: SUI_NETWORK,
+    url: getJsonRpcFullnodeUrl(SUI_NETWORK),
   });
 
   constructor(private readonly fallback: QuoteProvider = new SnapshotQuoteProvider()) {}
@@ -209,8 +225,8 @@ export class LivePreviewQuoteProvider implements QuoteProvider {
 
 export class BatchedLivePreviewQuoteProvider implements QuoteProvider {
   private readonly client = new SuiJsonRpcClient({
-    network: 'testnet',
-    url: getJsonRpcFullnodeUrl('testnet'),
+    network: SUI_NETWORK,
+    url: getJsonRpcFullnodeUrl(SUI_NETWORK),
   });
 
   async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
@@ -231,4 +247,8 @@ export class BatchedLivePreviewQuoteProvider implements QuoteProvider {
       return applyPredictMintBounds(leg, normalized);
     });
   }
+}
+
+export function createDefaultQuoteProvider(): QuoteProvider {
+  return isDeterministicE2E() ? new SnapshotQuoteProvider() : new BatchedLivePreviewQuoteProvider();
 }

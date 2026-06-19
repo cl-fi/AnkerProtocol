@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PredictOracleListItem } from '../deepbook/predictServer';
-import { curateBtcOracles, quoteReadinessFromLegQuotes, type OracleReadiness } from './curatedOracles';
+import { curateBtcOracles, type OracleReadiness } from './curatedOracles';
 
 function oracle(input: Partial<PredictOracleListItem> & { oracle_id: string; expiry: number }): PredictOracleListItem {
   return {
@@ -15,11 +15,11 @@ function oracle(input: Partial<PredictOracleListItem> & { oracle_id: string; exp
 }
 
 describe('curateBtcOracles', () => {
-  it('keeps quote-ready short product expiries and filters unavailable markets', () => {
+  it('keeps state-ready product expiries even when the representative quote is unavailable', () => {
     const now = 1_000;
     const readiness = new Map<string, OracleReadiness>([
       ['four-hour', { stateReady: true, quoteReady: false, reason: 'MoveAbort' }],
-      ['eighteen-hour', { stateReady: true, quoteReady: true }],
+      ['eighteen-hour', { stateReady: true, quoteReady: false, reason: 'Representative quote not mintable' }],
       ['forty-two-hour', { stateReady: true, quoteReady: true }],
     ]);
 
@@ -37,8 +37,9 @@ describe('curateBtcOracles', () => {
     expect(curated[0]).toMatchObject({
       oracle_id: 'eighteen-hour',
       productReady: true,
-      quoteReady: true,
+      quoteReady: false,
       stateReady: true,
+      reason: 'Representative quote not mintable',
     });
   });
 
@@ -64,6 +65,31 @@ describe('curateBtcOracles', () => {
     expect(curated.map((item) => item.oracle_id)).toEqual(['ready-duplicate', 'next-expiry']);
   });
 
+  it('keeps a product expiry when every duplicate has a non-mintable representative quote', () => {
+    const now = 1_000;
+    const expiry = now + 18 * 60 * 60_000;
+    const readiness = new Map<string, OracleReadiness>([
+      ['unready-a', { stateReady: true, quoteReady: false, reason: 'ask outside bounds' }],
+      ['unready-b', { stateReady: true, quoteReady: false, reason: 'ask outside bounds' }],
+    ]);
+
+    const curated = curateBtcOracles(
+      [
+        oracle({ oracle_id: 'unready-a', expiry }),
+        oracle({ oracle_id: 'unready-b', expiry }),
+      ],
+      readiness,
+      now,
+    );
+
+    expect(curated).toHaveLength(1);
+    expect(curated[0]).toMatchObject({
+      productReady: true,
+      quoteReady: false,
+      stateReady: true,
+    });
+  });
+
   it('drops expired, non-BTC, inactive, and too-near markets', () => {
     const now = 1_000;
     const readiness = new Map<string, OracleReadiness>([
@@ -87,22 +113,5 @@ describe('curateBtcOracles', () => {
     );
 
     expect(curated.map((item) => item.oracle_id)).toEqual(['ready']);
-  });
-});
-
-describe('quoteReadinessFromLegQuotes', () => {
-  it('does not mark an oracle quote-ready when representative legs are not mintable', () => {
-    const readiness = quoteReadinessFromLegQuotes([
-      {
-        executable: false,
-        error: 'Ask price 1.0010 is outside Predict mint bounds 0.01-0.99.',
-      },
-    ]);
-
-    expect(readiness).toEqual({
-      stateReady: true,
-      quoteReady: false,
-      reason: 'Ask price 1.0010 is outside Predict mint bounds 0.01-0.99.',
-    });
   });
 });

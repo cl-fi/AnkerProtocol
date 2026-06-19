@@ -15,6 +15,10 @@ describe('alignToGrid', () => {
       73_189_000_000_000,
     );
   });
+
+  it('rejects non-positive tick sizes', () => {
+    expect(() => alignToGrid(73_000, 50_000, 0)).toThrow('tickSize must be positive');
+  });
 });
 
 describe('buildStrikeLadder', () => {
@@ -29,5 +33,10 @@ describe('buildStrikeLadder', () => {
       70_000,
       72_000,
     ]);
+  });
+
+  it('rejects non-positive steps instead of looping forever', () => {
+    expect(() => buildStrikeLadder({ floor: 58_000, target: 73_000, step: 0 })).toThrow('step must be positive');
+    expect(() => buildStrikeLadder({ floor: 58_000, target: 73_000, step: -1 })).toThrow('step must be positive');
   });
 });

@@ -44,6 +44,38 @@ function tableId(value: unknown): string {
   return asString(asRecord(record.fields)?.id ?? record.id);
 }
 
+function parseU64BaseUnits(value: unknown, fieldName: string): string {
+  const raw = asString(value);
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(`Predict manager ${fieldName} is not a u64 string.`);
+  }
+  return raw;
+}
+
+function safeNumberFromU64(baseUnits: string, fieldName: string): number {
+  const value = BigInt(baseUnits);
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error(`Predict manager ${fieldName} exceeds safe integer range.`);
+  }
+  return Number(value);
+}
+
+function decimalFromBaseUnits(baseUnits: string, fieldName: string): number {
+  return safeNumberFromU64(baseUnits, fieldName) / 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals;
+}
+
+function chainPriceFromBaseUnits(baseUnits: string, fieldName: string): number {
+  return fromChainPrice(safeNumberFromU64(baseUnits, fieldName));
+}
+
+function parsePositionDirection(value: unknown): boolean {
+  const raw = parseU64BaseUnits(value, 'position direction');
+  if (raw !== '0' && raw !== '1') {
+    throw new Error('Predict manager position direction must be 0 or 1.');
+  }
+  return raw === '0';
+}
+
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
   const response = await fetch(TESTNET_GRPC_URL, {
     method: 'POST',
@@ -99,8 +131,9 @@ function parseDusdcBalance(objects: SuiObjectResponse[]) {
     const type = asString(asRecord(name)?.type);
     return type.includes(DEEPBOOK_PREDICT.quoteAssetType);
   });
-  const value = asString(dusdcObject?.data?.content?.fields?.value);
-  return value ? Number(value) / 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals : 0;
+  if (!dusdcObject) return { amount: 0, baseUnits: '0' };
+  const baseUnits = parseU64BaseUnits(dusdcObject.data?.content?.fields?.value, 'DUSDC balance');
+  return { amount: decimalFromBaseUnits(baseUnits, 'DUSDC balance'), baseUnits };
 }
 
 function parsePosition(field: { name?: unknown }, object: SuiObjectResponse): PredictManagerPosition | null {
@@ -108,14 +141,21 @@ function parsePosition(field: { name?: unknown }, object: SuiObjectResponse): Pr
   const value = asRecord(name?.value) ?? asRecord(asRecord(object.data?.content?.fields?.name)?.fields);
   if (!value) return null;
 
-  const quantity = Number(asString(object.data?.content?.fields?.value) || 0) / 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals;
+  const quantityBaseUnits = parseU64BaseUnits(object.data?.content?.fields?.value, 'position quantity');
+  const expiryBaseUnits = parseU64BaseUnits(value.expiry, 'position expiry');
+  const strikeBaseUnits = parseU64BaseUnits(value.strike, 'position strike');
   return {
     oracleId: asString(value.oracle_id),
-    expiryMs: Number(asString(value.expiry) || 0),
-    strike: fromChainPrice(asString(value.strike)),
-    isUp: Number(asString(value.direction) || 0) === 0,
-    quantity,
+    expiryMs: safeNumberFromU64(expiryBaseUnits, 'position expiry'),
+    strike: chainPriceFromBaseUnits(strikeBaseUnits, 'position strike'),
+    isUp: parsePositionDirection(value.direction),
+    quantity: decimalFromBaseUnits(quantityBaseUnits, 'position quantity'),
+    quantityBaseUnits,
   };
+}
+
+function objectsById(objects: SuiObjectResponse[]) {
+  return new Map(objects.flatMap((object) => (object.data?.objectId ? [[object.data.objectId, object]] : [])));
 }
 
 export async function GET(request: Request) {
@@ -138,14 +178,20 @@ export async function GET(request: Request) {
       multiGetObjects(positionFields.flatMap((field) => (field.objectId ? [field.objectId] : []))),
     ]);
 
-    const positions = positionFields.flatMap((field, index) => {
-      const position = parsePosition(field, positionObjects[index]);
+    const positionObjectsById = objectsById(positionObjects);
+    const positions = positionFields.flatMap((field) => {
+      if (!field.objectId) return [];
+      const object = positionObjectsById.get(field.objectId);
+      if (!object) return [];
+      const position = parsePosition(field, object);
       return position ? [position] : [];
     });
+    const dusdcBalance = parseDusdcBalance(balanceObjects);
 
     const state: PredictManagerState = {
       managerId,
-      dusdcBalance: parseDusdcBalance(balanceObjects),
+      dusdcBalance: dusdcBalance.amount,
+      dusdcBalanceBaseUnits: dusdcBalance.baseUnits,
       positions,
       generatedAt: Date.now(),
     };

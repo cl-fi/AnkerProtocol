@@ -1,50 +1,43 @@
 import { useMemo } from 'react';
-import { BatchedLivePreviewQuoteProvider } from '../deepbook/quoteProvider';
+import { createDefaultQuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
-import { buildVerifiedSharkFinQuote } from './useSharkFinQuote';
-import type { DualInvestmentInput, OracleMarket, ProductType, SharkFinInput } from '../products/types';
+import type { DualInvestmentInput, OracleMarket, ProductType } from '../products/types';
 
-const quoteProvider = new BatchedLivePreviewQuoteProvider();
+const quoteProvider = createDefaultQuoteProvider();
 
 export interface StructuredQuoteState {
   productType: ProductType;
   dualInput: DualInvestmentInput;
-  sharkInput: SharkFinInput;
 }
 
 export async function buildStructuredQuote(input: {
   state: StructuredQuoteState;
   oracle: OracleMarket;
 }) {
-  if (input.state.productType === 'dual-investment') {
-    const intents = buildDualInvestmentLegIntents(input.state.dualInput, input.oracle);
-    const quotedLegs = await quoteProvider.quoteLegs(intents);
-    return compileDualInvestment({ input: input.state.dualInput, oracle: input.oracle, quotedLegs });
-  }
-
-  return buildVerifiedSharkFinQuote({ productInput: input.state.sharkInput, oracle: input.oracle });
+  const intents = buildDualInvestmentLegIntents(input.state.dualInput, input.oracle);
+  const quotedLegs = await quoteProvider.quoteLegs(intents);
+  return compileDualInvestment({ input: input.state.dualInput, oracle: input.oracle, quotedLegs });
 }
 
 export function useDefaultStructuredQuoteState(spot: number): StructuredQuoteState {
   return useMemo(
-    () => ({
-      productType: 'dual-investment',
-      dualInput: {
-        principal: 1_000,
-        targetPrice: Math.round(spot * 1.005),
-        floorPrice: Math.round(spot * 0.995),
-        stepSize: 500,
-      },
-      sharkInput: {
-        principal: 1_000,
-        direction: 'bullish',
-        lowerBound: Math.round(spot),
-        upperBound: Math.round(spot * 1.1),
-        currentApr: 0.08,
-        baseApr: 0.02,
-        targetLegCount: 6,
-      },
-    }),
+    () => {
+      const targetStep = 500;
+      const roundedDownTarget = Math.floor(spot / targetStep) * targetStep;
+      const targetPrice =
+        roundedDownTarget >= spot ? roundedDownTarget - targetStep : roundedDownTarget;
+      const floorPrice = Math.max(targetStep, targetPrice - 5_000);
+
+      return {
+        productType: 'dual-investment',
+        dualInput: {
+          principal: 1_000,
+          targetPrice,
+          floorPrice,
+          stepSize: targetStep,
+        },
+      };
+    },
     [spot],
   );
 }

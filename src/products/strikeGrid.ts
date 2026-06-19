@@ -6,6 +6,9 @@ export interface StrikeAlignment {
 }
 
 export function alignToGrid(input: number, minStrike: number, tickSize: number): StrikeAlignment {
+  if (tickSize <= 0) {
+    throw new Error('tickSize must be positive.');
+  }
   const ticks = Math.round((input - minStrike) / tickSize);
   const aligned = minStrike + ticks * tickSize;
   const diff = aligned - input;
@@ -18,6 +21,9 @@ export function buildStrikeLadder(input: {
   target: number;
   step: number;
 }): number[] {
+  if (input.step <= 0) {
+    throw new Error('step must be positive.');
+  }
   const strikes: number[] = [];
   for (let strike = input.floor; strike < input.target; strike += input.step) {
     strikes.push(strike);

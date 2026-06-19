@@ -17,15 +17,19 @@ export async function buildCurrentAprResponse(input: {
     return Response.json(await fetchSnapshot());
   } catch {
     const nowMs = input.nowMs ?? Date.now();
-    return Response.json({
-      baseSupplyApr: FALLBACK_CURRENT_APR,
-      rewardApr: 0,
-      totalApr: FALLBACK_CURRENT_APR,
-      marketName: CURRENT_MAIN_MARKET_NAME,
-      coinType: CURRENT_USDSUI_COIN_TYPE,
-      updatedAt: nowMs,
-      supplyPaused: false,
-      source: 'current-api-fallback',
-    } satisfies CurrentUsdsuiAprSnapshot);
+    return Response.json(
+      {
+        error: 'Current USDsui APR is unavailable; fallback APR is indicative only.',
+        baseSupplyApr: FALLBACK_CURRENT_APR,
+        rewardApr: 0,
+        totalApr: FALLBACK_CURRENT_APR,
+        marketName: CURRENT_MAIN_MARKET_NAME,
+        coinType: CURRENT_USDSUI_COIN_TYPE,
+        updatedAt: nowMs,
+        supplyPaused: false,
+        source: 'current-api-fallback',
+      } satisfies CurrentUsdsuiAprSnapshot & { error: string },
+      { status: 503 },
+    );
   }
 }

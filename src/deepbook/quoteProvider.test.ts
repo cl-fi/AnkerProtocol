@@ -1,5 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import { applyPredictMintBounds, normalizePreviewResult, parseDevInspectLegAmounts } from './quoteProvider';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  applyPredictMintBounds,
+  createDefaultQuoteProvider,
+  normalizePreviewResult,
+  parseDevInspectLegAmounts,
+  SnapshotQuoteProvider,
+  toPreviewQuantityBaseUnits,
+} from './quoteProvider';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('normalizePreviewResult', () => {
   it('normalizes mint cost and redeem payout', () => {
@@ -38,6 +49,17 @@ describe('parseDevInspectLegAmounts', () => {
   });
 });
 
+describe('toPreviewQuantityBaseUnits', () => {
+  it('converts preview quantities without silently clamping invalid values', () => {
+    expect(toPreviewQuantityBaseUnits(1.25)).toBe(1_250_000n);
+    expect(() => toPreviewQuantityBaseUnits(0)).toThrow('Preview quantity must be greater than zero');
+    expect(() => toPreviewQuantityBaseUnits(0.0000001)).toThrow('Preview quantity rounds to zero base units');
+    expect(() => toPreviewQuantityBaseUnits(Number.MAX_SAFE_INTEGER / 1_000_000 + 1)).toThrow(
+      'Preview quantity exceeds safe integer range',
+    );
+  });
+});
+
 describe('applyPredictMintBounds', () => {
   it('marks quoted legs outside the Predict mint ask bounds as not executable', () => {
     const quote = applyPredictMintBounds(
@@ -59,5 +81,13 @@ describe('applyPredictMintBounds', () => {
     expect(quote.askPrice).toBeCloseTo(1.001);
     expect(quote.executable).toBe(false);
     expect(quote.error).toContain('outside Predict mint bounds');
+  });
+});
+
+describe('createDefaultQuoteProvider', () => {
+  it('uses deterministic snapshot quotes for e2e runs', () => {
+    vi.stubEnv('NEXT_PUBLIC_ANKER_DETERMINISTIC_E2E', 'true');
+
+    expect(createDefaultQuoteProvider()).toBeInstanceOf(SnapshotQuoteProvider);
   });
 });

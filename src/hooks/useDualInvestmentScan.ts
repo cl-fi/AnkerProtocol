@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { BatchedLivePreviewQuoteProvider, type QuoteProvider } from '../deepbook/quoteProvider';
+import { createDefaultQuoteProvider, type QuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
-import {
-  buildDualInvestmentScanInputs,
-  classifyScanQuote,
-  type DualInvestmentScanRow,
-} from '../products/dualInvestmentScan';
-import type { DualInvestmentInput, OracleMarket } from '../products/types';
+import { buildDualInvestmentScanInputs, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
+import { DEFAULT_MAX_PREDICT_ASK, DEFAULT_MIN_PREDICT_ASK, estimateBinaryUpAskPrice } from '../products/predictPricing';
+import type { DualInvestmentInput, LegIntent, LegQuote, OracleMarket } from '../products/types';
 
-const liveQuoteProvider = new BatchedLivePreviewQuoteProvider();
+const liveQuoteProvider = createDefaultQuoteProvider();
+
+function errorMessage(error: unknown, fallback = 'Quote preview failed.') {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export async function buildVerifiedDualInvestmentQuote(input: {
   oracle: OracleMarket;
@@ -25,48 +26,106 @@ export async function buildVerifiedDualInvestmentQuote(input: {
   });
 }
 
+function fallbackIndicativeAskPrice(market: OracleMarket, leg: LegIntent) {
+  if (leg.strike === undefined || market.forward <= 0) return 0.5;
+  const distance = Math.abs(leg.strike - market.forward) / market.forward;
+  const directionalPrice =
+    leg.instrumentType === 'binary-down' ? 0.5 + distance * 4 : 0.5 - (leg.strike - market.forward) / market.forward * 4;
+  return directionalPrice;
+}
+
+function clampIndicativeAskPrice(market: OracleMarket, value: number) {
+  const minAskPrice = Math.max(DEFAULT_MIN_PREDICT_ASK, market.predictPricing?.minAskPrice ?? DEFAULT_MIN_PREDICT_ASK);
+  const maxAskPrice = market.predictPricing?.maxAskPrice ?? DEFAULT_MAX_PREDICT_ASK;
+  return Math.min(maxAskPrice, Math.max(minAskPrice, value));
+}
+
+function buildIndicativeLegQuote(market: OracleMarket, leg: LegIntent): LegQuote {
+  const sviAskPrice =
+    leg.instrumentType === 'binary-up' && leg.strike !== undefined
+      ? estimateBinaryUpAskPrice({ market, strike: leg.strike })
+      : null;
+  const askPrice = clampIndicativeAskPrice(market, sviAskPrice ?? fallbackIndicativeAskPrice(market, leg));
+  const askCost = askPrice * leg.quantity;
+  return {
+    ...leg,
+    askPrice,
+    askCost,
+    redeemPreview: askCost,
+    quoteTimestampMs: Date.now(),
+    executable: true,
+  };
+}
+
 export async function buildDualInvestmentScan(input: {
   market: OracleMarket;
   principal: number;
-  quoteProvider?: QuoteProvider;
 }): Promise<DualInvestmentScanRow[]> {
-  const provider = input.quoteProvider ?? liveQuoteProvider;
   const scanInputs = buildDualInvestmentScanInputs({
     market: input.market,
     principal: input.principal,
   });
 
-  return Promise.all(
-    scanInputs.map(async (productInput) => {
-      try {
-        const quote = await buildVerifiedDualInvestmentQuote({
-          oracle: input.market,
-          productInput,
-          quoteProvider: provider,
-        });
-        return {
-          input: productInput,
-          quote,
-          status: classifyScanQuote(quote),
-        };
-      } catch (error) {
-        return {
-          input: productInput,
-          quote: null,
-          status: 'unavailable' as const,
-          error: error instanceof Error ? error.message : 'Quote preview failed.',
-        };
-      }
-    }),
-  );
+  const preparedRows = scanInputs.map((productInput) => {
+    try {
+      return {
+        input: productInput,
+        intents: buildDualInvestmentLegIntents(productInput, input.market),
+      };
+    } catch (error) {
+      return {
+        input: productInput,
+        intents: null,
+        error: errorMessage(error),
+      };
+    }
+  });
+
+  return preparedRows.map((row) => {
+    if (!row.intents) {
+      return {
+        input: row.input,
+        quote: null,
+        error: row.error,
+      };
+    }
+
+    try {
+      const quotedLegs = row.intents.map((intent) => buildIndicativeLegQuote(input.market, intent));
+      const quote = compileDualInvestment({
+        input: row.input,
+        oracle: input.market,
+        quotedLegs,
+      });
+      return {
+        input: row.input,
+        quote,
+      };
+    } catch (error) {
+      return {
+        input: row.input,
+        quote: null,
+        error: errorMessage(error),
+      };
+    }
+  });
 }
 
 export function useDualInvestmentScan(input: { market?: OracleMarket; principal: number; enabled?: boolean }) {
   return useQuery({
-    queryKey: ['dual-investment-scan', input.market?.oracleId, input.principal],
+    queryKey: [
+      'dual-investment-scan',
+      input.market?.oracleId,
+      input.market?.spotTimestampMs,
+      input.market?.sviTimestampMs,
+      input.market?.predictPricing?.baseSpread,
+      input.market?.predictPricing?.minSpread,
+      input.market?.predictPricing?.utilizationMultiplier,
+      input.market?.predictPricing?.vaultUtilization,
+      input.principal,
+    ],
     enabled: Boolean(input.market) && (input.enabled ?? true),
     queryFn: () => buildDualInvestmentScan({ market: input.market as OracleMarket, principal: input.principal }),
-    refetchInterval: 10_000,
     retry: 0,
     placeholderData: (previous) => previous,
   });

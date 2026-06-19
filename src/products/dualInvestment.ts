@@ -8,6 +8,8 @@ import type {
 import { aprFromCoupon, daysBetween } from './units';
 import { alignToGrid, buildStrikeLadder } from './strikeGrid';
 import { simulatePayoff } from './payoff';
+import { assertValidDualInvestmentInput, assertValidDualInvestmentQuote } from './dualInvestmentValidation';
+import { legIdentityKey } from './legIdentity';
 
 interface LadderInterval {
   strike: number;
@@ -50,12 +52,23 @@ function buildLadderIntervals(input: DualInvestmentInput, oracle: OracleMarket):
   }));
 }
 
+function hasLegIdentity(leg: Partial<LegQuote>): leg is LegQuote {
+  return (
+    typeof leg.instrumentType === 'string' &&
+    typeof leg.oracleId === 'string' &&
+    typeof leg.expiryMs === 'number' &&
+    typeof leg.quantity === 'number'
+  );
+}
+
 export function buildDualInvestmentLegIntents(
   input: DualInvestmentInput,
   oracle: OracleMarket,
+  options: { nowMs?: number } = {},
 ): LegIntent[] {
-  const targetBtcAmount = input.principal / input.targetPrice;
-  return buildLadderIntervals(input, oracle).map(({ strike, width }) => ({
+  const validInput = assertValidDualInvestmentInput(input, { oracle, nowMs: options.nowMs });
+  const targetBtcAmount = validInput.principal / validInput.targetPrice;
+  return buildLadderIntervals(validInput, oracle).map(({ strike, width }) => ({
     id: `up-${strike}`,
     instrumentType: 'binary-up',
     oracleId: oracle.oracleId,
@@ -73,18 +86,35 @@ export function compileDualInvestment(input: {
   quotedLegs: Partial<LegQuote>[];
   nowMs?: number;
 }): StructuredProductQuote {
-  const legIntents = buildDualInvestmentLegIntents(input.input, input.oracle);
-  const legs = legIntents.map((intent, index) => ({
-    ...intent,
-    askPrice: input.quotedLegs[index]?.askPrice ?? 0,
-    askCost: input.quotedLegs[index]?.askCost ?? 0,
-    redeemPreview: input.quotedLegs[index]?.redeemPreview ?? 0,
-    quoteTimestampMs: input.quotedLegs[index]?.quoteTimestampMs ?? Date.now(),
-    executable: input.quotedLegs[index]?.executable ?? false,
-    error: input.quotedLegs[index]?.error,
-  }));
-  const targetBtcAmount = input.input.principal / input.input.targetPrice;
-  const reserve = targetBtcAmount * input.input.floorPrice;
+  const validInput = assertValidDualInvestmentInput(input.input, {
+    oracle: input.oracle,
+    nowMs: input.nowMs,
+  });
+  const legIntents = buildDualInvestmentLegIntents(validInput, input.oracle, { nowMs: input.nowMs });
+  const quotedByIdentity = new Map(
+    input.quotedLegs
+      .filter(hasLegIdentity)
+      .map((quotedLeg) => [legIdentityKey(quotedLeg), quotedLeg]),
+  );
+  const quotedById = new Map(
+    input.quotedLegs
+      .filter((quotedLeg): quotedLeg is Partial<LegQuote> & { id: string } => typeof quotedLeg.id === 'string')
+      .map((quotedLeg) => [quotedLeg.id, quotedLeg]),
+  );
+  const legs = legIntents.map((intent) => {
+    const quotedLeg = quotedByIdentity.get(legIdentityKey(intent)) ?? quotedById.get(intent.id);
+    return {
+      ...intent,
+      askPrice: quotedLeg?.askPrice ?? 0,
+      askCost: quotedLeg?.askCost ?? 0,
+      redeemPreview: quotedLeg?.redeemPreview ?? 0,
+      quoteTimestampMs: quotedLeg?.quoteTimestampMs ?? Date.now(),
+      executable: quotedLeg?.executable ?? false,
+      error: quotedLeg?.error,
+    };
+  });
+  const targetBtcAmount = validInput.principal / validInput.targetPrice;
+  const reserve = targetBtcAmount * validInput.floorPrice;
   const totalLegCost = legs.reduce((sum, leg) => sum + leg.askCost, 0);
   const coupon = input.input.principal - reserve - totalLegCost;
   const days = daysBetween(input.nowMs ?? Date.now(), input.oracle.expiryMs);
@@ -92,19 +122,21 @@ export function compileDualInvestment(input: {
   const legWarning = legs.find((leg) => !leg.executable && leg.error)?.error;
 
   const quote: StructuredProductQuote = {
-    id: `dual-${input.oracle.oracleId}-${input.input.targetPrice}-${input.input.floorPrice}`,
+    id: `dual-${input.oracle.oracleId}-${validInput.targetPrice}-${validInput.floorPrice}`,
     productType: 'dual-investment',
-    title: `Target Buy BTC at ${input.input.targetPrice.toLocaleString('en-US')}`,
-    principal: input.input.principal,
+    title: `Target Buy BTC at ${validInput.targetPrice.toLocaleString('en-US')}`,
+    principal: validInput.principal,
     oracle: input.oracle,
     legs,
     totalLegCost,
     reserve,
     coupon,
-    apr: aprFromCoupon(coupon, input.input.principal, days),
+    targetPrice: validInput.targetPrice,
+    floorPrice: validInput.floorPrice,
+    apr: aprFromCoupon(coupon, validInput.principal, days),
     executable,
     warning: coupon <= 0 ? 'Current leg costs leave no positive coupon.' : legWarning,
     scenarios: [],
   };
-  return { ...quote, scenarios: simulatePayoff(quote) };
+  return assertValidDualInvestmentQuote({ ...quote, scenarios: simulatePayoff(quote) });
 }

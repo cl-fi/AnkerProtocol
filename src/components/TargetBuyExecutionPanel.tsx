@@ -4,12 +4,18 @@ import { useCurrentAccount, useCurrentClient, useDAppKit } from '@mysten/dapp-ki
 import { useQueryClient } from '@tanstack/react-query';
 import { WalletCards } from 'lucide-react';
 import { useState } from 'react';
+import {
+  buildSubscribeDualInvestmentApplicationPlan,
+  createSubscribeQuoteEnvelope,
+  refreshDualInvestmentQuoteForSigning,
+  selectUnallocatedPredictManager,
+} from '../application/subscribeDualInvestment';
+import { createDefaultQuoteProvider } from '../deepbook/quoteProvider';
+import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
 import { usePredictManagers } from '../hooks/usePredictManagers';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
-import {
-  buildCreatePredictManagerTransaction,
-  buildSubscribeDualInvestmentTransaction,
-} from '../sui/ankerTransactions';
+import { buildCreatePredictManagerTransaction } from '../sui/ankerTransactions';
+import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
 import { preflightTransaction } from '../sui/transactionPreflight';
 
 interface TargetBuyExecutionPanelViewProps {
@@ -26,8 +32,62 @@ interface TargetBuyExecutionPanelViewProps {
   onSubscribe: () => void;
 }
 
+const subscriptionQuoteProvider = createDefaultQuoteProvider();
+
 function shortId(value: string) {
   return value.length > 16 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
+}
+
+export type TargetBuyExecutionState =
+  | 'connect-wallet'
+  | 'checking-manager'
+  | 'manager-required'
+  | 'ready'
+  | 'quote-expired'
+  | 'awaiting-signature'
+  | 'transaction-submitted'
+  | 'transaction-failed';
+
+export function targetBuyExecutionViewModel({
+  hasAccount,
+  hasManager,
+  isLoadingManagers,
+  isPending,
+  managerId,
+  error,
+  digest,
+}: Pick<
+  TargetBuyExecutionPanelViewProps,
+  'hasAccount' | 'hasManager' | 'isLoadingManagers' | 'isPending' | 'managerId' | 'error' | 'digest'
+>) {
+  if (!hasAccount) {
+    return { state: 'connect-wallet' as const, status: 'Connect wallet to subscribe' };
+  }
+  if (isPending) {
+    return { state: 'awaiting-signature' as const, status: 'Awaiting wallet signature.' };
+  }
+  if (error) {
+    if (error.startsWith('Quote expired')) {
+      return { state: 'quote-expired' as const, status: 'Quote expired. Refresh pricing before signing.' };
+    }
+    return { state: 'transaction-failed' as const, status: 'Transaction failed. Review the error and retry.' };
+  }
+  if (digest) {
+    return { state: 'transaction-submitted' as const, status: 'Transaction submitted. Track the note in Dashboard.' };
+  }
+  if (isLoadingManagers) {
+    return { state: 'checking-manager' as const, status: 'Checking product container...' };
+  }
+  if (!hasManager) {
+    return {
+      state: 'manager-required' as const,
+      status: 'Create a product container for this structured note before subscribing.',
+    };
+  }
+  return {
+    state: 'ready' as const,
+    status: `Product container ${managerId ? shortId(managerId) : ''} is ready.`,
+  };
 }
 
 export function TargetBuyExecutionPanelView({
@@ -44,11 +104,15 @@ export function TargetBuyExecutionPanelView({
   onSubscribe,
 }: TargetBuyExecutionPanelViewProps) {
   const canSubscribe = hasAccount && hasManager && isQuoteExecutable && !isPending;
-
-  let status = 'Connect wallet to subscribe';
-  if (hasAccount && isLoadingManagers) status = 'Checking PredictManager...';
-  if (hasAccount && !isLoadingManagers && !hasManager) status = 'Create a PredictManager before subscribing.';
-  if (hasAccount && hasManager) status = `PredictManager ${managerId ? shortId(managerId) : ''} is ready.`;
+  const execution = targetBuyExecutionViewModel({
+    hasAccount,
+    hasManager,
+    isLoadingManagers,
+    isPending,
+    managerId,
+    error,
+    digest,
+  });
 
   return (
     <article className="detail-panel execution-panel">
@@ -58,12 +122,12 @@ export function TargetBuyExecutionPanelView({
       </div>
       <div className="execution-status">
         <WalletCards size={18} />
-        <span>{status}</span>
+        <span>{execution.status}</span>
       </div>
       <div className="execution-actions">
         {hasAccount && !hasManager ? (
           <button className="small-action" type="button" disabled={isPending || isLoadingManagers} onClick={onCreateManager}>
-            {isPending ? 'Waiting for wallet...' : 'Create Predict Manager'}
+            {isPending ? 'Waiting for wallet...' : 'Create Product Container'}
           </button>
         ) : null}
         <button className="primary-action" type="button" disabled={!canSubscribe} onClick={onSubscribe}>
@@ -101,7 +165,8 @@ export function TargetBuyExecutionPanel({
   const dAppKit = useDAppKit();
   const queryClient = useQueryClient();
   const managersQuery = usePredictManagers();
-  const manager = managersQuery.data?.[0];
+  const portfolioQuery = useAnkerPortfolio();
+  const manager = selectUnallocatedPredictManager(managersQuery.data, portfolioQuery.data, account?.address);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [digest, setDigest] = useState<string | null>(null);
@@ -137,20 +202,34 @@ export function TargetBuyExecutionPanel({
   function handleSubscribe() {
     if (!account || !manager) return;
     void runTransaction(async () => {
-      const plan = buildSubscribeDualInvestmentTransaction({
-        accountAddress: account.address,
-        managerId: manager.managerId,
+      const quoteEnvelope = createSubscribeQuoteEnvelope(quote);
+      const refreshedQuote = await refreshDualInvestmentQuoteForSigning({
         productInput,
         quote,
+        quoteEnvelope,
+        quoteProvider: subscriptionQuoteProvider,
+      });
+      const plan = buildSubscribeDualInvestmentApplicationPlan({
+        accountAddress: account.address,
+        managers: managersQuery.data,
+        notes: portfolioQuery.data,
+        productInput,
+        quote: refreshedQuote,
+        quoteEnvelope,
       });
       await preflightTransaction({
         client,
         sender: account.address,
-        transaction: plan.tx,
+        transaction: plan.transactionPlan.tx,
       });
-      const result = await dAppKit.signAndExecuteTransaction({ transaction: plan.tx });
+      const result = await dAppKit.signAndExecuteTransaction({ transaction: plan.transactionPlan.tx });
       const nextDigest = transactionDigest(result);
       await client.waitForTransaction({ digest: nextDigest });
+      recordSubscriptionDigest({
+        owner: account.address,
+        quoteHash: plan.quoteEnvelope.productHash,
+        digest: nextDigest,
+      });
       return nextDigest;
     });
   }
@@ -161,7 +240,7 @@ export function TargetBuyExecutionPanel({
       hasManager={Boolean(manager)}
       isQuoteExecutable={quote.executable}
       quoteWarning={quote.warning}
-      isLoadingManagers={managersQuery.isPending && Boolean(account)}
+      isLoadingManagers={(managersQuery.isPending || portfolioQuery.isPending) && Boolean(account)}
       isPending={isPending}
       managerId={manager?.managerId}
       error={error}

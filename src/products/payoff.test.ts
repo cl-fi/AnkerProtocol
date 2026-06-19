@@ -58,4 +58,11 @@ describe('simulatePayoff', () => {
     expect(scenarios[1].realizedLegIds).toEqual(['up-58000']);
     expect(scenarios[2].realizedLegIds).toEqual(['up-58000', 'up-60000']);
   });
+
+  it('includes strike discontinuities in default payoff scenarios', () => {
+    const settlementPrices = simulatePayoff(baseQuote()).map((scenario) => scenario.settlementPrice);
+
+    expect(settlementPrices).toEqual(expect.arrayContaining([57_999, 58_000, 58_001]));
+    expect(settlementPrices).toEqual(expect.arrayContaining([59_999, 60_000, 60_001]));
+  });
 });

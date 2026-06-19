@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  web:
+    name: Web Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUI_VERSION: testnet-1.73.0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Install Sui CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUIUP_DEFAULT_BIN_DIR: ${{ runner.temp }}/sui/bin
+          SUIUP_INSTALL_DIR: ${{ runner.temp }}/suiup
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.sh | sh
+          echo "$SUIUP_DEFAULT_BIN_DIR" >> "$GITHUB_PATH"
+          "$SUIUP_INSTALL_DIR/suiup" install "sui@$SUI_VERSION" --yes
+          "$SUIUP_DEFAULT_BIN_DIR/sui" --version
+
+      - name: Move tests
+        run: npm run test:move
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e

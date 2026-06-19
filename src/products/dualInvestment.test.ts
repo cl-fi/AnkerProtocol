@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from './dualInvestment';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
 
+const nowMs = lastKnownMarketSnapshot.expiryMs - 7 * 86_400_000;
+
 describe('compileDualInvestment', () => {
   it('builds an UP ladder and computes positive coupon from quoted legs', () => {
     const quote = compileDualInvestment({
@@ -22,6 +24,7 @@ describe('compileDualInvestment', () => {
         { id: 'up-70000', askCost: 3, askPrice: 0.15, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
         { id: 'up-72000', askCost: 3, askPrice: 0.14, redeemPreview: 0, executable: true, quoteTimestampMs: 1 },
       ],
+      nowMs,
     });
 
     expect(quote.legs).toHaveLength(8);
@@ -40,6 +43,7 @@ describe('compileDualInvestment', () => {
         targetLegCount: 6,
       },
       lastKnownMarketSnapshot,
+      { nowMs },
     );
 
     expect(legs.map((leg) => leg.strike)).toEqual([58_000, 60_500, 63_000, 65_500, 68_000, 70_500]);
@@ -47,6 +51,108 @@ describe('compileDualInvestment', () => {
     expect(legs.reduce((sum, leg) => sum + leg.quantity, 0)).toBeCloseTo(
       (1_000 / 73_000) * (73_000 - 58_000),
     );
+  });
+
+  it('matches quoted legs by identity instead of array position', () => {
+    const input = {
+      principal: 1_000,
+      targetPrice: 73_000,
+      floorPrice: 70_000,
+      targetLegCount: 3,
+    };
+    const quotedLegs = buildDualInvestmentLegIntents(input, lastKnownMarketSnapshot, { nowMs })
+      .map((leg, index) => ({
+        ...leg,
+        askCost: index + 1,
+        askPrice: 0.1,
+        redeemPreview: 0,
+        executable: true,
+        quoteTimestampMs: 1,
+      }))
+      .reverse();
+
+    const quote = compileDualInvestment({
+      input,
+      oracle: lastKnownMarketSnapshot,
+      quotedLegs,
+      nowMs,
+    });
+
+    expect(quote.legs.map((leg) => leg.askCost)).toEqual([1, 2, 3]);
+  });
+
+  it('preserves core payoff invariants across settlement boundaries', () => {
+    const input = {
+      principal: 1_000,
+      targetPrice: 73_000,
+      floorPrice: 58_000,
+      targetLegCount: 6,
+    };
+    const quotedLegs = buildDualInvestmentLegIntents(input, lastKnownMarketSnapshot, { nowMs }).map((leg) => ({
+      ...leg,
+      askCost: 1,
+      askPrice: 0.01,
+      redeemPreview: 0,
+      executable: true,
+      quoteTimestampMs: 1,
+    }));
+
+    const quote = compileDualInvestment({
+      input,
+      oracle: lastKnownMarketSnapshot,
+      quotedLegs,
+      nowMs,
+    });
+    const maxLegPayout = quote.legs.reduce((sum, leg) => sum + leg.quantity, 0);
+
+    expect(quote.reserve + maxLegPayout).toBeCloseTo(quote.principal);
+    expect(quote.coupon).toBeGreaterThanOrEqual(0);
+    expect(quote.coupon).toBeLessThanOrEqual(quote.principal);
+
+    const belowFloor = quote.scenarios.find((scenario) => scenario.settlementPrice === input.floorPrice - 1);
+    const aboveTarget = quote.scenarios.find((scenario) => scenario.settlementPrice === input.targetPrice);
+    expect(belowFloor?.finalUsdc).toBeCloseTo(quote.reserve + quote.coupon);
+    expect(aboveTarget?.finalUsdc).toBeCloseTo(quote.principal + quote.coupon);
+
+    const orderedScenarios = [...quote.scenarios].sort((left, right) => left.settlementPrice - right.settlementPrice);
+    orderedScenarios.forEach((scenario, index) => {
+      expect(scenario.finalUsdc).toBeGreaterThanOrEqual(0);
+      if (index > 0) {
+        expect(scenario.finalUsdc).toBeGreaterThanOrEqual(orderedScenarios[index - 1].finalUsdc);
+      }
+    });
+  });
+
+  it('increases payoff by exactly the crossed leg quantity at each binary-up strike', () => {
+    const input = {
+      principal: 1_000,
+      targetPrice: 73_000,
+      floorPrice: 58_000,
+      targetLegCount: 6,
+    };
+    const quotedLegs = buildDualInvestmentLegIntents(input, lastKnownMarketSnapshot, { nowMs }).map((leg) => ({
+      ...leg,
+      askCost: 1,
+      askPrice: 0.01,
+      redeemPreview: 0,
+      executable: true,
+      quoteTimestampMs: 1,
+    }));
+    const quote = compileDualInvestment({
+      input,
+      oracle: lastKnownMarketSnapshot,
+      quotedLegs,
+      nowMs,
+    });
+
+    quote.legs.forEach((leg) => {
+      const atStrike = quote.scenarios.find((scenario) => scenario.settlementPrice === leg.strike);
+      const aboveStrike = quote.scenarios.find((scenario) => scenario.settlementPrice === (leg.strike ?? 0) + 1);
+
+      expect(atStrike).toBeDefined();
+      expect(aboveStrike).toBeDefined();
+      expect((aboveStrike?.finalUsdc ?? 0) - (atStrike?.finalUsdc ?? 0)).toBeCloseTo(leg.quantity);
+    });
   });
 
   it('surfaces non-mintable leg errors as the quote warning', () => {
@@ -69,10 +175,67 @@ describe('compileDualInvestment', () => {
           error: 'Ask price 1.0010 is outside Predict mint bounds 0.01-0.99.',
         },
       ],
+      nowMs,
     });
 
     expect(quote.coupon).toBeGreaterThan(0);
     expect(quote.executable).toBe(false);
     expect(quote.warning).toContain('outside Predict mint bounds');
+  });
+
+  it('rejects invalid product inputs before quote execution', () => {
+    expect(() =>
+      buildDualInvestmentLegIntents(
+        {
+          principal: 1_000,
+          targetPrice: 60_000,
+          floorPrice: 61_000,
+          targetLegCount: 6,
+        },
+        lastKnownMarketSnapshot,
+        { nowMs },
+      ),
+    ).toThrow('Floor price must be below target price');
+  });
+
+  it('rejects expired oracle markets', () => {
+    expect(() =>
+      compileDualInvestment({
+        input: {
+          principal: 1_000,
+          targetPrice: 73_000,
+          floorPrice: 58_000,
+          targetLegCount: 6,
+        },
+        oracle: lastKnownMarketSnapshot,
+        quotedLegs: [],
+        nowMs: lastKnownMarketSnapshot.expiryMs,
+      }),
+    ).toThrow('Oracle expiry must be in the future');
+  });
+
+  it('rejects quotes where leg costs consume the reserve budget', () => {
+    expect(() =>
+      compileDualInvestment({
+        input: {
+          principal: 1_000,
+          targetPrice: 73_000,
+          floorPrice: 72_000,
+          targetLegCount: 1,
+        },
+        oracle: lastKnownMarketSnapshot,
+        quotedLegs: [
+          {
+            id: 'up-72000',
+            askCost: 20,
+            askPrice: 0.2,
+            redeemPreview: 0,
+            executable: true,
+            quoteTimestampMs: 1,
+          },
+        ],
+        nowMs,
+      }),
+    ).toThrow('Coupon must be non-negative');
   });
 });

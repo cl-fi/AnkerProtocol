@@ -71,8 +71,11 @@ describe('Anker portfolio parser', () => {
       oracleId: ORACLE_ID,
       status: 'open',
       principal: 1_000,
+      principalBaseUnits: 1_000_000_000n,
       reserve: 610,
+      reserveBaseUnits: 610_000_000n,
       coupon: 20,
+      couponBaseUnits: 20_000_000n,
       targetPrice: 66_000,
       floorPrice: 61_000,
       apr: 1.9264,
@@ -80,8 +83,14 @@ describe('Anker portfolio parser', () => {
       usesMockCurrentDeposit: false,
     });
     expect(notes[0]?.legs).toEqual([
-      { strike: 61_000, quantity: 10, cost: 2.1 },
-      { strike: 62_000, quantity: 12.5, cost: 3.125 },
+      { strike: 61_000, quantity: 10, quantityBaseUnits: 10_000_000n, cost: 2.1, costBaseUnits: 2_100_000n },
+      {
+        strike: 62_000,
+        quantity: 12.5,
+        quantityBaseUnits: 12_500_000n,
+        cost: 3.125,
+        costBaseUnits: 3_125_000n,
+      },
     ]);
   });
 
@@ -128,7 +137,7 @@ describe('Anker portfolio parser', () => {
     });
   });
 
-  it('parses redeemed Shark Fin notes from JSON-RPC style content fields', () => {
+  it('ignores removed Shark Fin product kind from JSON-RPC style content fields', () => {
     const fields = {
       ...dualNoteFields(),
       product_kind: '1',
@@ -158,16 +167,57 @@ describe('Anker portfolio parser', () => {
       { packageId: PACKAGE_ID, quoteAssetDecimals: 6 },
     );
 
-    expect(notes[0]).toMatchObject({
-      productType: 'shark-fin',
-      productId: 'shark-demo',
-      status: 'redeemed',
-      lowerBound: 64_000,
-      upperBound: 72_000,
-      isBullish: true,
-      usesMockCurrentDeposit: true,
-      redeemedPayout: 1_030,
-      redeemedFee: 1.23,
-    });
+    expect(notes).toEqual([]);
+  });
+
+  it('fails closed instead of defaulting unknown product or status values to live notes', () => {
+    const unknownProduct = {
+      objectId: NOTE_ID,
+      type: productNoteType(PACKAGE_ID),
+      json: { ...dualNoteFields(), product_kind: '9' },
+    };
+    const unknownStatus = {
+      objectId: `0x${'3'.repeat(64)}`,
+      type: productNoteType(PACKAGE_ID),
+      json: { ...dualNoteFields(), status: '9' },
+    };
+
+    expect(parseOwnedProductNotes([unknownProduct, unknownStatus], {
+      packageId: PACKAGE_ID,
+      quoteAssetDecimals: 6,
+    })).toEqual([]);
+  });
+
+  it('fails closed when ProductNote leg vectors cannot be matched by index', () => {
+    const malformedLegs = {
+      objectId: NOTE_ID,
+      type: productNoteType(PACKAGE_ID),
+      json: {
+        ...dualNoteFields(),
+        quantities: ['10000000'],
+        costs: ['2100000', '3125000'],
+      },
+    };
+
+    expect(parseOwnedProductNotes([malformedLegs], {
+      packageId: PACKAGE_ID,
+      quoteAssetDecimals: 6,
+    })).toEqual([]);
+  });
+
+  it('fails closed when required u64 fields are not decimal integers', () => {
+    const invalidPrincipal = {
+      objectId: NOTE_ID,
+      type: productNoteType(PACKAGE_ID),
+      json: {
+        ...dualNoteFields(),
+        principal_amount: 'not-a-u64',
+      },
+    };
+
+    expect(parseOwnedProductNotes([invalidPrincipal], {
+      packageId: PACKAGE_ID,
+      quoteAssetDecimals: 6,
+    })).toEqual([]);
   });
 });

@@ -738,31 +738,6 @@ a {
   border-bottom-color: #0f766e;
 }
 
-.shark-direction-section {
-  padding-top: 0;
-  padding-bottom: 20px;
-}
-
-.shark-direction-tabs {
-  gap: 10px;
-}
-
-.shark-direction-tabs button {
-  padding: 0 12px;
-}
-
-.shark-range-note {
-  min-height: 48px;
-  padding: 14px 16px;
-  border: 1px solid rgba(20, 107, 90, 0.12);
-  border-radius: 8px;
-  background: #f4fbf8;
-  color: #51645d;
-  font-size: 0.9rem;
-  font-weight: 760;
-  line-height: 1.45;
-}
-
 .offer-section {
   padding-top: 6px;
 }
@@ -1004,18 +979,6 @@ a {
 .quote-summary strong {
   color: #10201b;
   font-size: 1.08rem;
-}
-
-.shark-summary-section {
-  padding-top: 8px;
-}
-
-.shark-summary {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.shark-detail-grid {
-  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
 }
 
 .inline-warning {

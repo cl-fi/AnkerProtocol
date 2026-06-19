@@ -1,10 +1,14 @@
 import { Transaction } from '@mysten/sui/transactions';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { preflightTransaction } from './transactionPreflight';
 
 const SENDER = `0x${'a'.repeat(64)}`;
 
 describe('preflightTransaction', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('uses Sui core transaction simulation when available', async () => {
     const tx = new Transaction();
     const simulateTransaction = vi.fn().mockResolvedValue({
@@ -66,7 +70,19 @@ describe('preflightTransaction', () => {
     expect(result).toEqual({ status: 'success', engine: 'devInspectTransactionBlock' });
   });
 
-  it('skips preflight when the client does not expose a simulation API', async () => {
+  it('fails closed when the client does not expose a simulation API', async () => {
+    await expect(
+      preflightTransaction({
+        client: {},
+        sender: SENDER,
+        transaction: new Transaction(),
+      }),
+    ).rejects.toThrow('Transaction simulation is unavailable');
+  });
+
+  it('allows unsimulated transactions only when explicitly enabled for demos', async () => {
+    vi.stubEnv('DEMO_ALLOW_UNSIMULATED_TX', 'true');
+
     const result = await preflightTransaction({
       client: {},
       sender: SENDER,
