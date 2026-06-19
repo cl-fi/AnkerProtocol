@@ -96,7 +96,7 @@ export function ClaimActionView({
     (claimState.path === 'redeem-and-withdraw' || claimState.path === 'withdraw-only') &&
     !isPending;
   const status = !isDual
-    ? 'Shark Fin claim is staged.'
+    ? 'Legacy product claim is staged.'
     : note.status === 'redeemed'
       ? 'Product note already claimed.'
       : !isExpired
@@ -209,7 +209,7 @@ function ProductNoteCard({
   return (
     <article className="detail-panel">
       <div className="detail-title">
-        <h3>{isDual ? 'Target Buy BTC' : 'Shark Fin'}</h3>
+        <h3>{isDual ? 'Target Buy BTC' : 'Legacy Product'}</h3>
         <span>{note.status === 'redeemed' ? 'Claimed' : 'Open'} product note</span>
       </div>
       <div className="quote-summary compact-summary">

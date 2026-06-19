@@ -38,7 +38,7 @@ test('renders the Dual Investment product page', async ({ page }) => {
   await expect(page.locator('td[data-label="Below Spot"]').first()).toContainText(/below/);
   await expect(page.getByLabel('Dual Investment direction').getByRole('link', { name: 'Target Sale' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Design Your Target Buy' })).toBeVisible();
-  await expect(page.getByLabel('Products').getByRole('link', { name: 'Shark Fin' })).toBeVisible();
+  await expect(page.getByLabel('Products').getByRole('link', { name: 'Shark Fin' })).toHaveCount(0);
   await expect(page.getByLabel('Products').getByRole('link', { name: 'Dashboard' })).toBeVisible();
   await expect(page.locator('td[data-label="Anker APR"]').first()).toBeVisible();
   await expect(page.getByText('Binance compare')).toHaveCount(0);
@@ -83,35 +83,8 @@ test('renders target sale as a coming-soon BTC-collateral product', async ({ pag
   await expect(page.getByRole('heading', { name: 'Design Your Target Sale' })).toHaveCount(0);
 });
 
-test('renders the Shark Fin page with APR curve and UP ladder disclosure', async ({ page }) => {
-  await page.goto('/app/shark-fin');
-  await expect(page.getByRole('heading', { name: 'USDsui Shark Fin' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: 'Bullish' })).toHaveClass(/active/);
-  await expect(page.getByRole('button', { name: 'Bearish' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Nearest BTC Expiry' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'APR Curve' })).toBeVisible();
-  await expect(page.locator('.current-apr-card').getByText('Current USDsui APR', { exact: true })).toBeVisible();
-  await expect(page.locator('.quote-summary').getByText('Option Budget', { exact: true })).toBeVisible();
-  await expect(page.locator('.quote-summary').getByText('Base APR', { exact: true })).toBeVisible();
-  await expect(page.locator('.quote-summary').getByText('Max APR', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'UP Ladder' })).toBeVisible({ timeout: 30_000 });
-});
-
-test('switches Shark Fin to bearish DOWN ladder disclosure', async ({ page }) => {
-  await page.goto('/app/shark-fin');
-  await expect(page.getByRole('heading', { name: 'USDsui Shark Fin' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: /Preview/ })).toBeEnabled({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'Bearish' }).click();
-  await expect(page.getByRole('button', { name: 'Bearish' })).toHaveClass(/active/);
-  await expect(page.getByRole('heading', { name: 'DOWN Ladder' })).toBeVisible({ timeout: 30_000 });
-});
-
-test('redirects legacy product routes into the app namespace', async ({ page }) => {
+test('redirects legacy Dual Investment routes into the app namespace', async ({ page }) => {
   await page.goto('/dual-investment?mode=target-sale');
   await expect(page).toHaveURL(/\/app\/dual-investment\?mode=target-sale$/);
   await expect(page.getByRole('heading', { name: 'Target Sale Coming Soon' })).toBeVisible({ timeout: 30_000 });
-
-  await page.goto('/shark-fin');
-  await expect(page).toHaveURL(/\/app\/shark-fin$/);
-  await expect(page.getByRole('heading', { name: 'USDsui Shark Fin' })).toBeVisible({ timeout: 30_000 });
 });
