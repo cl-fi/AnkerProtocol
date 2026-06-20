@@ -8,12 +8,11 @@ import {
   settlementEstimateForNote,
   settlementFromManagerBalance,
 } from '../application/settleProductNote';
-import { formatTimeToExpiry } from '../products/timeFormat';
 import type { SettlementResult } from '../products/settlement';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { lifecycleForProductNote, type DualInvestmentClaimState } from '../sui/predictManagerState';
 import { preflightTransaction } from '../sui/transactionPreflight';
-import { formatPreciseAmount, formatPrice, shortId, suiExplorerTxUrl } from './DashboardFormat';
+import { formatBtcAmount, formatPreciseAmount, formatPrice, shortId, suiExplorerTxUrl } from './DashboardFormat';
 
 function partialUnavailableStatus(claimState: DualInvestmentClaimState) {
   if (claimState.missingLegs.length === 0) {
@@ -62,7 +61,6 @@ export function claimActionViewModel({
     canClaim,
     actionLabel,
     status,
-    showMaturityCountdown: isDual && !isExpired,
   };
 }
 
@@ -114,20 +112,50 @@ export function ClaimActionView({
   const claimed = note.status === 'redeemed';
   const amountLabel = claimed ? 'You received' : action.canClaim ? "You'll receive" : 'Projected payout';
 
+  // The real settlement direction is only known once the legs are redeemed (withdraw-only)
+  // or the note is claimed. Until then, the outcome is "projected" and we show both sides.
+  const outcomeKnown = claimed || claimState.path === 'withdraw-only';
+  const settledBelow = outcomeKnown && estimate.netPayout < note.principal;
+  const mode = settledBelow ? 'btc' : outcomeKnown ? 'dusdc' : 'projected';
+  // BTC stayed at/above your price → full dUSDC (deposit + reward, minus the coupon fee).
+  const projectedDusdc = note.principal + note.coupon - estimate.feeAmount;
+  const dusdcAmount = outcomeKnown ? estimate.netPayout : projectedDusdc;
+  // BTC ended below your price → the fee-adjusted deposit plus reward buys BTC at your target price.
+  const btcAmount = note.targetPrice > 0 ? projectedDusdc / note.targetPrice : 0;
+  const feeText = `${formatPreciseAmount(estimate.feeAmount)} dUSDC fee`;
+
+  // The status line only adds value once a position needs an action the buttons don't already
+  // spell out — hide it for Active, Completed, and the one-click "Ready to claim" (claimable) case.
+  const showStatus = !claimed && nowMs >= note.expiryMs && action.lifecycle !== 'claimable';
+
   return (
     <div className="di-claim">
       <div className="di-claim-info">
-        <span className="di-claim-status">{action.status}</span>
-        {action.showMaturityCountdown ? (
-          <span className="di-claim-sub">Settles in {formatTimeToExpiry(note.expiryMs, nowMs)}</span>
-        ) : null}
-        <strong className="di-claim-amount">
-          {amountLabel} {claimed ? '' : '~'}
-          {formatPreciseAmount(estimate.netPayout)} dUSDC
-        </strong>
-        <small className="di-claim-fee">
-          after {formatPreciseAmount(estimate.feeAmount)} dUSDC fee · cash-settled in dUSDC on testnet
-        </small>
+        {showStatus ? <span className="di-claim-status">{action.status}</span> : null}
+        <span className="di-claim-label">{amountLabel}</span>
+        {mode === 'btc' ? (
+          <>
+            <strong className="di-claim-amount">~{formatBtcAmount(btcAmount)} BTC</strong>
+            <small className="di-claim-fee">
+              ≈ {formatPreciseAmount(dusdcAmount)} dUSDC on testnet · after {feeText}
+            </small>
+          </>
+        ) : mode === 'projected' ? (
+          <>
+            <strong className="di-claim-amount">~{formatPreciseAmount(dusdcAmount)} dUSDC</strong>
+            <small className="di-claim-fee">
+              or ~{formatBtcAmount(btcAmount)} BTC · after {feeText}
+            </small>
+          </>
+        ) : (
+          <>
+            <strong className="di-claim-amount">
+              {claimed ? '' : '~'}
+              {formatPreciseAmount(dusdcAmount)} dUSDC
+            </strong>
+            <small className="di-claim-fee">after {feeText}</small>
+          </>
+        )}
       </div>
       <button className="primary-action di-claim-button" type="button" disabled={!action.canClaim} onClick={onClaim}>
         {isPending ? 'Submitting…' : action.actionLabel}

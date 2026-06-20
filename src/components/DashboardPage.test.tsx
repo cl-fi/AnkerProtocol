@@ -143,8 +143,13 @@ describe('RedeemActionView', () => {
       />,
     );
 
-    expect(screen.getByText('Opens after settlement — nothing to do yet.')).toBeVisible();
-    expect(screen.getByText('Settles in 0d 3h 7m')).toBeVisible();
+    // Active positions hide the redundant status + countdown (pill + Settles stat already cover it).
+    expect(screen.queryByText('Opens after settlement — nothing to do yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Settles in/)).not.toBeInTheDocument();
+    // Label on its own line; both outcomes shown (optimistic dUSDC + the BTC alternative).
+    expect(screen.getByText('Projected payout')).toBeVisible();
+    expect(screen.getByText('~5.006708 dUSDC')).toBeVisible();
+    expect(screen.getByText('or ~0.00007644 BTC · after 0.000745 dUSDC fee')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Redeem positions' })).toBeDisabled();
   });
 
@@ -160,8 +165,10 @@ describe('RedeemActionView', () => {
     );
 
     expect(screen.getByText('Ready to settle — redeem your positions, then claim your cash.')).toBeVisible();
-    expect(screen.getByText("You'll receive ~4.94312 dUSDC")).toBeVisible();
-    expect(screen.getByText('after 0.000745 dUSDC fee · cash-settled in dUSDC on testnet')).toBeVisible();
+    // Legs still live → outcome unknown → optimistic projected dUSDC plus the BTC alternative.
+    expect(screen.getByText("You'll receive")).toBeVisible();
+    expect(screen.getByText('~5.006708 dUSDC')).toBeVisible();
+    expect(screen.getByText('or ~0.00007644 BTC · after 0.000745 dUSDC fee')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Redeem positions' })).toBeEnabled();
   });
 
@@ -176,7 +183,10 @@ describe('RedeemActionView', () => {
       />,
     );
 
-    expect(screen.getByText('Ready — claim your cash from this position.')).toBeVisible();
+    // The one-click claimable case hides the redundant status line (pill + button already say it).
+    expect(screen.queryByText('Ready — claim your cash from this position.')).not.toBeInTheDocument();
+    expect(screen.getByText("You'll receive")).toBeVisible();
+    expect(screen.getByText('~9.663413 dUSDC')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Claim cash' })).toBeEnabled();
   });
 
@@ -221,9 +231,41 @@ describe('RedeemActionView', () => {
       />,
     );
 
-    expect(screen.getByText('Already claimed.')).toBeVisible();
-    expect(screen.getByText('You received 6.0125 dUSDC')).toBeVisible();
-    expect(screen.getByText('after 0.1125 dUSDC fee · cash-settled in dUSDC on testnet')).toBeVisible();
+    // Completed positions hide the redundant "Already claimed." status (the pill says Completed).
+    expect(screen.queryByText('Already claimed.')).not.toBeInTheDocument();
+    expect(screen.getByText('You received')).toBeVisible();
+    expect(screen.getByText('6.0125 dUSDC')).toBeVisible();
+    expect(screen.getByText('after 0.1125 dUSDC fee')).toBeVisible();
+  });
+
+  it('frames a below-target settled note as the BTC it bought, with the testnet dUSDC value', () => {
+    const note = noteFixture({
+      expiryMs: 1_000,
+      status: 'redeemed',
+      redeemedPayout: 4.9,
+      redeemedPayoutBaseUnits: 4_900_000n,
+      redeemedFee: 0.0007,
+      redeemedFeeBaseUnits: 700n,
+    });
+
+    render(
+      <ClaimActionView
+        note={note}
+        nowMs={2_000}
+        claimState={{ ...claimState, path: 'already-claimed', availableLegCount: 0, missingLegCount: 0 }}
+        isPending={false}
+        onClaim={() => undefined}
+      />,
+    );
+
+    // Net 4.9 - 0.0007 = 4.8993 < principal 5 → the deposit bought BTC at the target price.
+    const expectedBtc = ((note.principal + note.coupon - note.redeemedFee) / note.targetPrice).toLocaleString('en-US', {
+      maximumFractionDigits: 8,
+    });
+    expect(screen.getByText('You received')).toBeVisible();
+    expect(screen.getByText(`~${expectedBtc} BTC`)).toBeVisible();
+    // Fee is spelled out for the BTC case too, alongside the testnet dUSDC value.
+    expect(screen.getByText('≈ 4.8993 dUSDC on testnet · after 0.0007 dUSDC fee')).toBeVisible();
   });
 });
 
@@ -267,7 +309,6 @@ describe('claimActionViewModel', () => {
       canClaim: false,
       actionLabel: 'Redeem positions',
       status: 'Opens after settlement — nothing to do yet.',
-      showMaturityCountdown: true,
     });
 
     expect(
@@ -282,7 +323,6 @@ describe('claimActionViewModel', () => {
       canClaim: true,
       actionLabel: 'Claim cash',
       status: 'Ready — claim your cash from this position.',
-      showMaturityCountdown: false,
     });
   });
 });

@@ -3014,7 +3014,9 @@ summary:focus-visible,
 
 /* Notes list: equal cards, not the dual page's asymmetric split */
 .notes-grid {
-  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  /* auto-fill (not auto-fit) keeps the empty column track, so a single card after
+     filtering stays at its normal column width instead of stretching to fill the row. */
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
   align-items: start;
 }
 
@@ -3384,15 +3386,17 @@ dd {
 }
 
 .di-claim-status {
+  margin-bottom: 4px;
   color: var(--ink-soft);
   font-size: 0.84rem;
   font-weight: 700;
 }
 
-.di-claim-sub {
+/* Label sits on its own line above the figure so every state lines up to the same height. */
+.di-claim-label {
   color: var(--ink-soft);
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .di-claim-amount {

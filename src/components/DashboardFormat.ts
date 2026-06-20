@@ -14,6 +14,10 @@ export function formatPreciseAmount(value: number) {
   return value.toLocaleString('en-US', { maximumFractionDigits: 6 });
 }
 
+export function formatBtcAmount(value: number) {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 8 });
+}
+
 export function formatQuoteBaseUnits(value: bigint) {
   const scale = 1_000_000n;
   const whole = value / scale;
