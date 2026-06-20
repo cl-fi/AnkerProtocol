@@ -1,6 +1,5 @@
 import { ArrowRight, Eye, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { suiExplorerObjectUrl } from './DashboardFormat';
 
 const steps = [
   { n: '01', title: 'Set your target', body: 'Choose how much, your target BTC price, and when it settles.' },
@@ -20,7 +19,7 @@ const shelf = [
 ];
 
 const DOCS_URL = 'https://docs.sui.io/onchain-finance/deepbook-predict/';
-const CONTRACT_URL = suiExplorerObjectUrl('0xf8fc120ddb43b29bab88fb42588f94db9d1af34164969d2d76400f068c5a7640');
+const GITHUB_URL = 'https://github.com/cl-fi/AnkerProtocol';
 
 export function HomePage() {
   return (
@@ -160,8 +159,8 @@ export function HomePage() {
             <a href={DOCS_URL} target="_blank" rel="noreferrer">
               DeepBook Predict docs
             </a>
-            <a href={CONTRACT_URL} target="_blank" rel="noreferrer">
-              Contract on Sui
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">
+              GitHub
             </a>
           </div>
         </nav>
