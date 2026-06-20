@@ -1,5 +1,6 @@
 import { ArrowRight, Eye, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { suiExplorerObjectUrl } from './DashboardFormat';
 
 const steps = [
   { n: '01', title: 'Set your target', body: 'Choose how much, your target BTC price, and when it settles.' },
@@ -19,8 +20,7 @@ const shelf = [
 ];
 
 const DOCS_URL = 'https://docs.sui.io/onchain-finance/deepbook-predict/';
-const CONTRACT_URL =
-  'https://suiscan.xyz/testnet/object/0xf8fc120ddb43b29bab88fb42588f94db9d1af34164969d2d76400f068c5a7640';
+const CONTRACT_URL = suiExplorerObjectUrl('0xf8fc120ddb43b29bab88fb42588f94db9d1af34164969d2d76400f068c5a7640');
 
 export function HomePage() {
   return (

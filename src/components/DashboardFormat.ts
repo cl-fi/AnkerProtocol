@@ -53,10 +53,10 @@ export function shortId(value: string) {
   return value ? `${value.slice(0, 8)}...${value.slice(-6)}` : '--';
 }
 
-const SUI_EXPLORER_BASE = 'https://suiscan.xyz/testnet';
+const SUI_EXPLORER_BASE = 'https://testnet.suivision.xyz';
 
 export function suiExplorerTxUrl(digest: string) {
-  return `${SUI_EXPLORER_BASE}/tx/${digest}`;
+  return `${SUI_EXPLORER_BASE}/txblock/${digest}`;
 }
 
 export function suiExplorerObjectUrl(objectId: string) {
