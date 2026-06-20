@@ -1,9 +1,16 @@
 'use client';
 
+import { ChevronDown, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
+
+export const SMOOTHNESS_OPTIONS = [
+  { label: 'Efficient', value: 3 },
+  { label: 'Standard', value: 6 },
+  { label: 'Smooth', value: 9 },
+];
 
 function formatAmount(value: number) {
   return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -28,16 +35,8 @@ function formatTokenAmount(value: number, decimals: number) {
   });
 }
 
-function formatQuotePrincipal(quote: StructuredProductQuote) {
-  return `${formatAmount(quote.principal)} dUSDC`;
-}
-
-function formatUpdatedAt(value: number) {
-  return new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(value);
+function formatBtc(value: number) {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 6 });
 }
 
 function formatChartDate(value: number) {
@@ -45,6 +44,15 @@ function formatChartDate(value: number) {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
+  }).format(value);
+}
+
+function formatSettlement(value: number) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(value);
 }
 
@@ -91,12 +99,14 @@ export function QuoteRiskSummary({ quote }: { quote: StructuredProductQuote }) {
   );
 }
 
-function ReturnOverview({
+export function ReturnOverview({
   quote,
   productInput,
+  estimated = false,
 }: {
   quote: StructuredProductQuote;
   productInput: DualInvestmentInput;
+  estimated?: boolean;
 }) {
   const [scenario, setScenario] = useState<'above' | 'below'>('above');
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
@@ -105,13 +115,24 @@ function ReturnOverview({
   const isAbove = scenario === 'above';
   const receiveAmount = isAbove ? formatTokenAmount(total, 6) : formatTokenAmount(btcEquivalent, 8);
   const receiveAsset = isAbove ? 'dUSDC' : 'BTC equiv.';
+  const settleNote = isAbove
+    ? null
+    : 'Cash-settled in dUSDC for now — you receive the equivalent value, not real BTC. On-chain BTC settlement arrives in a future mainnet release.';
+  const equivNoteProps = settleNote
+    ? { className: 'di-equiv-note', 'data-tip': settleNote, tabIndex: 0, 'aria-label': `${receiveAsset}. ${settleNote}` }
+    : {};
   const chartClassName = isAbove ? 'return-chart-visual above' : 'return-chart-visual below';
 
   return (
     <article className="detail-panel return-overview-panel">
       <div className="return-overview-heading">
-        <h3>Return Overview</h3>
-        <p>These scenarios are based on the Fixing Price</p>
+        <div>
+          <h3>Return Overview</h3>
+          <p>What you get at settlement, depending on where BTC lands</p>
+        </div>
+        <span className={estimated ? 'quote-badge preview' : 'quote-badge live'}>
+          {estimated ? 'Estimate' : 'Live quote'}
+        </span>
       </div>
 
       <div className="return-scenario-tabs" aria-label="Return scenario">
@@ -127,9 +148,9 @@ function ReturnOverview({
         <svg viewBox="0 0 720 320" role="img" aria-label="Return scenario illustration">
           <defs>
             <linearGradient id="returnPathFade" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0%" stopColor="#ffd43b" stopOpacity="0.98" />
-              <stop offset="58%" stopColor="#ffd43b" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#ffd43b" stopOpacity="0.98" />
+              <stop offset="0%" stopColor="#b9772f" stopOpacity="0.95" />
+              <stop offset="58%" stopColor="#cf9a52" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#b9772f" stopOpacity="0.95" />
             </linearGradient>
           </defs>
           <line className="return-grid-line horizontal" x1="46" x2="674" y1="138" y2="138" />
@@ -166,7 +187,7 @@ function ReturnOverview({
         <div className="return-receive-card">
           <span>You will receive</span>
           <strong>{receiveAmount}</strong>
-          <b>{receiveAsset}</b>
+          <b {...equivNoteProps}>{receiveAsset}</b>
         </div>
       </div>
 
@@ -189,7 +210,7 @@ function ReturnOverview({
           <span>You will receive</span>
           <strong>
             {receiveAmount}
-            <i>{receiveAsset}</i>
+            <i {...equivNoteProps}>{receiveAsset}</i>
           </strong>
         </div>
       </div>
@@ -197,81 +218,103 @@ function ReturnOverview({
   );
 }
 
-export function QuoteDetail({
+export function DualInvestmentConfirm({
   quote,
-  error,
   productInput,
-  isRefreshing = false,
-  updatedAt,
-  autoRefreshMs,
+  subscribeQuote,
+  isVerifying,
+  error,
 }: {
-  quote: StructuredProductQuote | null;
-  error: string | null;
+  quote: StructuredProductQuote;
   productInput: DualInvestmentInput;
-  isRefreshing?: boolean;
-  updatedAt?: number | null;
-  autoRefreshMs?: number;
+  subscribeQuote: StructuredProductQuote | null;
+  isVerifying: boolean;
+  error?: string | null;
 }) {
-  if (error && !quote) {
-    return (
-      <section className="quote-detail">
-        <div className="detail-panel error-panel">{error}</div>
-      </section>
-    );
-  }
-
-  if (!quote) {
-    return (
-      <section className="quote-detail">
-        <div className="detail-panel empty-preview">
-          Choose parameters and run Preview to verify the exact DeepBook Predict leg costs.
-        </div>
-      </section>
-    );
-  }
+  const targetPrice = quote.targetPrice ?? productInput.targetPrice;
+  const total = quote.principal + quote.coupon;
+  const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
 
   return (
-    <section className="quote-detail">
-      <div className={error ? 'quote-refresh-status error' : 'quote-refresh-status'} aria-live="polite">
-        {isRefreshing ? <span className="quote-refresh-spinner" aria-hidden="true" /> : null}
-        <span>
-          {isRefreshing
-            ? 'Refreshing quote...'
-            : updatedAt
-              ? `Quote refreshed at ${formatUpdatedAt(updatedAt)}`
-              : 'Quote ready'}
+    <section className="di-confirm" aria-label="Confirm your Buy Low">
+      <div className="di-confirm-numbers">
+        <div>
+          <span>You deposit</span>
+          <strong>{formatAmount(quote.principal)} dUSDC</strong>
+        </div>
+        <div className="di-confirm-arrow" aria-hidden="true">
+          →
+        </div>
+        <div>
+          <span>You receive at settlement</span>
+          <strong>{formatAmount(total)} dUSDC</strong>
+          <em>{formatApr(quote.apr)} APR</em>
+        </div>
+        <div>
+          <span>Settles</span>
+          <strong>{formatSettlement(quote.oracle.expiryMs)}</strong>
+        </div>
+      </div>
+
+      <div className="di-confirm-worstcase">
+        <ShieldCheck size={16} />
+        <span className="di-confirm-worstcase-text">
+          <span className="di-confirm-worstcase-main">
+            Worst case: if BTC settles at or below {formatPrice(targetPrice)}, you buy about {formatBtc(btcEquivalent)} BTC
+            at {formatPrice(targetPrice)} — the price you chose.
+          </span>
+          <small>
+            On testnet this settles in dUSDC, not BTC — if BTC ends below your price you&apos;d receive slightly less cash
+            than you deposited (e.g. ~990 from 1,000 dUSDC). On mainnet, positions settle in real wrapped BTC.
+          </small>
         </span>
-        {autoRefreshMs ? <small>Auto-refreshes every {Math.round(autoRefreshMs / 1_000)}s</small> : null}
-        {error ? <strong>{error}</strong> : null}
       </div>
 
-      <div className="quote-summary">
-        <div>
-          <span>Principal</span>
-          <strong>{formatQuotePrincipal(quote)}</strong>
+      {subscribeQuote ? (
+        <TargetBuyExecutionPanel quote={subscribeQuote} productInput={productInput} />
+      ) : (
+        <div className={error ? 'di-confirm-pending is-error' : 'di-confirm-pending'} aria-live="polite">
+          {error
+            ? error
+            : isVerifying
+              ? 'Confirming live quote…'
+              : 'Adjust your Buy Low price to get a live quote.'}
         </div>
-        <div>
-          <span>Coupon</span>
-          <strong>{formatAmount(quote.coupon)} dUSDC</strong>
-        </div>
-        <div>
-          <span>Leg Cost</span>
-          <strong>{formatAmount(quote.totalLegCost)} dUSDC</strong>
-        </div>
-        <div>
-          <span>APR</span>
-          <strong>{formatApr(quote.apr)}</strong>
-        </div>
-        <div>
-          <span>Status</span>
-          <strong>{quote.executable ? 'Verified' : 'No coupon'}</strong>
-        </div>
-      </div>
+      )}
+    </section>
+  );
+}
 
-      <QuoteRiskSummary quote={quote} />
+export function DualInvestmentAdvanced({
+  quote,
+  legCount,
+  onLegCountChange,
+}: {
+  quote: StructuredProductQuote;
+  legCount: number;
+  onLegCountChange: (value: number) => void;
+}) {
+  return (
+    <details className="di-advanced">
+      <summary>
+        <span>Advanced details</span>
+        <ChevronDown size={18} aria-hidden="true" />
+      </summary>
 
-      <div className="detail-grid">
-        <ReturnOverview quote={quote} productInput={productInput} />
+      <div className="di-advanced-body">
+        <label className="di-advanced-control">
+          <span>Payoff smoothness</span>
+          <select value={legCount} onChange={(event) => onLegCountChange(Number(event.currentTarget.value))}>
+            {SMOOTHNESS_OPTIONS.map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label} ({option.value} legs)
+              </option>
+            ))}
+          </select>
+          <small>More legs make the payout smoother near your target, at a slightly higher option budget.</small>
+        </label>
+
+        <QuoteRiskSummary quote={quote} />
 
         <article className="detail-panel">
           <div className="detail-title">
@@ -294,8 +337,6 @@ export function QuoteDetail({
           </div>
         </article>
       </div>
-
-      <TargetBuyExecutionPanel quote={quote} productInput={productInput} />
-    </section>
+    </details>
   );
 }

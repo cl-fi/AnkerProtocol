@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DualInvestmentPage, QuoteRiskSummary } from './DualInvestmentPage';
 import type { ReactNode } from 'react';
@@ -6,6 +6,7 @@ import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '
 
 const mocks = vi.hoisted(() => ({
   buildVerifiedDualInvestmentQuote: vi.fn(),
+  buildIndicativeDualInvestmentQuote: vi.fn(),
   refetchScan: vi.fn(),
   marketData: undefined as
     | {
@@ -31,19 +32,9 @@ vi.mock('next/dynamic', () => ({
 }));
 
 vi.mock('lucide-react', () => ({
-  Activity: () => <span data-testid="activity-icon" />,
-  Calculator: () => <span data-testid="calculator-icon" />,
+  RefreshCw: () => <span data-testid="refresh-icon" />,
+  ChevronDown: () => <span data-testid="chevron-icon" />,
   ShieldCheck: () => <span data-testid="shield-icon" />,
-  SlidersHorizontal: () => <span data-testid="sliders-icon" />,
-}));
-
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Line: () => null,
-  Tooltip: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
 }));
 
 vi.mock('../hooks/useMarketData', () => ({
@@ -52,6 +43,7 @@ vi.mock('../hooks/useMarketData', () => ({
 
 vi.mock('../hooks/useDualInvestmentScan', () => ({
   buildVerifiedDualInvestmentQuote: mocks.buildVerifiedDualInvestmentQuote,
+  buildIndicativeDualInvestmentQuote: mocks.buildIndicativeDualInvestmentQuote,
   useDualInvestmentScan: () => ({
     data: [],
     isFetching: false,
@@ -130,18 +122,19 @@ function marketFixture(overrides: Partial<OracleMarket> = {}): OracleMarket {
 
 function pageQuoteFixture({
   market = marketFixture(),
-  productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 },
+  productInput,
   coupon,
 }: {
   market?: OracleMarket;
   productInput?: DualInvestmentInput;
   coupon: number;
 }): StructuredProductQuote {
+  const input = productInput ?? { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
   return {
     id: `dual-${coupon}`,
     productType: 'dual-investment',
-    title: `Target Buy BTC at ${productInput.targetPrice}`,
-    principal: productInput.principal,
+    title: `Target Buy BTC at ${input.targetPrice}`,
+    principal: input.principal,
     oracle: market,
     legs: [
       {
@@ -163,20 +156,11 @@ function pageQuoteFixture({
     totalLegCost: 0.16,
     reserve: 4.82,
     coupon,
-    targetPrice: productInput.targetPrice,
-    floorPrice: productInput.floorPrice,
-    apr: coupon === 0.02 ? 1.3807 : 1.52,
+    targetPrice: input.targetPrice,
+    floorPrice: input.floorPrice,
+    apr: 1.5,
     executable: true,
-    scenarios: [
-      {
-        settlementPrice: 66_000,
-        label: 'Above target',
-        finalUsdc: productInput.principal + coupon,
-        coupon,
-        realizedLegIds: ['up-63000'],
-        expiredLegIds: [],
-      },
-    ],
+    scenarios: [],
   };
 }
 
@@ -194,7 +178,7 @@ describe('QuoteRiskSummary', () => {
   });
 });
 
-describe('DualInvestmentPage quote preview refresh', () => {
+describe('DualInvestmentPage', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     const market = marketFixture();
@@ -206,6 +190,11 @@ describe('DualInvestmentPage quote preview refresh', () => {
       },
     };
     mocks.buildVerifiedDualInvestmentQuote.mockReset();
+    mocks.buildIndicativeDualInvestmentQuote.mockReset();
+    mocks.buildIndicativeDualInvestmentQuote.mockImplementation(
+      ({ market: oracle, productInput }: { market: OracleMarket; productInput: DualInvestmentInput }) =>
+        pageQuoteFixture({ market: oracle, productInput, coupon: 0.02 }),
+    );
     mocks.refetchScan.mockReset();
   });
 
@@ -222,73 +211,47 @@ describe('DualInvestmentPage quote preview refresh', () => {
     expect(sellHigh).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('keeps the existing preview visible while the 30s auto-refresh re-quotes', async () => {
-    const firstQuote = pageQuoteFixture({ market: mocks.marketData?.data.market, coupon: 0.02 });
-    const secondQuote = pageQuoteFixture({ market: mocks.marketData?.data.market, coupon: 0.03 });
-    let resolveRefresh: (quote: StructuredProductQuote) => void = () => undefined;
-    const refreshPromise = new Promise<StructuredProductQuote>((resolve) => {
-      resolveRefresh = resolve;
-    });
-    mocks.buildVerifiedDualInvestmentQuote
-      .mockResolvedValueOnce(firstQuote)
-      .mockReturnValueOnce(refreshPromise);
-
+  it('leads with a live estimate of the Return Overview and needs no preview step', () => {
     render(<DualInvestmentPage />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Live Quote' }));
-    await act(async () => {
-      await Promise.resolve();
-    });
 
     expect(screen.getByRole('heading', { name: 'Return Overview' })).toBeVisible();
     expect(screen.getByText('Subscription Amount')).toBeVisible();
-    expect(screen.getByText(/Rewards/)).toBeVisible();
-    expect(screen.getAllByText('You will receive')[0]).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'At or Below 65,500' }));
-    expect(screen.getAllByText('BTC equiv.')[0]).toBeVisible();
-
-    expect(screen.getByText('0.02 dUSDC')).toBeVisible();
-    expect(screen.queryByText(/Choose parameters and run Preview/i)).not.toBeInTheDocument();
-
-    await act(async () => {
-      vi.advanceTimersByTime(30_000);
-      await Promise.resolve();
-    });
-
-    expect(mocks.buildVerifiedDualInvestmentQuote).toHaveBeenCalledTimes(2);
-    expect(screen.getByText('Refreshing quote...')).toBeVisible();
-    expect(screen.getByText('0.02 dUSDC')).toBeVisible();
-
-    await act(async () => {
-      resolveRefresh(secondQuote);
-      await Promise.resolve();
-    });
-
-    expect(screen.getByText('0.03 dUSDC')).toBeVisible();
-    expect(screen.queryByText('Refreshing quote...')).not.toBeInTheDocument();
+    expect(screen.getByText('Estimate')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Preview/i })).not.toBeInTheDocument();
+    // Subscribe is gated until the background quote confirms.
+    expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
   });
 
-  it('does not clear the preview when the same oracle market data refreshes', async () => {
-    const market = mocks.marketData?.data.market as OracleMarket;
-    mocks.buildVerifiedDualInvestmentQuote.mockResolvedValueOnce(pageQuoteFixture({ market, coupon: 0.02 }));
-    const { rerender } = render(<DualInvestmentPage />);
+  it('verifies in the background and unlocks the subscribe execution panel', async () => {
+    mocks.buildVerifiedDualInvestmentQuote.mockResolvedValue(
+      pageQuoteFixture({ market: mocks.marketData?.data.market, coupon: 0.03 }),
+    );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Live Quote' }));
+    render(<DualInvestmentPage />);
+
+    expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
+
     await act(async () => {
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(600);
     });
-    expect(screen.getByText('0.02 dUSDC')).toBeVisible();
 
-    mocks.marketData = {
-      data: {
-        market: { ...market, spot: market.spot + 10, spotTimestampMs: market.spotTimestampMs + 1 },
-        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs }],
-        staleSnapshot: false,
-      },
-    };
-    rerender(<DualInvestmentPage />);
+    expect(mocks.buildVerifiedDualInvestmentQuote).toHaveBeenCalled();
+    expect(screen.getByTestId('execution-panel')).toBeVisible();
+    // Once verified, the badge flips from Estimate to the live quote.
+    expect(screen.getByText('Live quote')).toBeVisible();
+  });
 
-    expect(screen.getByText('0.02 dUSDC')).toBeVisible();
-    expect(screen.queryByText(/Choose parameters and run Preview/i)).not.toBeInTheDocument();
+  it('surfaces a verification failure without blocking the estimate', async () => {
+    mocks.buildVerifiedDualInvestmentQuote.mockRejectedValue(new Error('devInspect unavailable'));
+
+    render(<DualInvestmentPage />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+
+    expect(screen.getByText('devInspect unavailable')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Return Overview' })).toBeVisible();
+    expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
   });
 });

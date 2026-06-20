@@ -37,7 +37,7 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('Create a product container for this structured note before subscribing.')).toBeVisible();
+    expect(screen.getByText('Start with step 1 — create your product container.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Create Product Container' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
   });
@@ -56,7 +56,7 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('Product container 0xabc is ready.')).toBeVisible();
+    expect(screen.getByText('Product container 0xabc is ready. Subscribe to finish.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeEnabled();
   });
 

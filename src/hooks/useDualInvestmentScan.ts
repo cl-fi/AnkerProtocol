@@ -57,6 +57,19 @@ function buildIndicativeLegQuote(market: OracleMarket, leg: LegIntent): LegQuote
   };
 }
 
+export function buildIndicativeDualInvestmentQuote(input: {
+  market: OracleMarket;
+  productInput: DualInvestmentInput;
+}) {
+  const intents = buildDualInvestmentLegIntents(input.productInput, input.market);
+  const quotedLegs = intents.map((intent) => buildIndicativeLegQuote(input.market, intent));
+  return compileDualInvestment({
+    input: input.productInput,
+    oracle: input.market,
+    quotedLegs,
+  });
+}
+
 export async function buildDualInvestmentScan(input: {
   market: OracleMarket;
   principal: number;

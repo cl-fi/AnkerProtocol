@@ -28,6 +28,13 @@
   --ink: #20304d;
   --ink-soft: #5b6885;
 
+  /* Copper — warm, low-contrast bronze for the Return Overview explainer */
+  --copper: #b9772f;
+  --copper-deep: #8f5a1e;
+  --copper-tint: #ecd9b6;
+  --copper-tint-2: #e4cb98;
+  --copper-line: #cbab74;
+
   /* Sticker tokens — chunky outlines + hard offset shadows */
   --bw: 2px;
   --bw-thick: 3px;
@@ -709,7 +716,10 @@ a {
 .quote-detail,
 .transparency-note,
 .faq-section,
-.deep-footer {
+.deep-footer,
+.di-selection,
+.di-terminal,
+.di-confirm {
   width: min(100%, 1360px);
   margin: 0 auto;
   padding-right: 28px;
@@ -1662,23 +1672,24 @@ a {
 
 .return-current-label {
   left: 33%;
-  top: 8%;
+  top: 6%;
   display: grid;
-  min-width: 150px;
-  gap: 8px;
-  padding: 18px 22px;
-  border-radius: 12px;
+  min-width: 0;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
   background: #eef4f0;
   color: #0c2b27;
   text-align: center;
+  font-size: 0.72rem;
 }
 
 .return-current-label::before {
   position: absolute;
-  left: -10px;
+  left: -7px;
   top: 42%;
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   background: #eef4f0;
   content: '';
   transform: rotate(45deg);
@@ -1696,6 +1707,7 @@ a {
 
 .return-current-label strong {
   color: #16463f;
+  font-size: 1rem;
 }
 
 .return-date-label {
@@ -1724,32 +1736,33 @@ a {
 }
 
 .return-receive-card {
-  right: 4%;
+  right: 3%;
   display: grid;
-  gap: 8px;
-  width: 190px;
-  padding: 18px;
+  gap: 2px;
+  width: 138px;
+  padding: 10px 12px;
   background: #0c2b27;
   color: #9bb8af;
+  font-size: 0.72rem;
   font-weight: 760;
 }
 
 .return-chart-visual.above .return-receive-card {
-  top: 38px;
+  top: 24px;
 }
 
 .return-chart-visual.below .return-receive-card {
-  bottom: 60px;
+  bottom: 44px;
 }
 
 .return-receive-card strong {
   color: #32d394;
-  font-size: 1.2rem;
+  font-size: 1.02rem;
 }
 
 .return-receive-card b {
   color: #32d394;
-  font-size: 1rem;
+  font-size: 0.82rem;
 }
 
 .return-overview-breakdown {
@@ -2848,31 +2861,39 @@ summary:focus-visible,
   color: var(--navy);
 }
 
-/* ---- Return overview panel → navy sticker ---- */
+/* ---- Return overview panel → copper sticker (low-contrast, on-brand) ---- */
 .return-overview-panel {
-  background: var(--navy-panel);
+  background: var(--copper-tint);
   border: var(--bw) solid var(--navy);
   border-radius: var(--r);
   box-shadow: var(--shadow-hard);
-  color: #f0e7cf;
+  color: var(--ink);
+}
+
+.return-overview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .return-overview-heading h3 {
-  color: #fff;
+  color: var(--navy);
   font-family: var(--font-display);
 }
 
 .return-overview-heading p {
-  color: #c9d2e0;
+  color: var(--ink-soft);
 }
 
 .return-scenario-tabs {
-  border: var(--bw) solid rgba(244, 236, 214, 0.28);
+  border: var(--bw) solid var(--copper-line);
   border-radius: var(--r-sm);
+  background: rgba(255, 253, 245, 0.4);
 }
 
 .return-scenario-tabs button {
-  color: #c9d2e0;
+  color: var(--copper-deep);
   font-family: var(--font-display);
 }
 
@@ -2882,42 +2903,93 @@ summary:focus-visible,
 }
 
 .return-chart-visual {
-  background: #1d2c47;
+  background: var(--copper-tint-2);
+  border-radius: var(--r-sm);
+}
+
+.return-grid-line {
+  stroke: var(--copper-line);
+}
+
+.return-grid-line.horizontal {
+  stroke: var(--copper);
 }
 
 .return-receive-card {
-  background: var(--navy-panel);
-  color: #c9d2e0;
+  background: var(--paper);
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-hard-sm);
+  color: var(--ink-soft);
 }
 
 .return-receive-card strong,
 .return-receive-card b,
 .return-overview-breakdown b,
 .return-receive-row strong {
-  color: var(--gold-2);
+  color: var(--copper-deep);
 }
 
 .return-current-dot {
-  fill: var(--navy-panel);
-  stroke: var(--gold);
+  fill: var(--copper-tint-2);
+  stroke: var(--copper-deep);
 }
 
 .return-arrow {
-  fill: var(--gold);
+  fill: var(--copper-deep);
 }
 
-.return-current-label {
-  background: var(--paper);
+.return-target-label {
+  border-color: var(--navy);
+  color: var(--ink-soft);
+}
+
+.return-target-label strong {
   color: var(--navy);
 }
 
+.return-current-label {
+  background: var(--navy);
+  color: var(--paper);
+}
+
 .return-current-label::before {
-  background: var(--paper);
+  background: var(--navy);
+}
+
+.return-current-label strong {
+  color: var(--gold-2);
+}
+
+.return-date-label {
+  color: var(--ink-soft);
 }
 
 .return-date-label span {
-  background: rgba(244, 236, 214, 0.14);
-  color: #c9d2e0;
+  background: rgba(32, 48, 77, 0.1);
+  color: var(--ink-soft);
+}
+
+.return-overview-breakdown > div {
+  color: var(--ink-soft);
+}
+
+.return-overview-breakdown > div:nth-child(2),
+.return-overview-breakdown > div:nth-child(3) {
+  border-bottom: 1px solid var(--copper-line);
+}
+
+.return-overview-breakdown strong {
+  color: var(--navy);
+}
+
+.return-receive-row i {
+  color: var(--navy);
+}
+
+/* Estimate vs live badge sits in the heading */
+.return-overview-heading .quote-badge {
+  flex: 0 0 auto;
 }
 
 /* ---- Focus ring → bold navy (gold on dark panel) ---- */
@@ -3075,5 +3147,762 @@ dd {
     left: 50%;
     top: 0;
     transform: translateX(-50%);
+  }
+}
+
+/* ============================================================
+   Dual Investment — Buy Low redesign (selection · terminal · confirm)
+   ============================================================ */
+
+/* ① Selection bar — pair · direction · settlement · spot */
+.di-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 24px;
+  padding-bottom: 22px;
+}
+
+.di-select-group {
+  display: grid;
+  gap: 8px;
+}
+
+.di-select-grow {
+  flex: 0 1 360px;
+  min-width: 240px;
+  max-width: 400px;
+}
+
+.di-select-label {
+  color: var(--gold-3);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.di-pair-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: var(--bw) solid var(--navy);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: var(--shadow-hard-sm);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.di-pair-chip .coin-dot {
+  width: 26px;
+  height: 26px;
+  font-size: 0.7rem;
+}
+
+.di-pair-chip strong {
+  color: var(--navy);
+  font-size: 1.02rem;
+}
+
+.di-pair-chip span:not(.coin-dot) {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.mode-tabs.di-direction {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+}
+
+.di-select-grow .expiry-select {
+  width: 100%;
+}
+
+.di-select-grow .expiry-select select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Hero BTC price — borderless headline market reference, top-right.
+   Deliberately no card: the rest of the page is all outlined stickers, so
+   a bare number gives the eye somewhere to rest. */
+.di-hero-ticker {
+  display: grid;
+  gap: 8px;
+  align-self: center;
+  justify-self: end;
+  justify-items: end;
+  text-align: right;
+}
+
+.di-hero-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.di-live-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--grass);
+}
+
+.di-live-flag.is-stale {
+  color: var(--gold-3);
+}
+
+.di-live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: di-live-pulse 1.8s ease-out infinite;
+}
+
+.di-live-flag.is-stale .di-live-dot {
+  animation: none;
+}
+
+@keyframes di-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(63, 157, 91, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(63, 157, 91, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(63, 157, 91, 0);
+  }
+}
+
+.di-hero-ticker strong {
+  color: var(--navy);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2.6rem, 4.4vw, 4.2rem);
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+}
+
+/* ②③ Terminal — copper chart (left) + controls & reference (right) */
+.di-terminal {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.95fr);
+  gap: 18px;
+  align-items: stretch;
+  padding-bottom: 24px;
+}
+
+/* Right column is one card: reference (fills) on top, your input pinned to the
+   bottom so it lines up with the bottom of the chart on the left. */
+.di-terminal-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+  overflow: hidden;
+}
+
+.return-overview-panel.is-empty {
+  gap: 16px;
+}
+
+.di-overview-empty {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  margin: 0;
+  padding: 24px;
+  border: var(--bw) dashed var(--copper-line);
+  border-radius: var(--r-sm);
+  background: var(--copper-tint-2);
+  color: var(--copper-deep);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Controls — bottom sub-panel of the merged right card */
+.di-controls {
+  display: grid;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 14px 16px;
+  border-top: var(--bw) solid rgba(32, 48, 77, 0.16);
+  background: var(--paper-2);
+}
+
+.di-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.di-field {
+  display: grid;
+  gap: 8px;
+}
+
+.di-field > span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.di-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+}
+
+.di-input-wrap:focus-within {
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.di-input-wrap input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--navy);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.di-input-wrap input:focus,
+.di-input-wrap input:focus-visible {
+  outline: none;
+}
+
+.di-input-wrap i {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.di-field > span {
+  font-size: 0.74rem;
+}
+
+.di-controls-apr {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--gold-tint);
+}
+
+.di-controls-apr span {
+  color: var(--copper-deep);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.di-controls-apr strong {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+/* Reference — top sub-panel of the merged right card; fills the space so the
+   controls below line up with the bottom of the chart. */
+.di-reference {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 8px;
+  padding: 14px 16px 6px;
+}
+
+.di-reference-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.di-reference-head h3 {
+  margin: 0;
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.di-reference-hint {
+  margin: 0;
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.di-reference .table-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.di-reference-table {
+  min-width: 0;
+}
+
+.di-reference-table th {
+  padding: 6px 10px;
+}
+
+.di-reference-table td {
+  min-height: 0;
+  padding: 7px 10px;
+  font-size: 0.9rem;
+}
+
+.di-reference-table td span {
+  margin-top: 1px;
+  font-size: 0.72rem;
+}
+
+.di-reference-table tbody tr {
+  cursor: pointer;
+}
+
+.di-reference-table tbody tr.selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--gold-3);
+}
+
+/* "BTC equiv." settlement note — dashed affordance + hover/focus tooltip */
+.di-equiv-note {
+  position: relative;
+  border-bottom: 1.5px dashed currentColor;
+  cursor: help;
+}
+
+.di-equiv-note::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 9px);
+  z-index: 6;
+  width: 210px;
+  padding: 9px 11px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--navy);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.42;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.di-equiv-note:hover::after,
+.di-equiv-note:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ④ Confirm — three numbers + worst case + subscribe */
+.di-confirm {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 10px;
+}
+
+.di-confirm-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.di-confirm-numbers > div:not(.di-confirm-arrow) {
+  flex: 1 1 200px;
+  display: grid;
+  gap: 6px;
+  align-content: center;
+  padding: 18px 20px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.di-confirm-numbers span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.di-confirm-numbers strong {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.05;
+}
+
+.di-confirm-numbers em {
+  color: var(--copper-deep);
+  font-style: normal;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.di-confirm-arrow {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--gold-3);
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.di-confirm-worstcase {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 16px;
+  border: var(--bw) dashed var(--copper-line);
+  border-radius: var(--r-sm);
+  background: var(--copper-tint);
+  color: var(--copper-deep);
+}
+
+.di-confirm-worstcase svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.di-confirm-worstcase-text {
+  display: grid;
+  gap: 4px;
+}
+
+.di-confirm-worstcase-main {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.di-confirm-worstcase small {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--copper-deep);
+  opacity: 0.82;
+}
+
+.di-confirm-pending {
+  padding: 18px 20px;
+  border: var(--bw) dashed rgba(32, 48, 77, 0.4);
+  border-radius: var(--r);
+  color: var(--ink-soft);
+  font-weight: 700;
+  text-align: center;
+}
+
+.di-confirm-pending.is-error {
+  border-color: var(--coral);
+  background: var(--coral-tint);
+  color: #7a2d12;
+}
+
+/* On-chain Subscribe — two-step checklist */
+.exec-steps {
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.exec-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: var(--bw) solid rgba(32, 48, 77, 0.16);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+}
+
+.exec-step.is-active {
+  border-color: var(--navy);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.exec-step.is-done {
+  border-color: var(--grass);
+  background: var(--grass-tint);
+}
+
+.exec-step.is-locked {
+  opacity: 0.55;
+}
+
+.exec-step-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: var(--bw) solid var(--navy);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.exec-step.is-active .exec-step-mark {
+  background: var(--gold);
+}
+
+.exec-step.is-done .exec-step-mark {
+  border-color: var(--grass);
+  background: var(--grass);
+  color: #fff;
+}
+
+.exec-step-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.exec-step-text strong {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.98rem;
+}
+
+.exec-step-text span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.exec-step-action {
+  flex: 0 0 auto;
+}
+
+.exec-step-action .small-action,
+.exec-step-action .primary-action {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 18px;
+}
+
+.exec-step-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: var(--bw) solid var(--grass);
+  border-radius: 999px;
+  background: var(--grass);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.execution-panel .execution-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .exec-step {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 12px;
+  }
+
+  .exec-step-action {
+    grid-column: 1 / -1;
+  }
+
+  .exec-step-action .small-action,
+  .exec-step-action .primary-action {
+    width: 100%;
+  }
+}
+
+/* ⑤ Advanced — collapsible secondary data.
+   Inset to the same inner width as the cards above (container is 1360 with 28px
+   gutters → content is 1304) so its outline lines up instead of sticking out. */
+.di-advanced {
+  width: min(calc(100% - 56px), 1304px);
+  margin: 4px auto 32px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+  overflow: hidden;
+}
+
+.di-advanced > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 20px;
+  cursor: pointer;
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.02rem;
+  list-style: none;
+}
+
+.di-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.di-advanced > summary svg {
+  transition: transform 160ms ease;
+}
+
+.di-advanced[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+.di-advanced[open] > summary {
+  border-bottom: var(--bw) solid rgba(32, 48, 77, 0.14);
+}
+
+.di-advanced-body {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.di-advanced-control {
+  display: grid;
+  gap: 8px;
+  max-width: 440px;
+}
+
+.di-advanced-control > span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.di-advanced-control select {
+  min-height: 46px;
+  padding: 0 12px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.di-advanced-control small {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.di-advanced .compact-summary {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  /* Hero stacks here (see .dual-hero) — let the ticker sit left, not stretched. */
+  .di-hero-ticker {
+    justify-self: start;
+    justify-items: start;
+    margin-top: 8px;
+    text-align: left;
+  }
+}
+
+@media (max-width: 900px) {
+  .di-terminal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .di-confirm-arrow {
+    display: none;
+  }
+
+  /* Stack the inputs so the Buy Low price isn't clipped in a half-width field. */
+  .di-controls-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .di-hero-ticker strong {
+    font-size: 2.6rem;
+  }
+
+  /* Declutter the copper chart on narrow screens — the floating callouts
+     duplicate the selection-bar spot price and the breakdown rows below. */
+  .return-receive-card,
+  .return-current-label {
+    display: none;
+  }
+
+  .return-target-label {
+    top: 30%;
+  }
+
+  .return-overview-breakdown {
+    padding: 0 6px 4px;
   }
 }

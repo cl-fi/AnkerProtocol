@@ -73,20 +73,20 @@ export function targetBuyExecutionViewModel({
     return { state: 'transaction-failed' as const, status: 'Transaction failed. Review the error and retry.' };
   }
   if (digest) {
-    return { state: 'transaction-submitted' as const, status: 'Transaction submitted. Track the note in Dashboard.' };
+    return { state: 'transaction-submitted' as const, status: 'Transaction submitted. Track it in your Dashboard.' };
   }
   if (isLoadingManagers) {
-    return { state: 'checking-manager' as const, status: 'Checking product container...' };
+    return { state: 'checking-manager' as const, status: 'Checking your product container...' };
   }
   if (!hasManager) {
     return {
       state: 'manager-required' as const,
-      status: 'Create a product container for this structured note before subscribing.',
+      status: 'Start with step 1 — create your product container.',
     };
   }
   return {
     state: 'ready' as const,
-    status: `Product container ${managerId ? shortId(managerId) : ''} is ready.`,
+    status: `Product container ${managerId ? shortId(managerId) : ''} is ready. Subscribe to finish.`,
   };
 }
 
@@ -114,26 +114,58 @@ export function TargetBuyExecutionPanelView({
     digest,
   });
 
+  const step1State = !hasAccount ? 'locked' : hasManager ? 'done' : 'active';
+  const step2State = !hasAccount || !hasManager ? 'locked' : 'active';
+
   return (
     <article className="detail-panel execution-panel">
       <div className="detail-title">
         <h3>On-chain Subscribe</h3>
-        <span>Buy Low execution adapter</span>
+        <span>Sui testnet</span>
       </div>
+
+      <ol className="exec-steps">
+        <li className={`exec-step is-${step1State}`}>
+          <span className="exec-step-mark">{hasManager ? '✓' : '1'}</span>
+          <div className="exec-step-text">
+            <strong>Create product container</strong>
+            <span>Each Buy Low position needs its own container — create one before you subscribe.</span>
+          </div>
+          <div className="exec-step-action">
+            {hasManager ? (
+              <span className="exec-step-badge">Ready</span>
+            ) : (
+              <button
+                className="small-action"
+                type="button"
+                disabled={!hasAccount || isPending || isLoadingManagers}
+                onClick={onCreateManager}
+              >
+                {isPending ? 'Waiting for wallet...' : isLoadingManagers ? 'Checking...' : 'Create Product Container'}
+              </button>
+            )}
+          </div>
+        </li>
+
+        <li className={`exec-step is-${step2State}`}>
+          <span className="exec-step-mark">2</span>
+          <div className="exec-step-text">
+            <strong>Subscribe Buy Low</strong>
+            <span>Confirm in your wallet to lock in your reward.</span>
+          </div>
+          <div className="exec-step-action">
+            <button className="primary-action" type="button" disabled={!canSubscribe} onClick={onSubscribe}>
+              {isPending ? 'Waiting for wallet...' : 'Subscribe Buy Low'}
+            </button>
+          </div>
+        </li>
+      </ol>
+
       <div className="execution-status">
         <WalletCards size={18} />
         <span>{execution.status}</span>
       </div>
-      <div className="execution-actions">
-        {hasAccount && !hasManager ? (
-          <button className="small-action" type="button" disabled={isPending || isLoadingManagers} onClick={onCreateManager}>
-            {isPending ? 'Waiting for wallet...' : 'Create Product Container'}
-          </button>
-        ) : null}
-        <button className="primary-action" type="button" disabled={!canSubscribe} onClick={onSubscribe}>
-          {isPending ? 'Waiting for wallet...' : 'Subscribe Buy Low'}
-        </button>
-      </div>
+
       {quoteWarning && !isQuoteExecutable ? <p className="execution-error">{quoteWarning}</p> : null}
       {digest ? (
         <p className="execution-message">
