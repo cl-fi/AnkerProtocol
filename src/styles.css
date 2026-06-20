@@ -3126,6 +3126,365 @@ dd {
 }
 
 /* ============================================================
+   Dashboard redesign — portfolio summary + product-first cards
+   ============================================================ */
+
+/* Portfolio summary — three sticker tiles */
+.di-portfolio {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.di-portfolio > div {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  min-height: 96px;
+  padding: 18px 22px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.di-portfolio span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.di-portfolio strong {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  line-height: 1.02;
+}
+
+.di-portfolio strong em {
+  color: var(--copper-deep);
+  font-style: normal;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+/* Positions section — prominent secondary heading + status filter tabs */
+.di-positions-heading {
+  margin-bottom: 14px;
+}
+
+.di-positions-heading h2 {
+  font-size: 1.9rem;
+}
+
+.di-position-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.di-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: var(--bw) solid var(--navy);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-hard-sm);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.di-filter:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-hard);
+}
+
+.di-filter.is-active {
+  background: var(--gold);
+  color: var(--navy);
+}
+
+.di-filter em {
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: rgba(32, 48, 77, 0.12);
+  color: var(--navy);
+  font-style: normal;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.di-filter.is-active em {
+  background: rgba(32, 48, 77, 0.22);
+}
+
+/* Position card — product-first layout on the shared detail-panel chrome */
+.di-position-card {
+  display: grid;
+  gap: 16px;
+}
+
+.di-position-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.di-position-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.di-position-title h3 {
+  margin: 0;
+}
+
+.di-position-strike {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: var(--copper-deep);
+}
+
+/* Status pill */
+.di-status-pill {
+  flex: 0 0 auto;
+  padding: 4px 13px;
+  border: var(--bw) solid var(--navy);
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.di-status-pill.is-active {
+  background: var(--gold-tint);
+  color: var(--gold-3);
+}
+
+.di-status-pill.is-ready {
+  background: var(--grass-tint);
+  color: var(--grass);
+}
+
+.di-status-pill.is-attention {
+  background: var(--coral-tint);
+  color: #7a2d12;
+}
+
+.di-status-pill.is-done {
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+
+/* Three core numbers */
+.di-position-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.di-position-stats > div {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  min-height: 78px;
+  padding: 14px 16px;
+  border: var(--bw) solid rgba(32, 48, 77, 0.16);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+}
+
+.di-position-stats span {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.di-position-stats strong {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  line-height: 1.08;
+}
+
+.di-position-stats em {
+  display: block;
+  margin-top: 1px;
+  color: var(--copper-deep);
+  font-style: normal;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+/* Outcome explainer — mirrors the Buy Low worst-case banner */
+.di-position-outcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border: var(--bw) dashed var(--copper-line);
+  border-radius: var(--r-sm);
+  background: var(--copper-tint);
+  color: var(--copper-deep);
+}
+
+.di-position-outcome svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.di-position-outcome-text {
+  display: grid;
+  gap: 4px;
+}
+
+.di-position-outcome-main {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.di-position-outcome small {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.45;
+  opacity: 0.82;
+}
+
+/* Claim area */
+.di-claim {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 16px;
+  border-top: var(--bw) solid rgba(32, 48, 77, 0.18);
+}
+
+.di-claim-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.di-claim-status {
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.di-claim-sub {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.di-claim-amount {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.28rem;
+  line-height: 1.1;
+}
+
+.di-claim-fee {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.di-claim-button {
+  flex: 0 0 auto;
+}
+
+.di-claim .execution-message,
+.di-claim .execution-error {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
+/* On-chain proof — collapsible */
+.di-position-proof {
+  border: var(--bw) solid rgba(32, 48, 77, 0.18);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+  overflow: hidden;
+}
+
+.di-position-proof > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.92rem;
+  list-style: none;
+}
+
+.di-position-proof > summary::-webkit-details-marker {
+  display: none;
+}
+
+.di-position-proof > summary svg {
+  transition: transform 160ms ease;
+}
+
+.di-position-proof[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+.di-position-proof[open] > summary {
+  border-bottom: var(--bw) solid rgba(32, 48, 77, 0.12);
+}
+
+.di-position-proof .oracle-meta {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--paper);
+}
+
+.di-proof-link {
+  color: var(--copper-deep);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.di-proof-link:hover {
+  color: var(--copper);
+}
+
+@media (max-width: 640px) {
+  .di-portfolio,
+  .di-position-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .di-claim-button {
+    width: 100%;
+  }
+}
+
+/* ============================================================
    App top-nav — bigger brand lockup + centered product nav
    ============================================================ */
 

@@ -32,7 +32,7 @@ function noteFixture(overrides: Partial<DualInvestmentSettlementNote> = {}): Dua
 }
 
 describe('calculateSettlement', () => {
-  it('pays reserve plus coupon when settlement is below every strike', () => {
+  it('charges the coupon fee when settlement is below every strike', () => {
     const note = noteFixture({
       principalBaseUnits: 5_000_000n,
       reserveBaseUnits: 4_936_412n,
@@ -50,21 +50,21 @@ describe('calculateSettlement', () => {
     const settlement = calculateSettlement(note, settledLegsFromPrice(note, 64_000));
 
     expect(settlement.grossPayoutBaseUnits).toBe(4_943_865n);
-    expect(settlement.performanceFeeBaseUnits).toBe(0n);
-    expect(settlement.netPayoutBaseUnits).toBe(4_943_865n);
+    expect(settlement.performanceFeeBaseUnits).toBe(745n);
+    expect(settlement.netPayoutBaseUnits).toBe(4_943_120n);
     expect(settlement.realizedLegs).toEqual([]);
   });
 
-  it('only includes legs realized below the final settlement price', () => {
+  it('charges the coupon fee when only some legs are realized', () => {
     const settlement = calculateSettlement(noteFixture(), settledLegsFromPrice(noteFixture(), 61_000));
 
     expect(settlement.grossPayoutBaseUnits).toBe(950_000_000n);
-    expect(settlement.performanceFeeBaseUnits).toBe(0n);
-    expect(settlement.netPayoutBaseUnits).toBe(950_000_000n);
+    expect(settlement.performanceFeeBaseUnits).toBe(1_000_000n);
+    expect(settlement.netPayoutBaseUnits).toBe(949_000_000n);
     expect(settlement.realizedLegs.map((leg) => leg.legId)).toEqual(['up-60000']);
   });
 
-  it('caps the all-realized payout at principal plus coupon and charges fee only on yield', () => {
+  it('charges the coupon fee when every leg is realized', () => {
     const settlement = calculateSettlement(noteFixture(), settledLegsFromPrice(noteFixture(), 63_000));
 
     expect(settlement.grossPayoutBaseUnits).toBe(1_010_000_000n);

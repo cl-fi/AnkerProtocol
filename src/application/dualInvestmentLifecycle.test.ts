@@ -182,8 +182,10 @@ describe('Dual Investment subscribe-to-settle lifecycle', () => {
 
     expect(withdrawPlan.claimMode).toBe('withdraw-only');
     expect(withdrawPlan.payoutAmount).toBe(toBaseUnits(quote.reserve + quote.coupon));
-    expect(withdrawPlan.feeAmount).toBe(0n);
-    expect(withdrawPlan.netPayoutAmount).toBe(toBaseUnits(quote.reserve + quote.coupon));
+    expect(withdrawPlan.feeAmount).toBe((toBaseUnits(quote.coupon) * 1_000n) / 10_000n);
+    expect(withdrawPlan.netPayoutAmount).toBe(
+      toBaseUnits(quote.reserve + quote.coupon) - (toBaseUnits(quote.coupon) * 1_000n) / 10_000n,
+    );
     expect(withdrawPlan.calls).toContain(`${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`);
   });
 });

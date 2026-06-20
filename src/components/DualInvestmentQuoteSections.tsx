@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import { scanQuoteDisplayMetrics, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
+import { netAprAfterCouponFee } from '../products/feePolicy';
 import { formatTimeToExpiry } from '../products/timeFormat';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
@@ -143,7 +144,7 @@ export function BuyLowControls({
       </div>
       <div className="di-controls-apr">
         <span>Estimated reward</span>
-        <strong>{estimateApr !== null ? `${formatApr(estimateApr)} APR` : '--'}</strong>
+        <strong>{estimateApr !== null ? `${formatApr(netAprAfterCouponFee(estimateApr))} APR` : '--'}</strong>
       </div>
     </section>
   );

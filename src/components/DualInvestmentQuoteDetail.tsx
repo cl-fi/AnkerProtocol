@@ -2,6 +2,7 @@
 
 import { ChevronDown, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
+import { netAprAfterCouponFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
@@ -111,6 +112,7 @@ export function ReturnOverview({
   const [scenario, setScenario] = useState<'above' | 'below'>('above');
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
   const total = quote.principal + quote.coupon;
+  const netApr = netAprAfterCouponFee(quote.apr);
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
   const isAbove = scenario === 'above';
   const receiveAmount = isAbove ? formatTokenAmount(total, 6) : formatTokenAmount(btcEquivalent, 8);
@@ -198,7 +200,7 @@ export function ReturnOverview({
         </div>
         <div>
           <span>
-            Rewards (<b>{formatApr(quote.apr)}</b> APR)
+            Rewards (<b>{formatApr(netApr)}</b> APR)
           </span>
           <strong>+{formatAmount(quote.coupon)} dUSDC</strong>
         </div>
@@ -233,6 +235,7 @@ export function DualInvestmentConfirm({
 }) {
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
   const total = quote.principal + quote.coupon;
+  const netApr = netAprAfterCouponFee(quote.apr);
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
 
   return (
@@ -248,7 +251,7 @@ export function DualInvestmentConfirm({
         <div>
           <span>You receive at settlement</span>
           <strong>{formatAmount(total)} dUSDC</strong>
-          <em>{formatApr(quote.apr)} APR</em>
+          <em>{formatApr(netApr)} APR</em>
         </div>
         <div>
           <span>Settles</span>

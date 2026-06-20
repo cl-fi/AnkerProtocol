@@ -13,14 +13,14 @@ import type { SettlementResult } from '../products/settlement';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { lifecycleForProductNote, type DualInvestmentClaimState } from '../sui/predictManagerState';
 import { preflightTransaction } from '../sui/transactionPreflight';
-import { formatPreciseAmount, formatPrice, shortId } from './DashboardFormat';
+import { formatPreciseAmount, formatPrice, shortId, suiExplorerTxUrl } from './DashboardFormat';
 
 function partialUnavailableStatus(claimState: DualInvestmentClaimState) {
   if (claimState.missingLegs.length === 0) {
-    return 'Predict legs are partially redeemed. Claim is paused until positions reconcile.';
+    return 'Settling — positions are still reconciling. Claim opens shortly.';
   }
   const strikes = claimState.missingLegs.map((leg) => formatPrice(leg.strike)).join(', ');
-  return `${claimState.missingLegs.length === 1 ? 'Missing leg' : 'Missing legs'} ${strikes}. Claim is paused until positions reconcile.`;
+  return `Settling — positions at ${strikes} are still reconciling. Claim opens shortly.`;
 }
 
 export function claimActionViewModel({
@@ -42,20 +42,20 @@ export function claimActionViewModel({
     note.status === 'open' &&
     (lifecycle === 'positions-redeemable' || lifecycle === 'claimable') &&
     !isPending;
-  const actionLabel = claimState.path === 'redeem-and-withdraw' ? 'Redeem legs' : 'Claim DUSDC';
+  const actionLabel = claimState.path === 'redeem-and-withdraw' ? 'Redeem positions' : 'Claim cash';
   const status = !isDual
     ? 'Legacy product claim is staged.'
     : note.status === 'redeemed'
-      ? 'Product note already claimed.'
+      ? 'Already claimed.'
       : !isExpired
-        ? 'Claim opens after expiry.'
+        ? 'Opens after settlement — nothing to do yet.'
         : lifecycle === 'positions-redeemable'
-          ? 'Redeem open Predict legs first, then refresh to claim DUSDC.'
+          ? 'Ready to settle — redeem your positions, then claim your cash.'
           : lifecycle === 'claimable'
-            ? 'Predict legs already redeemed. Claim withdraws DUSDC from the product container.'
+            ? 'Ready — claim your cash from this position.'
             : lifecycle === 'settlement-blocked'
               ? partialUnavailableStatus(claimState)
-              : 'Checking product container before claim.';
+              : 'Checking this position…';
 
   return {
     lifecycle,
@@ -109,24 +109,37 @@ export function ClaimActionView({
   error?: string | null;
   onClaim: () => void;
 }) {
-  const isDual = note.productType === 'dual-investment';
   const action = claimActionViewModel({ note, nowMs, claimState, isPending });
   const estimate = redeemEstimateForClaimState(note, claimState);
+  const claimed = note.status === 'redeemed';
+  const amountLabel = claimed ? 'You received' : action.canClaim ? "You'll receive" : 'Projected payout';
 
   return (
-    <div className="redeem-action">
-      <div>
-        <span>{action.status}</span>
-        {action.showMaturityCountdown ? <span>Maturity {formatTimeToExpiry(note.expiryMs, nowMs)}</span> : null}
-        {isDual ? <span>BTC delivery route unavailable on testnet.</span> : null}
-        <strong>Claim {formatPreciseAmount(estimate.grossPayout)} dUSDC</strong>
-        <strong>Fee {formatPreciseAmount(estimate.feeAmount)} dUSDC</strong>
-        <strong>Net {formatPreciseAmount(estimate.netPayout)} dUSDC</strong>
+    <div className="di-claim">
+      <div className="di-claim-info">
+        <span className="di-claim-status">{action.status}</span>
+        {action.showMaturityCountdown ? (
+          <span className="di-claim-sub">Settles in {formatTimeToExpiry(note.expiryMs, nowMs)}</span>
+        ) : null}
+        <strong className="di-claim-amount">
+          {amountLabel} {claimed ? '' : '~'}
+          {formatPreciseAmount(estimate.netPayout)} dUSDC
+        </strong>
+        <small className="di-claim-fee">
+          after {formatPreciseAmount(estimate.feeAmount)} dUSDC fee · cash-settled in dUSDC on testnet
+        </small>
       </div>
-      <button className="small-action" type="button" disabled={!action.canClaim} onClick={onClaim}>
-        {isPending ? 'Submitting...' : action.actionLabel}
+      <button className="primary-action di-claim-button" type="button" disabled={!action.canClaim} onClick={onClaim}>
+        {isPending ? 'Submitting…' : action.actionLabel}
       </button>
-      {digest ? <p className="execution-message">Claim submitted: {shortId(digest)}</p> : null}
+      {digest ? (
+        <p className="execution-message">
+          Submitted —{' '}
+          <a className="di-proof-link" href={suiExplorerTxUrl(digest)} target="_blank" rel="noreferrer">
+            {shortId(digest)}
+          </a>
+        </p>
+      ) : null}
       {error ? <p className="execution-error">{error}</p> : null}
     </div>
   );

@@ -47,6 +47,10 @@ function feeBpsValue(note: DualInvestmentSettlementNote) {
   return BigInt(note.feeBps);
 }
 
+function couponFeeBaseUnits(note: DualInvestmentSettlementNote) {
+  return (note.couponBaseUnits * feeBpsValue(note)) / BPS_DENOMINATOR;
+}
+
 export function settledLegsFromPrice(
   note: DualInvestmentSettlementNote,
   settlementPrice: number,
@@ -77,9 +81,7 @@ export function calculateSettlement(
 
   const realizedLegPayout = realizedLegs.reduce((sum, leg) => sum + leg.payoutBaseUnits, 0n);
   const grossPayoutBaseUnits = note.reserveBaseUnits + note.couponBaseUnits + realizedLegPayout;
-  const performanceYield =
-    grossPayoutBaseUnits > note.principalBaseUnits ? grossPayoutBaseUnits - note.principalBaseUnits : 0n;
-  const performanceFeeBaseUnits = (performanceYield * feeBpsValue(note)) / BPS_DENOMINATOR;
+  const performanceFeeBaseUnits = couponFeeBaseUnits(note);
   return {
     grossPayoutBaseUnits,
     performanceFeeBaseUnits,
@@ -92,9 +94,7 @@ export function calculateSettlementFromGrossPayout(
   note: DualInvestmentSettlementNote,
   grossPayoutBaseUnits: bigint,
 ): SettlementResult {
-  const performanceYield =
-    grossPayoutBaseUnits > note.principalBaseUnits ? grossPayoutBaseUnits - note.principalBaseUnits : 0n;
-  const performanceFeeBaseUnits = (performanceYield * feeBpsValue(note)) / BPS_DENOMINATOR;
+  const performanceFeeBaseUnits = couponFeeBaseUnits(note);
   return {
     grossPayoutBaseUnits,
     performanceFeeBaseUnits,

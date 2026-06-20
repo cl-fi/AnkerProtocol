@@ -1,6 +1,8 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DualInvestmentPage, QuoteRiskSummary } from './DualInvestmentPage';
+import { BuyLowControls } from './DualInvestmentQuoteSections';
+import { DualInvestmentConfirm, ReturnOverview } from './DualInvestmentQuoteDetail';
 import type { ReactNode } from 'react';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
 
@@ -175,6 +177,45 @@ describe('QuoteRiskSummary', () => {
     expect(screen.getByText('1% max cost')).toBeVisible();
     expect(screen.getByText('Liquidity')).toBeVisible();
     expect(screen.getByText('Verified')).toBeVisible();
+  });
+});
+
+describe('Dual Investment APR display', () => {
+  it('shows net APR after protocol fee in Buy Low controls', () => {
+    render(
+      <BuyLowControls
+        market={marketFixture()}
+        principal={5}
+        targetPrice={65_500}
+        estimateApr={1.5}
+        onPrincipalChange={() => undefined}
+        onTargetChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('135% APR')).toBeVisible();
+  });
+
+  it('shows net APR after protocol fee in return and confirmation summaries', () => {
+    const quote = pageQuoteFixture({ coupon: 0.03 });
+    const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
+
+    render(
+      <>
+        <ReturnOverview quote={quote} productInput={productInput} />
+        <DualInvestmentConfirm
+          quote={quote}
+          productInput={productInput}
+          subscribeQuote={null}
+          isVerifying={false}
+        />
+      </>,
+    );
+
+    expect(screen.getByText('135%')).toBeVisible();
+    expect(screen.getByText('135% APR')).toBeVisible();
+    expect(screen.queryByText('150%')).not.toBeInTheDocument();
+    expect(screen.queryByText('150% APR')).not.toBeInTheDocument();
   });
 });
 

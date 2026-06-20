@@ -83,7 +83,7 @@ describe('scanQuoteDisplayMetrics', () => {
     });
   });
 
-  it('keeps positive indicative quote economics visible', () => {
+  it('shows net APR after the protocol coupon fee for positive indicative quotes', () => {
     expect(
       scanQuoteDisplayMetrics({
         quote: {
@@ -94,7 +94,7 @@ describe('scanQuoteDisplayMetrics', () => {
       }),
     ).toEqual({
       coupon: 0.04,
-      apr: 1.8861,
+      apr: 1.69749,
       totalLegCost: 0.34,
     });
   });

@@ -1,6 +1,7 @@
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from './types';
 import { alignToGrid } from './strikeGrid';
 import { estimateTargetBuyFloorPrice } from './predictPricing';
+import { netAprAfterCouponFee } from './feePolicy';
 
 export interface DualInvestmentScanRow {
   input: DualInvestmentInput;
@@ -76,7 +77,7 @@ export function scanQuoteDisplayMetrics(input: {
 
   return {
     coupon: input.quote.coupon,
-    apr: input.quote.apr,
+    apr: netAprAfterCouponFee(input.quote.apr),
     totalLegCost: input.quote.totalLegCost,
   };
 }

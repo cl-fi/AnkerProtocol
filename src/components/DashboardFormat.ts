@@ -48,3 +48,13 @@ export function formatOracleTimestamp(value: number) {
 export function shortId(value: string) {
   return value ? `${value.slice(0, 8)}...${value.slice(-6)}` : '--';
 }
+
+const SUI_EXPLORER_BASE = 'https://suiscan.xyz/testnet';
+
+export function suiExplorerTxUrl(digest: string) {
+  return `${SUI_EXPLORER_BASE}/tx/${digest}`;
+}
+
+export function suiExplorerObjectUrl(objectId: string) {
+  return `${SUI_EXPLORER_BASE}/object/${objectId}`;
+}

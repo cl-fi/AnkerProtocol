@@ -1,22 +1,37 @@
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
 import {
   ClaimActionView,
   AllocatedPositionsValue,
-  DepositedCashValue,
   IndexedTransactionDigestValue,
   OracleLastUpdateValue,
   SettlementRangeValue,
   SubscriptionDigestValue,
   claimActionViewModel,
+  depositedCashText,
   managerValidationForNote,
   redeemEstimateForNote,
 } from './DashboardPage';
+import { ProductNoteCard } from './DashboardProductNoteCard';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 import type { DualInvestmentClaimState } from '../sui/predictManagerState';
+
+const mocks = vi.hoisted(() => ({
+  usePredictManagerState: vi.fn(),
+}));
+
+vi.mock('@mysten/dapp-kit-react', () => ({
+  useCurrentAccount: () => null,
+  useCurrentClient: () => ({}),
+  useDAppKit: () => ({ signAndExecuteTransaction: vi.fn() }),
+}));
+
+vi.mock('../hooks/usePredictManagerState', () => ({
+  usePredictManagerState: mocks.usePredictManagerState,
+}));
 
 function noteFixture(overrides: Partial<AnkerProductNoteRecord> = {}): AnkerProductNoteRecord {
   return {
@@ -64,6 +79,18 @@ function rpcResponse(result: unknown) {
   });
 }
 
+beforeEach(() => {
+  mocks.usePredictManagerState.mockReturnValue({
+    data: {
+      managerId: `0x${'b'.repeat(64)}`,
+      dusdcBalance: 4.943865,
+      positions: [],
+      generatedAt: 1,
+    },
+    isPending: false,
+  });
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -72,8 +99,8 @@ describe('redeemEstimateForNote', () => {
   it('uses reserve plus coupon when no option leg payout has been realized yet', () => {
     expect(redeemEstimateForNote(noteFixture())).toEqual({
       grossPayout: 4.943865,
-      feeAmount: 0,
-      netPayout: 4.943865,
+      feeAmount: 0.000745,
+      netPayout: 4.94312,
     });
   });
 });
@@ -116,9 +143,9 @@ describe('RedeemActionView', () => {
       />,
     );
 
-    expect(screen.getByText('Claim opens after expiry.')).toBeVisible();
-    expect(screen.getByText('Maturity 0d 3h 7m')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Redeem legs' })).toBeDisabled();
+    expect(screen.getByText('Opens after settlement — nothing to do yet.')).toBeVisible();
+    expect(screen.getByText('Settles in 0d 3h 7m')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Redeem positions' })).toBeDisabled();
   });
 
   it('enables claim for an expired open dual investment note with live Predict legs', () => {
@@ -132,12 +159,10 @@ describe('RedeemActionView', () => {
       />,
     );
 
-    expect(screen.getByText('Redeem open Predict legs first, then refresh to claim DUSDC.')).toBeVisible();
-    expect(screen.getByText('Claim 4.943865 dUSDC')).toBeVisible();
-    expect(screen.getByText('Fee 0 dUSDC')).toBeVisible();
-    expect(screen.getByText('Net 4.943865 dUSDC')).toBeVisible();
-    expect(screen.getByText('BTC delivery route unavailable on testnet.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Redeem legs' })).toBeEnabled();
+    expect(screen.getByText('Ready to settle — redeem your positions, then claim your cash.')).toBeVisible();
+    expect(screen.getByText("You'll receive ~4.94312 dUSDC")).toBeVisible();
+    expect(screen.getByText('after 0.000745 dUSDC fee · cash-settled in dUSDC on testnet')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Redeem positions' })).toBeEnabled();
   });
 
   it('enables withdraw-only claim when every Predict leg was already redeemed', () => {
@@ -151,8 +176,8 @@ describe('RedeemActionView', () => {
       />,
     );
 
-    expect(screen.getByText('Predict legs already redeemed. Claim withdraws DUSDC from the product container.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Claim DUSDC' })).toBeEnabled();
+    expect(screen.getByText('Ready — claim your cash from this position.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Claim cash' })).toBeEnabled();
   });
 
   it('names the missing Predict leg when settlement is blocked by partial position availability', () => {
@@ -172,8 +197,10 @@ describe('RedeemActionView', () => {
       />,
     );
 
-    expect(screen.getByText('Missing leg 65,000. Claim is paused until positions reconcile.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Claim DUSDC' })).toBeDisabled();
+    expect(
+      screen.getByText('Settling — positions at 65,000 are still reconciling. Claim opens shortly.'),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Claim cash' })).toBeDisabled();
   });
 
   it('shows the real on-chain settlement amounts for an already claimed note', () => {
@@ -194,10 +221,26 @@ describe('RedeemActionView', () => {
       />,
     );
 
-    expect(screen.getByText('Product note already claimed.')).toBeVisible();
-    expect(screen.getByText('Claim 6.125 dUSDC')).toBeVisible();
-    expect(screen.getByText('Fee 0.1125 dUSDC')).toBeVisible();
-    expect(screen.getByText('Net 6.0125 dUSDC')).toBeVisible();
+    expect(screen.getByText('Already claimed.')).toBeVisible();
+    expect(screen.getByText('You received 6.0125 dUSDC')).toBeVisible();
+    expect(screen.getByText('after 0.1125 dUSDC fee · cash-settled in dUSDC on testnet')).toBeVisible();
+  });
+});
+
+describe('ProductNoteCard', () => {
+  it('shows reward APR after the note fee bps', () => {
+    const note = noteFixture();
+
+    renderWithQuery(
+      <ProductNoteCard
+        note={note}
+        managerValidation={{ label: 'Manager verified', tone: 'good' }}
+        notes={[note]}
+      />,
+    );
+
+    expect(screen.getByText('82.44% APR')).toBeVisible();
+    expect(screen.queryByText('91.6% APR')).not.toBeInTheDocument();
   });
 });
 
@@ -222,8 +265,8 @@ describe('claimActionViewModel', () => {
     ).toMatchObject({
       lifecycle: 'active',
       canClaim: false,
-      actionLabel: 'Redeem legs',
-      status: 'Claim opens after expiry.',
+      actionLabel: 'Redeem positions',
+      status: 'Opens after settlement — nothing to do yet.',
       showMaturityCountdown: true,
     });
 
@@ -237,8 +280,8 @@ describe('claimActionViewModel', () => {
     ).toMatchObject({
       lifecycle: 'claimable',
       canClaim: true,
-      actionLabel: 'Claim DUSDC',
-      status: 'Predict legs already redeemed. Claim withdraws DUSDC from the product container.',
+      actionLabel: 'Claim cash',
+      status: 'Ready — claim your cash from this position.',
       showMaturityCountdown: false,
     });
   });
@@ -313,7 +356,7 @@ describe('AllocatedPositionsValue', () => {
   });
 });
 
-describe('DepositedCashValue', () => {
+describe('depositedCashText', () => {
   it('prefers event-indexed deposited cash from ProductSubscribed events', () => {
     const entry: ProductNoteEventIndexEntry = {
       noteId: `0x${'c'.repeat(64)}`,
@@ -322,15 +365,11 @@ describe('DepositedCashValue', () => {
       principalBaseUnits: 5_250_000n,
     };
 
-    render(<DepositedCashValue note={noteFixture()} entry={entry} />);
-
-    expect(screen.getByText('5.25 dUSDC')).toBeVisible();
+    expect(depositedCashText(noteFixture(), entry)).toBe('5.25');
   });
 
   it('falls back to the owned ProductNote principal before subscription events are indexed', () => {
-    render(<DepositedCashValue note={noteFixture()} />);
-
-    expect(screen.getByText('5 dUSDC')).toBeVisible();
+    expect(depositedCashText(noteFixture())).toBe('5');
   });
 });
 

@@ -1,12 +1,15 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { ChevronDown, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { settlementNoteForProductNote } from '../application/settleProductNote';
 import { fetchOracleMarket } from '../deepbook/predictServer';
 import type { PredictManagerSummary } from '../deepbook/predictManagers';
 import { usePredictManagerState } from '../hooks/usePredictManagerState';
+import { netAprAfterCouponFee } from '../products/feePolicy';
 import { settlementPayoutRange } from '../products/settlement';
+import { formatTimeToExpiry } from '../products/timeFormat';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 import {
@@ -27,7 +30,17 @@ import {
   formatPrice,
   formatQuoteBaseUnits,
   shortId,
+  suiExplorerObjectUrl,
+  suiExplorerTxUrl,
 } from './DashboardFormat';
+
+function ProofLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a className="di-proof-link" href={href} target="_blank" rel="noreferrer">
+      {children}
+    </a>
+  );
+}
 
 export function managerValidationForNote(
   note: AnkerProductNoteRecord,
@@ -40,14 +53,17 @@ export function managerValidationForNote(
     : { label: 'Manager not found', tone: 'warn' as const };
 }
 
-function lifecycleLabel(lifecycle: ProductNoteLifecycle) {
-  if (lifecycle === 'active') return 'Active';
-  if (lifecycle === 'matured') return 'Matured';
-  if (lifecycle === 'positions-redeemable') return 'Redeem positions';
-  if (lifecycle === 'claimable') return 'Claimable';
-  if (lifecycle === 'settlement-blocked') return 'Blocked';
-  if (lifecycle === 'settled') return 'Settled';
-  return 'Unsupported';
+type PositionStatusTone = 'active' | 'ready' | 'attention' | 'done';
+
+export function positionStatusBadge(
+  note: Pick<AnkerProductNoteRecord, 'status'>,
+  lifecycle: ProductNoteLifecycle,
+): { label: string; tone: PositionStatusTone } {
+  if (note.status === 'redeemed' || lifecycle === 'settled') return { label: 'Completed', tone: 'done' };
+  if (lifecycle === 'settlement-blocked') return { label: 'Action needed', tone: 'attention' };
+  if (lifecycle === 'positions-redeemable' || lifecycle === 'claimable') return { label: 'Ready to claim', tone: 'ready' };
+  if (lifecycle === 'matured') return { label: 'Settling', tone: 'ready' };
+  return { label: 'Active', tone: 'active' };
 }
 
 function managerIsolationLabel(input: 'isolated' | 'shared' | 'unknown', notesUsingManager: number | null) {
@@ -75,11 +91,11 @@ export function SubscriptionDigestValue({
 }) {
   const localDigest = useSubscriptionDigest(owner, quoteHash);
   const digest = eventDigest || localDigest;
-  return <dd>{digest ? shortId(digest) : 'Not indexed'}</dd>;
+  return <dd>{digest ? <ProofLink href={suiExplorerTxUrl(digest)}>{shortId(digest)}</ProofLink> : 'Not indexed'}</dd>;
 }
 
 export function IndexedTransactionDigestValue({ digest }: { digest?: string }) {
-  return <dd>{digest ? shortId(digest) : 'Not indexed'}</dd>;
+  return <dd>{digest ? <ProofLink href={suiExplorerTxUrl(digest)}>{shortId(digest)}</ProofLink> : 'Not indexed'}</dd>;
 }
 
 export function AllocatedPositionsValue({ entry }: { entry?: ProductNoteEventIndexEntry }) {
@@ -96,14 +112,11 @@ export function AllocatedPositionsValue({ entry }: { entry?: ProductNoteEventInd
   );
 }
 
-export function DepositedCashValue({
-  note,
-  entry,
-}: {
-  note: Pick<AnkerProductNoteRecord, 'principalBaseUnits'>;
-  entry?: ProductNoteEventIndexEntry;
-}) {
-  return <dd>{formatQuoteBaseUnits(entry?.principalBaseUnits ?? note.principalBaseUnits)} dUSDC</dd>;
+export function depositedCashText(
+  note: Pick<AnkerProductNoteRecord, 'principalBaseUnits'>,
+  entry?: ProductNoteEventIndexEntry,
+) {
+  return formatQuoteBaseUnits(entry?.principalBaseUnits ?? note.principalBaseUnits);
 }
 
 export function OracleLastUpdateValue({ oracleId }: { oracleId: string }) {
@@ -147,154 +160,183 @@ export function ProductNoteCard({
   const claimState = claimStateForDualInvestmentNote(note, managerStateQuery.data);
   const lifecycle = lifecycleForProductNote(note, claimState, Date.now());
   const backingProof = backingProofForDualInvestmentNote(note, managerStateQuery.data, notes);
+  const status = positionStatusBadge(note, lifecycle);
+  const rewardApr = netAprAfterCouponFee(note.apr, note.feeBps);
+  const settlesText =
+    lifecycle === 'active' ? `in ${formatTimeToExpiry(note.expiryMs, Date.now())}` : formatExpiry(note.expiryMs);
+  const containerBalance = managerStateQuery.isPending
+    ? 'Checking'
+    : managerStateQuery.data?.dusdcBalance !== null && managerStateQuery.data?.dusdcBalance !== undefined
+      ? `${formatPreciseAmount(managerStateQuery.data.dusdcBalance)} dUSDC`
+      : 'Unavailable';
 
   return (
-    <article className="detail-panel">
-      <div className="detail-title">
-        <h3>{isDual ? 'Target Buy BTC' : 'Legacy Product'}</h3>
-        <span>{note.status === 'redeemed' ? 'Claimed' : 'Open'} product note</span>
+    <article className="detail-panel di-position-card">
+      <header className="di-position-head">
+        <div className="di-position-title">
+          <h3>{isDual ? 'Buy Low BTC' : 'Legacy product'}</h3>
+          {isDual ? <span className="di-position-strike">@ {formatPrice(note.targetPrice)}</span> : null}
+        </div>
+        <span className={`di-status-pill is-${status.tone}`}>{status.label}</span>
+      </header>
+
+      <div className="di-position-stats">
+        <div>
+          <span>Deposit</span>
+          <strong>{depositedCashText(note, eventIndexEntry)} dUSDC</strong>
+        </div>
+        <div>
+          <span>Reward</span>
+          <strong>
+            +{formatPreciseAmount(note.coupon)} dUSDC<em>{formatApr(rewardApr)} APR</em>
+          </strong>
+        </div>
+        <div>
+          <span>Settles</span>
+          <strong>{settlesText}</strong>
+        </div>
       </div>
-      <div className="quote-summary compact-summary">
-        <div>
-          <span>Principal</span>
-          <strong>{formatAmount(note.principal)} dUSDC</strong>
+
+      {isDual ? (
+        <div className="di-position-outcome">
+          <ShieldCheck size={16} />
+          <span className="di-position-outcome-text">
+            <span className="di-position-outcome-main">
+              If BTC is at or above {formatPrice(note.targetPrice)} when it settles, you keep your deposit plus the
+              reward. If it ends lower, your deposit buys BTC at {formatPrice(note.targetPrice)} — the price you chose.
+            </span>
+            <small>
+              On testnet this settles in dUSDC, not BTC — you may receive slightly less cash if BTC ends below your
+              price. On mainnet, positions settle in real wrapped BTC.
+            </small>
+          </span>
         </div>
-        <div>
-          <span>APR</span>
-          <strong>{formatApr(note.apr)}</strong>
-        </div>
-        <div>
-          <span>Expiry</span>
-          <strong>{formatExpiry(note.expiryMs)}</strong>
-        </div>
-        <div>
-          <span>Legs</span>
-          <strong>{note.legs.length}</strong>
-        </div>
-      </div>
-      <div className="oracle-meta">
-        <div>
-          <span>Note</span>
-          <dd>{shortId(note.noteId)}</dd>
-        </div>
-        <div>
-          <span>{isDual ? 'Quote Hash' : 'Product ID'}</span>
-          <dd>{note.productId || '--'}</dd>
-        </div>
-        {isDual ? (
-          <div>
-            <span>Subscription Tx</span>
-            <SubscriptionDigestValue
-              owner={note.owner}
-              quoteHash={note.productId}
-              eventDigest={eventIndexEntry?.subscriptionDigest}
-            />
-          </div>
-        ) : null}
-        {isDual ? (
-          <div>
-            <span>Redeem Tx</span>
-            <IndexedTransactionDigestValue digest={eventIndexEntry?.positionsRedeemedDigest} />
-          </div>
-        ) : null}
-        {isDual ? (
-          <div>
-            <span>Settlement Tx</span>
-            <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} />
-          </div>
-        ) : null}
-        <div>
-          <span>Predict Manager</span>
-          <dd>{shortId(note.managerId)}</dd>
-        </div>
-        <div>
-          <span>Manager Check</span>
-          <dd className={`validation-${managerValidation.tone}`}>{managerValidation.label}</dd>
-        </div>
-        <div>
-          <span>Lifecycle</span>
-          <dd>{lifecycleLabel(lifecycle)}</dd>
-        </div>
-        <div>
-          <span>Manager Isolation</span>
-          <dd>{managerIsolationLabel(backingProof.managerIsolation, backingProof.notesUsingManager)}</dd>
-        </div>
-        <div>
-          <span>Manager DUSDC</span>
-          <dd>
-            {managerStateQuery.isPending
-              ? 'Checking'
-              : managerStateQuery.data?.dusdcBalance !== null && managerStateQuery.data?.dusdcBalance !== undefined
-                ? `${formatPreciseAmount(managerStateQuery.data.dusdcBalance)} dUSDC`
-                : 'Unavailable'}
-          </dd>
-        </div>
-        {isDual ? (
-          <div>
-            <span>Deposited Cash</span>
-            <DepositedCashValue note={note} entry={eventIndexEntry} />
-          </div>
-        ) : null}
-        <div>
-          <span>Oracle</span>
-          <dd>{shortId(note.oracleId)}</dd>
-        </div>
-        {isDual ? (
-          <div>
-            <span>Oracle Update</span>
-            <OracleLastUpdateValue oracleId={note.oracleId} />
-          </div>
-        ) : null}
-        {isDual ? (
-          <>
-            <div>
-              <span>Target Buy</span>
-              <dd>{formatPrice(note.targetPrice)}</dd>
-            </div>
-            <div>
-              <span>Floor</span>
-              <dd>{formatPrice(note.floorPrice)}</dd>
-            </div>
-            <div>
-              <span>Coupon</span>
-              <dd>{formatAmount(note.coupon)} dUSDC</dd>
-            </div>
-            <div>
-              <span>Settlement</span>
-              <dd>Cash-settled dUSDC</dd>
-            </div>
-            <div>
-              <span>Settlement Range</span>
-              <SettlementRangeValue note={note} />
-            </div>
-            <div>
-              <span>Predict legs</span>
-              <dd>
-                {claimState.path === 'unknown'
-                  ? 'Checking'
-                  : `${claimState.availableLegCount}/${claimState.totalLegCount} held`}
-              </dd>
-            </div>
-            <div>
-              <span>Backing Ratio</span>
-              <dd>{formatPercent(backingProof.collateralizationRatio)}</dd>
-            </div>
-            <div>
-              <span>Required Positions</span>
-              <dd>{formatPreciseAmount(backingProof.requiredPositionQuantity)} dUSDC</dd>
-            </div>
-            <div>
-              <span>Allocated Positions</span>
-              <AllocatedPositionsValue entry={eventIndexEntry} />
-            </div>
-            <div>
-              <span>Current Positions</span>
-              <dd>{formatPreciseAmount(backingProof.availablePositionQuantity)} dUSDC</dd>
-            </div>
-          </>
-        ) : null}
-      </div>
+      ) : null}
+
       <ClaimAction note={note} claimState={claimState} />
+
+      <details className="di-position-proof">
+        <summary>
+          <span>On-chain proof</span>
+          <ChevronDown size={18} />
+        </summary>
+        <div className="oracle-meta">
+          <div>
+            <span>Position ID</span>
+            <dd>
+              <ProofLink href={suiExplorerObjectUrl(note.noteId)}>{shortId(note.noteId)}</ProofLink>
+            </dd>
+          </div>
+          <div>
+            <span>{isDual ? 'Quote hash' : 'Product ID'}</span>
+            <dd>{note.productId || '--'}</dd>
+          </div>
+          {isDual ? (
+            <div>
+              <span>Subscription tx</span>
+              <SubscriptionDigestValue
+                owner={note.owner}
+                quoteHash={note.productId}
+                eventDigest={eventIndexEntry?.subscriptionDigest}
+              />
+            </div>
+          ) : null}
+          {isDual ? (
+            <div>
+              <span>Redeem tx</span>
+              <IndexedTransactionDigestValue digest={eventIndexEntry?.positionsRedeemedDigest} />
+            </div>
+          ) : null}
+          {isDual ? (
+            <div>
+              <span>Settlement tx</span>
+              <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} />
+            </div>
+          ) : null}
+          <div>
+            <span>Product container</span>
+            <dd>
+              <ProofLink href={suiExplorerObjectUrl(note.managerId)}>{shortId(note.managerId)}</ProofLink>
+            </dd>
+          </div>
+          <div>
+            <span>Container check</span>
+            <dd className={`validation-${managerValidation.tone}`}>{managerValidation.label}</dd>
+          </div>
+          <div>
+            <span>Container isolation</span>
+            <dd>{managerIsolationLabel(backingProof.managerIsolation, backingProof.notesUsingManager)}</dd>
+          </div>
+          <div>
+            <span>Container balance</span>
+            <dd>{containerBalance}</dd>
+          </div>
+          <div>
+            <span>Oracle</span>
+            <dd>
+              <ProofLink href={suiExplorerObjectUrl(note.oracleId)}>{shortId(note.oracleId)}</ProofLink>
+            </dd>
+          </div>
+          {isDual ? (
+            <div>
+              <span>Price feed updated</span>
+              <OracleLastUpdateValue oracleId={note.oracleId} />
+            </div>
+          ) : null}
+          {isDual ? (
+            <>
+              <div>
+                <span>Your price</span>
+                <dd>{formatPrice(note.targetPrice)}</dd>
+              </div>
+              <div>
+                <span>Floor</span>
+                <dd>{formatPrice(note.floorPrice)}</dd>
+              </div>
+              <div>
+                <span>Reward</span>
+                <dd>{formatAmount(note.coupon)} dUSDC</dd>
+              </div>
+              <div>
+                <span>Settlement</span>
+                <dd>Cash-settled dUSDC</dd>
+              </div>
+              <div>
+                <span>Payout range</span>
+                <SettlementRangeValue note={note} />
+              </div>
+              <div>
+                <span>Positions held</span>
+                <dd>
+                  {claimState.path === 'unknown'
+                    ? 'Checking'
+                    : `${claimState.availableLegCount}/${claimState.totalLegCount} held`}
+                </dd>
+              </div>
+              <div>
+                <span>Backing ratio</span>
+                <dd>{formatPercent(backingProof.collateralizationRatio)}</dd>
+              </div>
+              <div>
+                <span>Required positions</span>
+                <dd>{formatPreciseAmount(backingProof.requiredPositionQuantity)} dUSDC</dd>
+              </div>
+              <div>
+                <span>Allocated positions</span>
+                <AllocatedPositionsValue entry={eventIndexEntry} />
+              </div>
+              <div>
+                <span>Current positions</span>
+                <dd>{formatPreciseAmount(backingProof.availablePositionQuantity)} dUSDC</dd>
+              </div>
+              <div>
+                <span>Legs</span>
+                <dd>{note.legs.length}</dd>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </details>
     </article>
   );
 }
