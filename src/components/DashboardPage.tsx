@@ -87,7 +87,7 @@ export function DashboardPage() {
             </div>
             <span className="quote-badge live">{portfolioQuery.data?.length ?? 0} Notes</span>
           </div>
-          <div className="detail-grid">
+          <div className="detail-grid notes-grid">
             {(portfolioQuery.data ?? []).map((note) => (
               <ProductNoteCard
                 note={note}
