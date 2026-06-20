@@ -188,7 +188,8 @@ a {
   padding: 0 28px 24px;
 }
 
-.mode-tabs a {
+.mode-tabs a,
+.mode-tabs button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -205,6 +206,49 @@ a {
 .mode-tabs a.active {
   background: #0f766e;
   color: #ffffff;
+}
+
+.mode-tabs button.disabled {
+  position: relative;
+  border-color: rgba(100, 117, 111, 0.16);
+  background: #edf1ef;
+  color: #9aa8a2;
+  cursor: default;
+  opacity: 1;
+}
+
+.mode-tabs button.disabled:hover,
+.mode-tabs button.disabled:focus-visible {
+  background: #e5ebe8;
+  color: #7f8f88;
+}
+
+.mode-tabs button.disabled::after {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 5;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: #10201b;
+  color: #ffffff;
+  content: 'Coming soon';
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.mode-tabs button.disabled:hover::after,
+.mode-tabs button.disabled:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .wallet-area {
@@ -520,7 +564,7 @@ a {
 
 .oracle-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1061,6 +1105,267 @@ a {
   color: #51645d;
 }
 
+.return-overview-panel {
+  display: grid;
+  gap: 18px;
+  background: #202731;
+  color: #edf3f0;
+}
+
+.return-overview-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.return-overview-heading h3 {
+  margin: 0;
+  color: #f4f7f5;
+  font-size: 1.16rem;
+}
+
+.return-overview-heading p {
+  margin: 0;
+  color: #94a0b0;
+  font-size: 0.92rem;
+  font-weight: 680;
+}
+
+.return-scenario-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #465466;
+  border-radius: 14px;
+}
+
+.return-scenario-tabs button {
+  min-height: 52px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #8390a2;
+  font-size: 1rem;
+  font-weight: 860;
+}
+
+.return-scenario-tabs button.active {
+  background: #303948;
+  color: #f4f7f5;
+}
+
+.return-scenario-tabs button:focus-visible {
+  outline: 2px solid rgba(50, 211, 148, 0.72);
+  outline-offset: 2px;
+}
+
+.return-chart-visual {
+  position: relative;
+  min-height: 320px;
+  overflow: hidden;
+  background: #242d38;
+}
+
+.return-chart-visual svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.return-grid-line {
+  stroke: #3a4656;
+  stroke-dasharray: 7 6;
+  stroke-width: 1.4;
+}
+
+.return-grid-line.horizontal {
+  stroke: #465466;
+}
+
+.return-price-path {
+  fill: none;
+  stroke: url(#returnPathFade);
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+
+.return-current-dot {
+  fill: #202731;
+  stroke: #ffd43b;
+  stroke-width: 4;
+}
+
+.return-arrow {
+  fill: #ffd43b;
+}
+
+.return-target-label,
+.return-current-label,
+.return-date-label,
+.return-receive-card {
+  position: absolute;
+  z-index: 1;
+}
+
+.return-target-label {
+  left: 7%;
+  top: 39%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 2px solid #edf3f0;
+  color: #a7b0bd;
+  font-weight: 760;
+}
+
+.return-target-label strong {
+  color: #f4f7f5;
+}
+
+.return-current-label {
+  left: 33%;
+  top: 8%;
+  display: grid;
+  min-width: 150px;
+  gap: 8px;
+  padding: 18px 22px;
+  border-radius: 12px;
+  background: #eef1f5;
+  color: #172028;
+  text-align: center;
+}
+
+.return-current-label::before {
+  position: absolute;
+  left: -10px;
+  top: 42%;
+  width: 20px;
+  height: 20px;
+  background: #eef1f5;
+  content: '';
+  transform: rotate(45deg);
+}
+
+.return-current-label span,
+.return-current-label strong {
+  position: relative;
+  z-index: 1;
+}
+
+.return-current-label span {
+  font-weight: 760;
+}
+
+.return-current-label strong {
+  color: #303948;
+}
+
+.return-date-label {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: #c3c9d2;
+  font-weight: 760;
+}
+
+.return-date-label span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #303948;
+  color: #8f9bab;
+}
+
+.return-date-label.start {
+  left: 19%;
+  bottom: 20px;
+}
+
+.return-date-label.settle {
+  right: 30%;
+  bottom: 20px;
+}
+
+.return-receive-card {
+  right: 4%;
+  display: grid;
+  gap: 8px;
+  width: 190px;
+  padding: 18px;
+  background: #202731;
+  color: #9aa6b6;
+  font-weight: 760;
+}
+
+.return-chart-visual.above .return-receive-card {
+  top: 38px;
+}
+
+.return-chart-visual.below .return-receive-card {
+  bottom: 60px;
+}
+
+.return-receive-card strong {
+  color: #32d394;
+  font-size: 1.2rem;
+}
+
+.return-receive-card b {
+  color: #32d394;
+  font-size: 1rem;
+}
+
+.return-overview-breakdown {
+  display: grid;
+  gap: 0;
+  padding: 0 46px 4px;
+}
+
+.return-overview-breakdown > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 52px;
+  color: #9aa6b6;
+  font-size: 1rem;
+  font-weight: 720;
+}
+
+.return-overview-breakdown > div:nth-child(2),
+.return-overview-breakdown > div:nth-child(3) {
+  border-bottom: 1px solid #465466;
+}
+
+.return-overview-breakdown strong {
+  color: #f4f7f5;
+  font-weight: 780;
+}
+
+.return-overview-breakdown b,
+.return-receive-row strong {
+  color: #32d394;
+}
+
+.return-receive-row {
+  padding-top: 12px;
+  font-size: 1.08rem;
+}
+
+.return-receive-row strong {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 1.3rem;
+}
+
+.return-receive-row i {
+  color: #f4f7f5;
+  font-size: 1rem;
+  font-style: normal;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
@@ -1330,6 +1635,41 @@ a {
 
   .offer-table {
     min-width: 860px;
+  }
+
+  .return-overview-breakdown {
+    padding: 0 8px 4px;
+  }
+
+  .return-overview-breakdown > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    justify-items: start;
+    padding: 12px 0;
+  }
+
+  .return-chart-visual {
+    min-height: 300px;
+  }
+
+  .return-current-label {
+    left: 26%;
+    min-width: 132px;
+    padding: 14px 16px;
+  }
+
+  .return-receive-card {
+    right: 3%;
+    width: 150px;
+    padding: 14px;
+  }
+
+  .return-target-label {
+    left: 4%;
+  }
+
+  .return-date-label.settle {
+    right: 18%;
   }
 
   .home-action-stack,

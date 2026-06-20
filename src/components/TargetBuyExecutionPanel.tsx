@@ -118,7 +118,7 @@ export function TargetBuyExecutionPanelView({
     <article className="detail-panel execution-panel">
       <div className="detail-title">
         <h3>On-chain Subscribe</h3>
-        <span>Target Buy execution adapter</span>
+        <span>Buy Low execution adapter</span>
       </div>
       <div className="execution-status">
         <WalletCards size={18} />
@@ -131,7 +131,7 @@ export function TargetBuyExecutionPanelView({
           </button>
         ) : null}
         <button className="primary-action" type="button" disabled={!canSubscribe} onClick={onSubscribe}>
-          {isPending ? 'Waiting for wallet...' : 'Subscribe Target Buy'}
+          {isPending ? 'Waiting for wallet...' : 'Subscribe Buy Low'}
         </button>
       </div>
       {quoteWarning && !isQuoteExecutable ? <p className="execution-error">{quoteWarning}</p> : null}

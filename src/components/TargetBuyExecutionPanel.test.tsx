@@ -21,7 +21,7 @@ describe('TargetBuyExecutionPanelView', () => {
     );
 
     expect(screen.getByText('Connect wallet to subscribe')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Subscribe Target Buy' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
   });
 
   it('asks the wallet to create a product container before subscription when none is available', () => {
@@ -39,7 +39,7 @@ describe('TargetBuyExecutionPanelView', () => {
 
     expect(screen.getByText('Create a product container for this structured note before subscribing.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Create Product Container' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Subscribe Target Buy' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
   });
 
   it('enables subscribe when wallet, manager, and executable quote are ready', () => {
@@ -57,7 +57,7 @@ describe('TargetBuyExecutionPanelView', () => {
     );
 
     expect(screen.getByText('Product container 0xabc is ready.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Subscribe Target Buy' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeEnabled();
   });
 
   it('shows the quote warning when the wallet is ready but the quote is not executable', () => {
@@ -76,7 +76,7 @@ describe('TargetBuyExecutionPanelView', () => {
     );
 
     expect(screen.getByText('Ask price 1.0010 is outside Predict mint bounds 0.01-0.99.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Subscribe Target Buy' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
   });
 
   it('links to the dashboard after a subscribe transaction is submitted', () => {

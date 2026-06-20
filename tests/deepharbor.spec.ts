@@ -21,23 +21,43 @@ test('launch opens the app workbench', async ({ page }) => {
   await expect(page.getByLabel('Products').getByText('Auto Roll')).toHaveCount(0);
   await expect(page.getByText('Binance compare')).toHaveCount(0);
   await expect(page.getByText('Binance APR')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Dual Investment Calculator' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dual Investment' })).toBeVisible();
 });
 
 test('renders the Dual Investment product page', async ({ page }) => {
   await page.goto('/app/dual-investment');
   await expect(page.locator('header').getByText('Anker Protocol')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Dual Investment Calculator' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dual Investment' })).toBeVisible();
+  await expect(page.getByText('Real Quote Structured Product Scanner')).toHaveCount(0);
+  await expect(page.getByText('Scan BTC Buy Low structures')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'View Scan Board' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Nearest BTC Expiry' })).toBeVisible();
   await expect(page.getByLabel('Select expiry')).toBeVisible();
   await expect(page.getByText('Oracle selector: live-ready BTC markets only')).toBeVisible();
   await expect(page.locator('.oracle-section')).toContainText(/\d+d \d+h \d+m/, { timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: 'Target Buy BTC Quotes' })).toBeVisible();
+  await expect(page.locator('.oracle-section')).toContainText('BTC Price');
+  await expect(page.locator('.oracle-section')).not.toContainText('Forward');
+  await expect(page.locator('.oracle-section')).not.toContainText('Strike Grid');
+  await expect(page.locator('.oracle-section')).not.toContainText('Oracle Lag');
+  await expect(page.getByRole('heading', { name: 'Buy Low BTC Quotes' })).toBeVisible();
   await expect(page.getByText('Default notional: 5 dUSDC')).toBeVisible();
   await expect(page.getByText('Filter: targets must be strictly below live spot')).toBeVisible();
-  await expect(page.locator('td[data-label="Below Spot"]').first()).toContainText(/below/);
-  await expect(page.getByLabel('Dual Investment direction').getByRole('link', { name: 'Target Sale' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Design Your Target Buy' })).toBeVisible();
+  await expect(page.locator('td[data-label="Buy Low"]').first()).toContainText(/below/);
+  await expect(page.locator('td[data-label="Buy Low"]').first()).not.toContainText('BTC/dUSDC');
+  await expect(page.locator('th', { hasText: 'Below Spot' })).toHaveCount(0);
+  await expect(page.locator('th', { hasText: 'Legs' })).toHaveCount(0);
+  await expect(page.locator('th', { hasText: 'Interval' })).toHaveCount(0);
+  await expect(page.locator('th', { hasText: 'Coupon' })).toHaveCount(0);
+  await expect(page.locator('th', { hasText: 'Ask Cost' })).toHaveCount(0);
+  await expect(page.getByLabel('Dual Investment direction').getByRole('link', { name: 'Buy Low' })).toBeVisible();
+  await expect(page.getByLabel('Dual Investment direction').getByRole('button', { name: 'Sell High' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  await expect(page.getByLabel('Dual Investment direction').getByRole('button', { name: 'Sell High' })).not.toHaveAttribute(
+    'title',
+  );
+  await expect(page.getByRole('heading', { name: 'Design Your Buy Low' })).toBeVisible();
   await expect(page.getByLabel('Products').getByRole('link', { name: 'Shark Fin' })).toHaveCount(0);
   await expect(page.getByLabel('Products').getByRole('link', { name: 'Dashboard' })).toBeVisible();
   await expect(page.locator('td[data-label="Anker APR"]').first()).toBeVisible();
@@ -66,24 +86,25 @@ test('supports selecting a scan row and running a custom preview', async ({ page
   await expirySelect.selectOption({ index: Math.min(1, optionCount - 1) });
   await expect(page.getByRole('button', { name: 'Use' }).first()).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Use' }).first().click();
-  await expect(page.getByLabel('Target Buy Price')).not.toHaveValue('0');
+  await expect(page.getByLabel('Buy Low Price')).not.toHaveValue('0');
   await page.getByRole('button', { name: 'Preview Live Quote' }).click();
-  await expect(page.locator('.quote-detail')).toContainText(/DeepBook Predict Legs|Payoff Preview/i, { timeout: 30_000 });
+  await expect(page.locator('.quote-detail')).toContainText(/DeepBook Predict Legs|Return Overview/i, { timeout: 30_000 });
   await expect(page.locator('.quote-detail')).not.toContainText(/failed|MoveAbort|DevInspect/i);
 });
 
-test('renders target sale as a coming-soon BTC-collateral product', async ({ page }) => {
+test('keeps Sell High disabled instead of rendering a separate target-sale page', async ({ page }) => {
   await page.goto('/app/dual-investment?mode=target-sale');
-  await expect(page.getByRole('heading', { name: 'Target Sale Coming Soon' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Testnet collateral: DBTC')).toBeVisible();
-  await expect(page.getByText('DeepBook spot pair: DBTC/DBUSDC')).toBeVisible();
-  await expect(page.getByText('Blocked by dUSDC-only Predict settlement')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Target Sale BTC Quotes' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Design Your Target Sale' })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/app\/dual-investment$/);
+  await expect(page.locator('#target-sale')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Buy Low BTC Quotes' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel('Dual Investment direction').getByRole('button', { name: 'Sell High' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
 });
 
 test('redirects legacy Dual Investment routes into the app namespace', async ({ page }) => {
   await page.goto('/dual-investment?mode=target-sale');
-  await expect(page).toHaveURL(/\/app\/dual-investment\?mode=target-sale$/);
-  await expect(page.getByRole('heading', { name: 'Target Sale Coming Soon' })).toBeVisible({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/app\/dual-investment$/);
+  await expect(page.getByRole('heading', { name: 'Buy Low BTC Quotes' })).toBeVisible({ timeout: 30_000 });
 });

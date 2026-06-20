@@ -15,23 +15,21 @@ import {
   OracleSnapshot,
   QuoteDetail,
   ScanBoard,
-  TargetSaleComingSoon,
   type DualInvestmentMode,
 } from './DualInvestmentQuoteSections';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteSections';
 
-export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode?: DualInvestmentMode }) {
-  const [mode, setMode] = useState<DualInvestmentMode>(initialMode);
+export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: DualInvestmentMode }) {
+  const mode = initialMode;
   const [selectedOracleId, setSelectedOracleId] = useState<string | undefined>();
   const marketQuery = useMarketData(selectedOracleId);
   const market = marketQuery.data?.market;
   const productOracles = marketQuery.data?.productOracles ?? [];
-  const isTargetSale = mode === 'target-sale';
   const scanQuery = useDualInvestmentScan({
     market,
     principal: DEFAULT_PRINCIPAL,
-    enabled: !isTargetSale,
+    enabled: true,
   });
   const defaultBuyInput = useMemo(() => {
     if (!market) {
@@ -56,10 +54,6 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
   const runPreviewRef = useRef<((options?: { preserveExisting?: boolean }) => Promise<void>) | null>(null);
 
   useEffect(() => {
-    setMode(initialMode);
-  }, [initialMode]);
-
-  useEffect(() => {
     const oracleId = market?.oracleId;
     if (defaultBuyInput.targetPrice > 0 && oracleId && defaultOracleIdRef.current !== oracleId) {
       defaultOracleIdRef.current = oracleId;
@@ -70,14 +64,6 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
       setPreviewUpdatedAt(null);
     }
   }, [defaultBuyInput, market?.oracleId]);
-
-  useEffect(() => {
-    previewRequestIdRef.current += 1;
-    setPreviewQuote(null);
-    setPreviewInput(null);
-    setPreviewError(null);
-    setPreviewUpdatedAt(null);
-  }, [mode]);
 
   const runPreview = useCallback(async ({ preserveExisting = false }: { preserveExisting?: boolean } = {}) => {
     if (!market) return;
@@ -121,14 +107,14 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
   }, [runPreview]);
 
   useEffect(() => {
-    if (!previewQuote || !previewUpdatedAt || isTargetSale) return undefined;
+    if (!previewQuote || !previewUpdatedAt) return undefined;
     const elapsedMs = Date.now() - previewUpdatedAt;
     const refreshTimer = window.setTimeout(() => {
       void runPreviewRef.current?.({ preserveExisting: true });
     }, Math.max(0, DEFAULT_QUOTE_ENVELOPE_TTL_MS - elapsedMs));
 
     return () => window.clearTimeout(refreshTimer);
-  }, [isTargetSale, previewQuote, previewUpdatedAt]);
+  }, [previewQuote, previewUpdatedAt]);
 
   function handlePreview() {
     void runPreview({ preserveExisting: Boolean(previewQuote) });
@@ -140,26 +126,11 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
 
       <section className="dual-hero calculation-hero">
         <div>
-          <span className="section-kicker">Real Quote Structured Product Scanner</span>
-          <h1>Dual Investment Calculator</h1>
-          {isTargetSale ? (
-            <p>
-              Target Sale is staged for a DBTC-collateral flow. It will return once BTC-denominated yield and dUSDC
-              settlement can be routed without misquoting the product.
-            </p>
-          ) : (
-            <p>
-              Scan BTC target-buy structures from DeepBook Predict, then run a verified preview for custom target, floor,
-              and payoff smoothness.
-            </p>
-          )}
+          <h1>Dual Investment</h1>
         </div>
-        <a className="primary-action" href={isTargetSale ? '#target-sale' : '#scan-board'}>
-          View {isTargetSale ? 'Roadmap' : 'Scan Board'}
-        </a>
       </section>
 
-      <DualInvestmentModeTabs mode={mode} onChange={setMode} />
+      <DualInvestmentModeTabs mode={mode} />
 
       <OracleSnapshot
         market={market}
@@ -170,83 +141,61 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
 
       <div className="transparency-note calculation-note">
         <Activity size={18} />
-        {isTargetSale ? (
-          <span>
-            Target Sale is staged for the DBTC collateral flow instead of showing a dUSDC-only quote that would misstate
-            BTC-denominated yield.
-          </span>
-        ) : (
-          <span>
-            Expiry selection and scan rows use oracle state with local SVI and vault utilization estimates for fast
-            reference APR. Preview Live Quote still runs real batched devInspect before subscription.
-          </span>
-        )}
+        <span>
+          Expiry selection and scan rows use oracle state with local SVI and vault utilization estimates for fast
+          reference APR. Preview Live Quote still runs real batched devInspect before subscription.
+        </span>
         <ShieldCheck size={18} />
       </div>
 
-      {isTargetSale ? (
-        <TargetSaleComingSoon />
-      ) : (
-        <>
-          <ScanBoard
-            market={market}
-            rows={scanQuery.data ?? []}
-            isFetching={scanQuery.isFetching}
-            updatedAt={scanQuery.dataUpdatedAt || undefined}
-            onRefresh={() => {
-              void scanQuery.refetch();
-            }}
-            onUse={(input) => {
-              previewRequestIdRef.current += 1;
-              setCustomInput(input);
-              setPreviewQuote(null);
-              setPreviewInput(null);
-              setPreviewError(null);
-              setPreviewUpdatedAt(null);
-            }}
-          />
+      <ScanBoard
+        market={market}
+        rows={scanQuery.data ?? []}
+        isFetching={scanQuery.isFetching}
+        updatedAt={scanQuery.dataUpdatedAt || undefined}
+        onRefresh={() => {
+          void scanQuery.refetch();
+        }}
+        onUse={(input) => {
+          previewRequestIdRef.current += 1;
+          setCustomInput(input);
+          setPreviewQuote(null);
+          setPreviewInput(null);
+          setPreviewError(null);
+          setPreviewUpdatedAt(null);
+        }}
+      />
 
-          <CustomPreviewForm
-            market={market}
-            customInput={customInput}
-            isPreviewing={isPreviewing}
-            onChange={(input) => {
-              previewRequestIdRef.current += 1;
-              setCustomInput(input);
-              setPreviewQuote(null);
-              setPreviewInput(null);
-              setPreviewError(null);
-              setPreviewUpdatedAt(null);
-            }}
-            onPreview={handlePreview}
-          />
-        </>
-      )}
+      <CustomPreviewForm
+        market={market}
+        customInput={customInput}
+        isPreviewing={isPreviewing}
+        onChange={(input) => {
+          previewRequestIdRef.current += 1;
+          setCustomInput(input);
+          setPreviewQuote(null);
+          setPreviewInput(null);
+          setPreviewError(null);
+          setPreviewUpdatedAt(null);
+        }}
+        onPreview={handlePreview}
+      />
 
-      {!isTargetSale && (
-        <QuoteDetail
-          quote={previewQuote}
-          error={previewError}
-          productInput={previewInput ?? customInput}
-          isRefreshing={isPreviewing && Boolean(previewQuote)}
-          updatedAt={previewUpdatedAt}
-          autoRefreshMs={DEFAULT_QUOTE_ENVELOPE_TTL_MS}
-        />
-      )}
+      <QuoteDetail
+        quote={previewQuote}
+        error={previewError}
+        productInput={previewInput ?? customInput}
+        isRefreshing={isPreviewing && Boolean(previewQuote)}
+        updatedAt={previewUpdatedAt}
+        autoRefreshMs={DEFAULT_QUOTE_ENVELOPE_TTL_MS}
+      />
 
       <div className="transparency-note calculation-note">
         <SlidersHorizontal size={18} />
-        {isTargetSale ? (
-          <span>
-            Target Sale returns to the roadmap until DBTC collateral, BTC-denominated coupon conversion, and slippage
-            limits can be represented as one fair execution flow.
-          </span>
-        ) : (
-          <span>
-            Anker Protocol compiles each custom quote into Predict UP legs. The final Subscribe transaction should re-check
-            the quote with max-cost protection before minting.
-          </span>
-        )}
+        <span>
+          Anker Protocol compiles each custom quote into Predict UP legs. The final Subscribe transaction should re-check
+          the quote with max-cost protection before minting.
+        </span>
       </div>
     </main>
   );

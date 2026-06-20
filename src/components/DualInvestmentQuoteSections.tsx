@@ -11,7 +11,7 @@ import type { CuratedOracleListItem } from '../server/curatedOracles';
 export { QuoteDetail, QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
 export const DEFAULT_PRINCIPAL = 5;
-export type DualInvestmentMode = 'target-buy' | 'target-sale';
+export type DualInvestmentMode = 'buy-low';
 
 const SMOOTHNESS_OPTIONS = [
   { label: 'Efficient', value: 3 },
@@ -52,29 +52,25 @@ function formatExpiryOption(oracle: CuratedOracleListItem) {
   return `${formatTimeToExpiry(oracle.expiry)} | ${formatTime(oracle.expiry)}`;
 }
 
-export function DualInvestmentModeTabs({
-  mode,
-  onChange,
-}: {
-  mode: DualInvestmentMode;
-  onChange: (mode: DualInvestmentMode) => void;
-}) {
+export function DualInvestmentModeTabs({ mode }: { mode: DualInvestmentMode }) {
   return (
     <nav className="mode-tabs" aria-label="Dual Investment direction">
       <Link
-        className={mode === 'target-buy' ? 'active' : ''}
+        className={mode === 'buy-low' ? 'active' : ''}
         href="/app/dual-investment"
-        onClick={() => onChange('target-buy')}
       >
-        Target Buy
+        Buy Low
       </Link>
-      <Link
-        className={mode === 'target-sale' ? 'active' : ''}
-        href="/app/dual-investment?mode=target-sale"
-        onClick={() => onChange('target-sale')}
+      <button
+        aria-disabled="true"
+        className="disabled"
+        onClick={(event) => {
+          event.preventDefault();
+        }}
+        type="button"
       >
-        Target Sale
-      </Link>
+        Sell High
+      </button>
     </nav>
   );
 }
@@ -120,12 +116,8 @@ export function OracleSnapshot({
       </div>
       <div className="oracle-grid">
         <div>
-          <span>Spot</span>
+          <span>BTC Price</span>
           <strong>{market ? formatPrice(market.spot) : '--'}</strong>
-        </div>
-        <div>
-          <span>Forward</span>
-          <strong>{market ? formatPrice(market.forward) : '--'}</strong>
         </div>
         <div>
           <span>Time to Expiry</span>
@@ -134,14 +126,6 @@ export function OracleSnapshot({
         <div>
           <span>Settlement</span>
           <strong>{market ? formatTime(market.expiryMs) : '--'}</strong>
-        </div>
-        <div>
-          <span>Strike Grid</span>
-          <strong>{market ? `${formatPrice(market.minStrike)} / ${formatPrice(market.tickSize)}` : '--'}</strong>
-        </div>
-        <div>
-          <span>Oracle Lag</span>
-          <strong>{market ? `${market.serverLagSeconds}s` : '--'}</strong>
         </div>
       </div>
     </section>
@@ -168,7 +152,7 @@ export function ScanBoard({
       <div className="section-heading">
         <div>
           <span className="section-kicker">Auto Scan Board</span>
-          <h2>Target Buy BTC Estimates</h2>
+          <h2>Buy Low BTC Quotes</h2>
         </div>
         <button className="ghost-button" type="button" onClick={onRefresh}>
           <Calculator size={16} />
@@ -187,37 +171,23 @@ export function ScanBoard({
         <table className="offer-table scan-table">
           <thead>
             <tr>
-              <th>Target Buy</th>
-              <th>Below Spot</th>
-              <th>Legs</th>
-              <th>Interval</th>
-              <th>Coupon</th>
+              <th>Buy Low</th>
               <th>Anker APR</th>
-              <th>Ask Cost</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => {
-              const interval = (row.input.targetPrice - row.input.floorPrice) / (row.input.targetLegCount ?? 1);
               const displayMetrics = scanQuoteDisplayMetrics(row);
+              const belowSpot = market ? `${formatBelowSpot(row.input.targetPrice, market.spot)} below` : '--';
               return (
                 <tr key={`${row.input.targetPrice}-${row.input.floorPrice}`}>
-                  <td data-label="Target Buy">
+                  <td data-label="Buy Low">
                     <strong>{formatPrice(row.input.targetPrice)}</strong>
-                    <span>BTC/dUSDC</span>
+                    <span>{belowSpot}</span>
                   </td>
-                  <td data-label="Below Spot">
-                    {market ? `${formatBelowSpot(row.input.targetPrice, market.spot)} below` : '--'}
-                  </td>
-                  <td data-label="Legs">{row.input.targetLegCount}</td>
-                  <td data-label="Interval">{formatPrice(interval)}</td>
-                  <td data-label="Coupon">{`${formatAmount(displayMetrics.coupon)} dUSDC`}</td>
                   <td className={displayMetrics.apr !== null ? 'apr-cell' : ''} data-label="Anker APR">
                     {displayMetrics.apr !== null ? formatApr(displayMetrics.apr) : '--'}
-                  </td>
-                  <td data-label="Ask Cost">
-                    {displayMetrics.totalLegCost !== null ? `${formatAmount(displayMetrics.totalLegCost)} dUSDC` : '--'}
                   </td>
                   <td data-label="Action">
                     <button className="small-action" type="button" onClick={() => onUse(row.input)}>
@@ -229,53 +199,6 @@ export function ScanBoard({
             })}
           </tbody>
         </table>
-      </div>
-    </section>
-  );
-}
-
-export function TargetSaleComingSoon() {
-  return (
-    <section className="calculation-section coming-soon-section" id="target-sale">
-      <div className="section-heading">
-        <div>
-          <span className="section-kicker">BTC Collateral Roadmap</span>
-          <h2>Target Sale Coming Soon</h2>
-        </div>
-        <span className="quote-badge preview">Paused</span>
-      </div>
-      <div className="coming-soon-grid">
-        <article className="detail-panel">
-          <div className="detail-title">
-            <h3>Testnet collateral: DBTC</h3>
-            <span>DeepBook spot pair: DBTC/DBUSDC</span>
-          </div>
-          <p>
-            DBTC exists on Sui testnet and DeepBook has a DBTC/DBUSDC pool, so the collateral path is available for a
-            future execution flow.
-          </p>
-        </article>
-        <article className="detail-panel">
-          <div className="detail-title">
-            <h3>Blocked by dUSDC-only Predict settlement</h3>
-            <span>BTC yield needs settlement routing</span>
-          </div>
-          <p>
-            A CEX-style high-sell product should return DBTC yield when BTC stays below target, and dUSDC proceeds when
-            BTC settles above target. Current Predict legs mint and pay in dUSDC, so that BTC-denominated coupon needs an
-            execution contract or native BTC-settled Predict support.
-          </p>
-        </article>
-        <article className="detail-panel">
-          <div className="detail-title">
-            <h3>Roadmap condition</h3>
-            <span>Then re-enable Target Sale</span>
-          </div>
-          <p>
-            Bring this back when the product can accept DBTC cleanly, convert or settle coupon fairly, and expose slippage
-            limits around DBTC/DBUSDC conversion.
-          </p>
-        </article>
       </div>
     </section>
   );
@@ -306,7 +229,7 @@ export function CustomPreviewForm({
       <div className="section-heading">
         <div>
           <span className="section-kicker">Custom Verified Preview</span>
-          <h2>Design Your Target Buy</h2>
+          <h2>Design Your Buy Low</h2>
         </div>
         <span className="price-context">Preview runs batched DeepBook devInspect</span>
       </div>
@@ -316,7 +239,7 @@ export function CustomPreviewForm({
           <input min="1" step="1" type="number" value={customInput.principal} onChange={updateNumber('principal')} />
         </label>
         <label>
-          <span>Target Buy Price</span>
+          <span>Buy Low Price</span>
           <input min="1" step="1" type="number" value={customInput.targetPrice} onChange={updateNumber('targetPrice')} />
         </label>
         <label>

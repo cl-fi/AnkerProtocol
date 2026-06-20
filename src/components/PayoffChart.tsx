@@ -6,8 +6,7 @@ export function PayoffChart({ quote }: { quote: StructuredProductQuote | null })
   return (
     <section className="panel chart-panel">
       <div className="section-title">
-        <h2>Payoff</h2>
-        <span>Settlement simulation</span>
+        <h2>Return Overview</h2>
       </div>
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={quote.scenarios}>

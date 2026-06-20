@@ -136,7 +136,7 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
 
     render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Subscribe Target Buy' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Subscribe Buy Low' }));
 
     await waitFor(() => expect(mocks.quoteLegs).toHaveBeenCalledTimes(1));
     expect(mocks.preflightTransaction).toHaveBeenCalledTimes(1);

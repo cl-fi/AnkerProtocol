@@ -213,6 +213,15 @@ describe('DualInvestmentPage quote preview refresh', () => {
     vi.useRealTimers();
   });
 
+  it('renders Buy Low as active and Sell High as a disabled coming-soon direction', () => {
+    render(<DualInvestmentPage />);
+
+    expect(screen.getByRole('link', { name: 'Buy Low' })).toBeVisible();
+    const sellHigh = screen.getByRole('button', { name: 'Sell High' });
+    expect(sellHigh).not.toHaveAttribute('title');
+    expect(sellHigh).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('keeps the existing preview visible while the 30s auto-refresh re-quotes', async () => {
     const firstQuote = pageQuoteFixture({ market: mocks.marketData?.data.market, coupon: 0.02 });
     const secondQuote = pageQuoteFixture({ market: mocks.marketData?.data.market, coupon: 0.03 });
@@ -230,6 +239,13 @@ describe('DualInvestmentPage quote preview refresh', () => {
     await act(async () => {
       await Promise.resolve();
     });
+
+    expect(screen.getByRole('heading', { name: 'Return Overview' })).toBeVisible();
+    expect(screen.getByText('Subscription Amount')).toBeVisible();
+    expect(screen.getByText(/Rewards/)).toBeVisible();
+    expect(screen.getAllByText('You will receive')[0]).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'At or Below 65,500' }));
+    expect(screen.getAllByText('BTC equiv.')[0]).toBeVisible();
 
     expect(screen.getByText('0.02 dUSDC')).toBeVisible();
     expect(screen.queryByText(/Choose parameters and run Preview/i)).not.toBeInTheDocument();
