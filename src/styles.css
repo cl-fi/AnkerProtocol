@@ -912,7 +912,7 @@ a {
 
 .custom-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -956,6 +956,53 @@ a {
 .preview-action {
   margin-top: 16px;
   border: 0;
+}
+
+.quote-refresh-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid rgba(20, 107, 90, 0.12);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: #f7fbf9;
+  color: #51645d;
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.quote-refresh-status small {
+  color: #64756f;
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.quote-refresh-status strong {
+  color: #70430f;
+  font-size: 0.8rem;
+  font-weight: 780;
+}
+
+.quote-refresh-status.error {
+  border-color: rgba(154, 100, 20, 0.24);
+  background: #fff9ed;
+}
+
+.quote-refresh-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(15, 118, 110, 0.2);
+  border-top-color: #0f766e;
+  border-radius: 999px;
+  animation: quote-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes quote-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .quote-summary {

@@ -21,6 +21,14 @@ function formatQuotePrincipal(quote: StructuredProductQuote) {
   return `${formatAmount(quote.principal)} dUSDC`;
 }
 
+function formatUpdatedAt(value: number) {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(value);
+}
+
 export function QuoteRiskSummary({ quote }: { quote: StructuredProductQuote }) {
   const risk = riskMetricsForDualInvestmentQuote(quote);
   return (
@@ -61,12 +69,18 @@ export function QuoteDetail({
   quote,
   error,
   productInput,
+  isRefreshing = false,
+  updatedAt,
+  autoRefreshMs,
 }: {
   quote: StructuredProductQuote | null;
   error: string | null;
   productInput: DualInvestmentInput;
+  isRefreshing?: boolean;
+  updatedAt?: number | null;
+  autoRefreshMs?: number;
 }) {
-  if (error) {
+  if (error && !quote) {
     return (
       <section className="quote-detail">
         <div className="detail-panel error-panel">{error}</div>
@@ -86,6 +100,19 @@ export function QuoteDetail({
 
   return (
     <section className="quote-detail">
+      <div className={error ? 'quote-refresh-status error' : 'quote-refresh-status'} aria-live="polite">
+        {isRefreshing ? <span className="quote-refresh-spinner" aria-hidden="true" /> : null}
+        <span>
+          {isRefreshing
+            ? 'Refreshing quote...'
+            : updatedAt
+              ? `Quote refreshed at ${formatUpdatedAt(updatedAt)}`
+              : 'Quote ready'}
+        </span>
+        {autoRefreshMs ? <small>Auto-refreshes every {Math.round(autoRefreshMs / 1_000)}s</small> : null}
+        {error ? <strong>{error}</strong> : null}
+      </div>
+
       <div className="quote-summary">
         <div>
           <span>Principal</span>

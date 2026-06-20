@@ -1,10 +1,11 @@
 'use client';
 
 import { Activity, ShieldCheck, SlidersHorizontal } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDualInvestmentScan, buildVerifiedDualInvestmentQuote } from '../hooks/useDualInvestmentScan';
 import { useMarketData } from '../hooks/useMarketData';
-import { buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
+import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
+import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
 import { AppHeader } from './AppHeader';
 import {
@@ -46,42 +47,91 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
 
   const [customInput, setCustomInput] = useState<DualInvestmentInput>(defaultBuyInput);
   const [previewQuote, setPreviewQuote] = useState<StructuredProductQuote | null>(null);
+  const [previewInput, setPreviewInput] = useState<DualInvestmentInput | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewUpdatedAt, setPreviewUpdatedAt] = useState<number | null>(null);
+  const previewRequestIdRef = useRef(0);
+  const defaultOracleIdRef = useRef<string | undefined>();
+  const runPreviewRef = useRef<((options?: { preserveExisting?: boolean }) => Promise<void>) | null>(null);
 
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
 
   useEffect(() => {
-    if (defaultBuyInput.targetPrice > 0) {
+    const oracleId = market?.oracleId;
+    if (defaultBuyInput.targetPrice > 0 && oracleId && defaultOracleIdRef.current !== oracleId) {
+      defaultOracleIdRef.current = oracleId;
       setCustomInput(defaultBuyInput);
       setPreviewQuote(null);
+      setPreviewInput(null);
       setPreviewError(null);
+      setPreviewUpdatedAt(null);
     }
-  }, [defaultBuyInput]);
+  }, [defaultBuyInput, market?.oracleId]);
 
   useEffect(() => {
+    previewRequestIdRef.current += 1;
     setPreviewQuote(null);
+    setPreviewInput(null);
     setPreviewError(null);
+    setPreviewUpdatedAt(null);
   }, [mode]);
 
-  async function handlePreview() {
+  const runPreview = useCallback(async ({ preserveExisting = false }: { preserveExisting?: boolean } = {}) => {
     if (!market) return;
+    const requestId = previewRequestIdRef.current + 1;
+    previewRequestIdRef.current = requestId;
+    const productInput = buildAutoFloorDualInvestmentInput({
+      market,
+      principal: customInput.principal,
+      targetPrice: customInput.targetPrice,
+      targetLegCount: customInput.targetLegCount,
+    });
     setIsPreviewing(true);
     setPreviewError(null);
     try {
       const quote = await buildVerifiedDualInvestmentQuote({
         oracle: market,
-        productInput: customInput,
+        productInput,
       });
+      if (previewRequestIdRef.current !== requestId) return;
+      setCustomInput(productInput);
       setPreviewQuote(quote);
+      setPreviewInput(productInput);
+      setPreviewUpdatedAt(Date.now());
     } catch (error) {
-      setPreviewQuote(null);
+      if (previewRequestIdRef.current !== requestId) return;
+      if (!preserveExisting) {
+        setPreviewQuote(null);
+        setPreviewInput(null);
+        setPreviewUpdatedAt(null);
+      }
       setPreviewError(error instanceof Error ? error.message : 'Live quote preview failed.');
     } finally {
-      setIsPreviewing(false);
+      if (previewRequestIdRef.current === requestId) {
+        setIsPreviewing(false);
+      }
     }
+  }, [customInput, market]);
+
+  useEffect(() => {
+    runPreviewRef.current = runPreview;
+  }, [runPreview]);
+
+  useEffect(() => {
+    if (!previewQuote || !previewUpdatedAt || isTargetSale) return undefined;
+    const elapsedMs = Date.now() - previewUpdatedAt;
+    const refreshTimer = window.setTimeout(() => {
+      void runPreviewRef.current?.({ preserveExisting: true });
+    }, Math.max(0, DEFAULT_QUOTE_ENVELOPE_TTL_MS - elapsedMs));
+
+    return () => window.clearTimeout(refreshTimer);
+  }, [isTargetSale, previewQuote, previewUpdatedAt]);
+
+  function handlePreview() {
+    void runPreview({ preserveExisting: Boolean(previewQuote) });
   }
 
   return (
@@ -147,9 +197,12 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
               void scanQuery.refetch();
             }}
             onUse={(input) => {
+              previewRequestIdRef.current += 1;
               setCustomInput(input);
               setPreviewQuote(null);
+              setPreviewInput(null);
               setPreviewError(null);
+              setPreviewUpdatedAt(null);
             }}
           />
 
@@ -158,16 +211,28 @@ export function DualInvestmentPage({ initialMode = 'target-buy' }: { initialMode
             customInput={customInput}
             isPreviewing={isPreviewing}
             onChange={(input) => {
+              previewRequestIdRef.current += 1;
               setCustomInput(input);
               setPreviewQuote(null);
+              setPreviewInput(null);
               setPreviewError(null);
+              setPreviewUpdatedAt(null);
             }}
             onPreview={handlePreview}
           />
         </>
       )}
 
-      {!isTargetSale && <QuoteDetail quote={previewQuote} error={previewError} productInput={customInput} />}
+      {!isTargetSale && (
+        <QuoteDetail
+          quote={previewQuote}
+          error={previewError}
+          productInput={previewInput ?? customInput}
+          isRefreshing={isPreviewing && Boolean(previewQuote)}
+          updatedAt={previewUpdatedAt}
+          autoRefreshMs={DEFAULT_QUOTE_ENVELOPE_TTL_MS}
+        />
+      )}
 
       <div className="transparency-note calculation-note">
         <SlidersHorizontal size={18} />

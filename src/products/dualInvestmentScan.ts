@@ -8,6 +8,32 @@ export interface DualInvestmentScanRow {
   error?: string;
 }
 
+export function buildAutoFloorDualInvestmentInput(input: {
+  market: OracleMarket;
+  principal: number;
+  targetPrice: number;
+  targetLegCount?: number;
+  floorDistance?: number;
+}): DualInvestmentInput {
+  const floorDistance = input.floorDistance ?? 5_000;
+  const floorPrice = alignToGrid(
+    estimateTargetBuyFloorPrice({
+      market: input.market,
+      targetPrice: input.targetPrice,
+      fallbackFloorDistance: floorDistance,
+    }),
+    input.market.minStrike,
+    input.market.tickSize,
+  ).aligned;
+
+  return {
+    principal: input.principal,
+    targetPrice: input.targetPrice,
+    floorPrice,
+    targetLegCount: input.targetLegCount ?? 6,
+  };
+}
+
 export function buildDualInvestmentScanInputs(input: {
   market: OracleMarket;
   principal: number;
@@ -26,23 +52,15 @@ export function buildDualInvestmentScanInputs(input: {
 
   return Array.from({ length: targetRows }, (_, index) => startTarget - targetStep * index)
     .filter((targetPrice) => targetPrice > input.market.minStrike && targetPrice < input.market.spot)
-    .map((targetPrice) => {
-      const floorPrice = alignToGrid(
-        estimateTargetBuyFloorPrice({
-          market: input.market,
-          targetPrice,
-          fallbackFloorDistance: floorDistance,
-        }),
-        input.market.minStrike,
-        input.market.tickSize,
-      ).aligned;
-      return {
+    .map((targetPrice) =>
+      buildAutoFloorDualInvestmentInput({
+        market: input.market,
         principal: input.principal,
         targetPrice,
-        floorPrice,
         targetLegCount,
-      };
-    });
+        floorDistance,
+      }),
+    );
 }
 
 export function scanQuoteDisplayMetrics(input: {

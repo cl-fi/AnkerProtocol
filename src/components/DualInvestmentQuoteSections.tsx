@@ -180,7 +180,6 @@ export function ScanBoard({
         <span>Default ladder: 6 Predict UP legs</span>
         <span>Filter: targets must be strictly below live spot</span>
         <span>Grid: nearest 500 dUSDC target below spot, then step down</span>
-        <span>Floor: auto-aligned to Predict mint bounds</span>
         <span>Pricing: local SVI + vault utilization estimate</span>
         <span>{updatedAt ? `Last estimate: ${formatTime(updatedAt)}` : 'Waiting for oracle state'}</span>
       </div>
@@ -190,7 +189,6 @@ export function ScanBoard({
             <tr>
               <th>Target Buy</th>
               <th>Below Spot</th>
-              <th>Floor</th>
               <th>Legs</th>
               <th>Interval</th>
               <th>Coupon</th>
@@ -212,7 +210,6 @@ export function ScanBoard({
                   <td data-label="Below Spot">
                     {market ? `${formatBelowSpot(row.input.targetPrice, market.spot)} below` : '--'}
                   </td>
-                  <td data-label="Floor">{formatPrice(row.input.floorPrice)}</td>
                   <td data-label="Legs">{row.input.targetLegCount}</td>
                   <td data-label="Interval">{formatPrice(interval)}</td>
                   <td data-label="Coupon">{`${formatAmount(displayMetrics.coupon)} dUSDC`}</td>
@@ -321,10 +318,6 @@ export function CustomPreviewForm({
         <label>
           <span>Target Buy Price</span>
           <input min="1" step="1" type="number" value={customInput.targetPrice} onChange={updateNumber('targetPrice')} />
-        </label>
-        <label>
-          <span>Floor Price</span>
-          <input min="1" step="1" type="number" value={customInput.floorPrice} onChange={updateNumber('floorPrice')} />
         </label>
         <label>
           <span>Payoff Smoothness</span>
