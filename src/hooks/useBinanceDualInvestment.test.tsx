@@ -36,27 +36,21 @@ describe('useBinanceDualInvestment', () => {
     vi.unstubAllGlobals();
   });
 
-  it('fetches Binance BAPI directly from the browser path', async () => {
+  it('fetches Binance benchmark rows through the same-origin API proxy', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        code: '000000',
-        data: {
-          total: '1',
-          list: [
-            {
-              id: 'binance-64000',
-              investmentAsset: 'USDC',
-              targetAsset: 'BTC',
-              strikePrice: '64000.00000000',
-              settleTime: '1782115200000',
-              apr: '1.45480000',
-              duration: '1',
-              canPurchase: true,
-            },
-          ],
+      json: async () => [
+        {
+          id: 'binance-64000',
+          investmentAsset: 'USDC',
+          targetAsset: 'BTC',
+          strikePrice: 64_000,
+          settleTimeMs: 1_782_115_200_000,
+          apr: 1.4548,
+          durationDays: 1,
+          canPurchase: true,
         },
-      }),
+      ],
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -64,9 +58,8 @@ describe('useBinanceDualInvestment', () => {
 
     await waitFor(() => expect(result.current.data?.[0]?.id).toBe('binance-64000'));
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('https://www.binance.com/bapi/earn/v5/friendly/pos/dc/project/list'),
+      '/api/binance/dual-investment',
       expect.any(Object),
     );
-    expect(fetchMock).not.toHaveBeenCalledWith('/api/binance/dual-investment', expect.any(Object));
   });
 });
