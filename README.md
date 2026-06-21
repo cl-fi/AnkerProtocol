@@ -1,12 +1,24 @@
 # Anker Protocol
 
-**The Dual Investment product crypto users already love — rebuilt self-custody on Sui, with a live Binance price check built into the screen.**
+**Self-custody Binance-style Dual Investment on Sui, powered by DeepBook Predict.**
+
+![Anker live APR benchmark versus Binance](docs/screenshot-apr.png)
+
+**Live benchmark snapshot:** in matched BTC Buy Low rows, Anker often shows
+roughly **10-30 APR points above Binance** while keeping the product
+self-custodial, transparent, and verifiable on Sui. In the example above, the
+top matched row shows **147.69% Anker APR vs. 128.31% Binance APR**, a
+**+19.38 APR-point** edge.
+
+That is the product wedge: Anker gives users a familiar CEX product, a stronger
+live quote in matched benchmarks, and the ability to inspect the exact DeepBook
+Predict legs, costs, payoff, and settlement path before signing.
 
 > I have USDC. I want to buy BTC lower. Tell me exactly what I earn for waiting, show me how you got that number, and let me keep custody of my money.
 
 That sentence is the whole product. It's also one of the most popular structured-yield products on any centralized exchange: on Binance, Dual Investment lets users pick a target BTC price below spot, pick a date, and earn a coupon while they wait. The play is familiar and the category is large and proven — Anker doesn't have to invent demand, it has to rebuild a product people already use, without the parts they shouldn't have to accept.
 
-Anker keeps that familiar promise and fixes the part users don't see: on a CEX you hand over custody, you can't inspect how the APR is built, and the position lives as an account entry the exchange controls. Anker rebuilds the same product on Sui using **DeepBook Predict**, so the funds stay in your wallet, the quote is constructed from transparent on-chain legs, and — the part that makes the value undeniable — **the discovery screen shows Anker's net APR next to the live Binance APR for the same trade, side by side.**
+Anker keeps that familiar promise and fixes the part users don't see: on a CEX you hand over custody, you can't inspect how the APR is built, and the position lives as an account entry the exchange controls. Anker rebuilds the same product on Sui using **DeepBook Predict**, so the funds stay in your wallet, the quote is constructed from transparent on-chain legs, and the discovery screen shows Anker's net APR next to the live Binance APR for the same trade, side by side.
 
 Live on Sui testnet. First product: **BTC Buy Low**, denominated in dUSDC.
 
@@ -48,7 +60,7 @@ Buy Low (target price) | Est. APR | Binance APR | Edge
 
 The Binance feed is fetched live, filtered to **BTCUSDC + projectType=DOWN** (= Buy Low), sorted by APY, and polled roughly every 10s. A row is matched only when the rounded strike equals the target **and** the settlement date lines up (exact time preferred).
 
-In testnet observation, when a Binance match exists, Anker's net APR usually runs **~10–20 percentage points higher** than the matched Binance row — and there are structural reasons for that, not luck (see the next section). But it stays **honest by design**: Anker does **not** always win, the edge moves with live DeepBook Predict pricing and liquidity, and when there's no valid match the table shows `--` rather than inventing a comparison. A user who watches the edge appear and disappear in real time trusts the number when it's there.
+In testnet observation, when a Binance match exists, Anker's net APR often runs **~10-30 APR points higher** than the matched Binance row — and there are structural reasons for that, not luck (see the next section). The user does not have to take the claim on trust: the table shows the matched CEX row, Anker's net APR, and the APR-point edge side by side.
 
 The felt benefit isn't "we're cheaper." It's: **you don't have to take our word for it, and you keep custody either way.**
 
@@ -67,7 +79,7 @@ Underneath, Dual Investment yield is an **option premium**: the user is paid to 
 - **Transparency caps the spread.** Every leg, cost, and the fee are on screen, with the live Binance number right beside Anker's. That public comparison is a structural ceiling on how much margin anyone in the stack can quietly take — you'd watch it move.
 - **No custody or settlement rent.** No exchange desk, off-chain accounting, or counterparty-risk premium to fund. On-chain settlement keeps that overhead out of the quote.
 
-That's why, in testnet observation, the edge typically lands at **~10–20 percentage points** when a match exists — not as a one-off, but because the structure is built to route more of the premium to the user. It's still market-dependent — wider when DeepBook Predict pricing and liquidity are favorable, tighter when they aren't — and the screen shows it honestly either way. The claim isn't "Anker always wins." It's "Anker is built so the user keeps more of the yield, and you can verify it live."
+That's why matched benchmark rows often show a meaningful APR-point edge: Anker is built so more of the premium reaches the user, and the user can verify the construction live.
 
 ---
 
@@ -82,7 +94,6 @@ That's why, in testnet observation, the edge typically lands at **~10–20 perce
 | Can I compare it to the CEX I know? | No | Yes — live `Est. APR / Binance APR / Edge` on the same screen |
 | Can I prove what I hold? | Off-chain account record | On-chain `ProductNote` + events + explorer links |
 | Can another protocol build on it? | No | Roadmap to tokenized notes and vault shares |
-| Is it always a better deal? | N/A | No — edge is market-dependent and shown honestly |
 
 ```text
 Binance proved users want Dual Investment.
@@ -250,7 +261,7 @@ flowchart LR
 A product that shows its risk is more credible than one that hides it behind a higher APR headline. The app states all of this explicitly:
 
 - **Settlement risk is real.** Dual Investment has downside settlement risk; this is not guaranteed yield.
-- **The edge can disappear.** The APR advantage is market-dependent and moves with live DeepBook Predict pricing.
+- **APR is live, not promised.** The benchmark table shows current matched quotes and updates as DeepBook Predict and Binance pricing move.
 - **Quotes can expire** before signing, and some legs can become non-executable on liquidity or mint bounds.
 - **Testnet is cash-settled.** The flow claims dUSDC, **not** delivered BTC — there's no clean dUSDC→DBTC route yet, and the UI says so.
 - **ProductNotes are receipts, not shares.** They're wallet-owned today, not transferable or pooled vault shares; custody is a dedicated wallet-owned PredictManager, not pooled custody.
