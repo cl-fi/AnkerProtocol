@@ -4,11 +4,11 @@
 
 ![Anker live APR benchmark versus Binance](docs/screenshot-apr.png)
 
-**Live benchmark snapshot:** in matched BTC Buy Low rows, Anker often shows
-roughly **10-30 APR points above Binance** while keeping the product
-self-custodial, transparent, and verifiable on Sui. In the example above, the
-top matched row shows **147.69% Anker APR vs. 128.31% Binance APR**, a
-**+19.38 APR-point** edge.
+**Live benchmark snapshot:** every visible matched BTC Buy Low row shows a
+positive edge. Across the shown targets, Anker is roughly **15-29 APR points
+above Binance** while keeping the product self-custodial, transparent, and
+verifiable on Sui. The 63,500 benchmark row shows **118.41% Anker APR vs.
+94.07% Binance APR**, a **+24.34 APR-point** edge.
 
 That is the product wedge: Anker gives users a familiar CEX product, a stronger
 live quote in matched benchmarks, and the ability to inspect the exact DeepBook
