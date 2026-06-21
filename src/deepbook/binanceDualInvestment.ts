@@ -86,13 +86,19 @@ async function fetchProductPage(input: {
 }): Promise<{ total: number; products: BinanceDualInvestmentProduct[] }> {
   const url = buildBinanceDualInvestmentUrl(input);
 
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), {
+    credentials: 'omit',
+    headers: {
+      accept: 'application/json, text/plain, */*',
+    },
+  });
   if (!response.ok) {
     throw new Error(`Binance Dual Investment fetch failed: HTTP ${response.status}`);
   }
 
   const payload = (await response.json()) as BinanceDualInvestmentApiResponse;
-  if (!payload.success || !payload.data?.list) {
+  const isSuccessfulPayload = payload.success === true || payload.code === '000000';
+  if (!isSuccessfulPayload || !payload.data?.list) {
     throw new Error(payload.message ?? payload.code ?? 'Binance Dual Investment response was not successful.');
   }
 
@@ -135,12 +141,22 @@ export function findBinanceDualInvestmentMatch(input: {
   settlementTimeMs: number;
 }) {
   const targetPrice = Math.round(input.targetPrice);
+  const settlementDateKey = utcDateKey(input.settlementTimeMs);
   const candidates = input.products.filter(
-    (product) => Math.round(product.strikePrice) === targetPrice && product.settleTimeMs === input.settlementTimeMs,
+    (product) =>
+      Math.round(product.strikePrice) === targetPrice &&
+      (product.settleTimeMs === input.settlementTimeMs || utcDateKey(product.settleTimeMs) === settlementDateKey),
   );
 
   return candidates.sort((a, b) => {
+    const aExact = a.settleTimeMs === input.settlementTimeMs;
+    const bExact = b.settleTimeMs === input.settlementTimeMs;
+    if (aExact !== bExact) return aExact ? -1 : 1;
     if (a.canPurchase !== b.canPurchase) return a.canPurchase ? -1 : 1;
     return b.apr - a.apr;
   })[0];
+}
+
+function utcDateKey(timestampMs: number) {
+  return new Date(timestampMs).toISOString().slice(0, 10);
 }

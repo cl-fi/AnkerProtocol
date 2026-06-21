@@ -3,6 +3,7 @@
 import { RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import type { ChangeEvent, KeyboardEvent } from 'react';
+import { findBinanceDualInvestmentMatch, type BinanceDualInvestmentProduct } from '../deepbook/binanceDualInvestment';
 import { scanQuoteDisplayMetrics, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
 import { netAprAfterCouponFee } from '../products/feePolicy';
 import { formatTimeToExpiry } from '../products/timeFormat';
@@ -20,6 +21,21 @@ function formatPrice(value: number) {
 
 function formatApr(value: number) {
   return `${(value * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
+}
+
+function formatReferenceApr(value: number) {
+  return `${(value * 100).toLocaleString('en-US', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  })}%`;
+}
+
+function formatEdge(value: number) {
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${(value * 100).toLocaleString('en-US', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  })} pts`;
 }
 
 function formatBelowSpot(targetPrice: number, spot: number) {
@@ -153,6 +169,7 @@ export function BuyLowControls({
 export function ReferenceTable({
   market,
   rows,
+  binanceProducts = [],
   activeTargetPrice,
   isFetching,
   onSelect,
@@ -160,6 +177,7 @@ export function ReferenceTable({
 }: {
   market?: OracleMarket;
   rows: DualInvestmentScanRow[];
+  binanceProducts?: BinanceDualInvestmentProduct[];
   activeTargetPrice: number;
   isFetching: boolean;
   onSelect: (input: DualInvestmentInput) => void;
@@ -188,12 +206,23 @@ export function ReferenceTable({
             <tr>
               <th>Buy Low</th>
               <th>Est. APR</th>
+              <th>Binance APR</th>
+              <th>Edge</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => {
               const displayMetrics = scanQuoteDisplayMetrics(row);
               const belowSpot = market ? `${formatBelowSpot(row.input.targetPrice, market.spot)} below` : '--';
+              const binanceMatch = market
+                ? findBinanceDualInvestmentMatch({
+                    products: binanceProducts,
+                    targetPrice: row.input.targetPrice,
+                    settlementTimeMs: market.expiryMs,
+                  })
+                : undefined;
+              const edge =
+                displayMetrics.apr !== null && binanceMatch ? displayMetrics.apr - binanceMatch.apr : null;
               const isActive = row.input.targetPrice === activeTargetPrice;
               return (
                 <tr
@@ -210,13 +239,23 @@ export function ReferenceTable({
                     <span>{belowSpot}</span>
                   </td>
                   <td className={displayMetrics.apr !== null ? 'apr-cell' : ''} data-label="Est. APR">
-                    {displayMetrics.apr !== null ? formatApr(displayMetrics.apr) : '--'}
+                    {displayMetrics.apr !== null ? formatReferenceApr(displayMetrics.apr) : '--'}
+                  </td>
+                  <td className={binanceMatch ? 'binance-apr' : 'muted-cell'} data-label="Binance APR">
+                    {binanceMatch ? formatReferenceApr(binanceMatch.apr) : '--'}
+                  </td>
+                  <td className={edge !== null ? `edge-cell ${edge >= 0 ? 'positive' : ''}` : 'muted-cell'} data-label="Edge">
+                    {edge !== null ? formatEdge(edge) : '--'}
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        <p className="di-reference-footnote">
+          Binance benchmark uses BTCUSDC Dual Investment, matched by target price and nearest settlement date. Anker
+          APR is net after protocol fee and based on live DeepBook Predict quote preview.
+        </p>
       </div>
     </section>
   );

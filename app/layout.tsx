@@ -36,15 +36,21 @@ export const metadata: Metadata = {
   },
   description,
   applicationName: 'Anker Protocol',
+  icons: {
+    icon: '/icon.png',
+    apple: '/icon.png',
+  },
   openGraph: {
     type: 'website',
     siteName: 'Anker Protocol',
     title: 'Anker Protocol',
-    description,  },
+    description,
+  },
   twitter: {
     card: 'summary_large_image',
     title: 'Anker Protocol',
-    description,  },
+    description,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -6,6 +6,7 @@ import {
   buildVerifiedDualInvestmentQuote,
   useDualInvestmentScan,
 } from '../hooks/useDualInvestmentScan';
+import { useBinanceDualInvestment } from '../hooks/useBinanceDualInvestment';
 import { useMarketData } from '../hooks/useMarketData';
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
 import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
@@ -31,6 +32,7 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
   const market = marketQuery.data?.market;
   const productOracles = marketQuery.data?.productOracles ?? [];
   const scanQuery = useDualInvestmentScan({ market, principal: DEFAULT_PRINCIPAL, enabled: true });
+  const binanceQuery = useBinanceDualInvestment({ market, enabled: true });
 
   const [principal, setPrincipal] = useState(DEFAULT_PRINCIPAL);
   const [targetPrice, setTargetPrice] = useState(0);
@@ -183,6 +185,7 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
           <ReferenceTable
             market={market}
             rows={scanQuery.data ?? []}
+            binanceProducts={binanceQuery.data ?? []}
             activeTargetPrice={targetPrice}
             isFetching={scanQuery.isFetching}
             onSelect={handleSelectPreset}

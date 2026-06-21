@@ -1,15 +1,18 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DualInvestmentPage, QuoteRiskSummary } from './DualInvestmentPage';
-import { BuyLowControls } from './DualInvestmentQuoteSections';
+import { BuyLowControls, ReferenceTable } from './DualInvestmentQuoteSections';
 import { DualInvestmentConfirm, ReturnOverview } from './DualInvestmentQuoteDetail';
 import type { ReactNode } from 'react';
+import type { BinanceDualInvestmentProduct } from '../deepbook/binanceDualInvestment';
+import type { DualInvestmentScanRow } from '../products/dualInvestmentScan';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
 
 const mocks = vi.hoisted(() => ({
   buildVerifiedDualInvestmentQuote: vi.fn(),
   buildIndicativeDualInvestmentQuote: vi.fn(),
   refetchScan: vi.fn(),
+  binanceProducts: [] as BinanceDualInvestmentProduct[],
   marketData: undefined as
     | {
         data: {
@@ -51,6 +54,14 @@ vi.mock('../hooks/useDualInvestmentScan', () => ({
     isFetching: false,
     dataUpdatedAt: 1,
     refetch: mocks.refetchScan,
+  }),
+}));
+
+vi.mock('../hooks/useBinanceDualInvestment', () => ({
+  useBinanceDualInvestment: () => ({
+    data: mocks.binanceProducts,
+    isFetching: false,
+    error: null,
   }),
 }));
 
@@ -217,6 +228,47 @@ describe('Dual Investment APR display', () => {
     expect(screen.queryByText('150%')).not.toBeInTheDocument();
     expect(screen.queryByText('150% APR')).not.toBeInTheDocument();
   });
+
+  it('shows matched Binance APR, edge, and benchmark methodology in the reference table', () => {
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
+    const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
+    const rows: DualInvestmentScanRow[] = [
+      {
+        input: productInput,
+        quote: pageQuoteFixture({ market, productInput, coupon: 0.02 }),
+      },
+    ];
+    const binanceProducts: BinanceDualInvestmentProduct[] = [
+      {
+        id: 'binance-64000',
+        investmentAsset: 'USDC',
+        targetAsset: 'BTC',
+        strikePrice: 64_000,
+        settleTimeMs: Date.UTC(2026, 5, 22, 8),
+        apr: 0.8,
+        durationDays: 1,
+        canPurchase: true,
+      },
+    ];
+
+    render(
+      <ReferenceTable
+        market={market}
+        rows={rows}
+        binanceProducts={binanceProducts}
+        activeTargetPrice={64_000}
+        isFetching={false}
+        onSelect={() => undefined}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Binance APR' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Edge' })).toBeVisible();
+    expect(screen.getByText('80.00%')).toBeVisible();
+    expect(screen.getByText('+55.00 pts')).toBeVisible();
+    expect(screen.getByText(/BTCUSDC Dual Investment/i)).toBeVisible();
+  });
 });
 
 describe('DualInvestmentPage', () => {
@@ -237,6 +289,7 @@ describe('DualInvestmentPage', () => {
         pageQuoteFixture({ market: oracle, productInput, coupon: 0.02 }),
     );
     mocks.refetchScan.mockReset();
+    mocks.binanceProducts = [];
   });
 
   afterEach(() => {

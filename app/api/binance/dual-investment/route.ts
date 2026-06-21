@@ -1,13 +1,8 @@
-import { areExperimentalProductsEnabled, EXPERIMENTAL_PRODUCTS_ERROR } from '../../../../src/config/experimentalFeatures';
 import { fetchBinanceDualInvestmentProducts } from '../../../../src/deepbook/binanceDualInvestment';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  if (!areExperimentalProductsEnabled()) {
-    return Response.json({ error: EXPERIMENTAL_PRODUCTS_ERROR }, { status: 404 });
-  }
-
   try {
     return Response.json(await fetchBinanceDualInvestmentProducts());
   } catch (error) {
