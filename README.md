@@ -4,102 +4,62 @@
 
 ![Anker live APR benchmark versus Binance](docs/screenshot-apr.png)
 
-**Live benchmark snapshot:** every visible matched BTC Buy Low row shows a
-positive edge. Across the shown targets, Anker is roughly **15-29 APR points
-above Binance** while keeping the product self-custodial, transparent, and
-verifiable on Sui. The 63,500 benchmark row shows **118.41% Anker APR vs.
-94.07% Binance APR**, a **+24.34 APR-point** edge.
+Anker rebuilds Binance-style Dual Investment as a self-custodial Sui product:
+users can take a BTC Buy Low position with dUSDC, see the reward before
+signing, compare the quote against Binance, and inspect the exact DeepBook
+Predict legs behind the APR.
 
-That is the product wedge: Anker gives users a familiar CEX product, a stronger
-live quote in matched benchmarks, and the ability to inspect the exact DeepBook
-Predict legs, costs, payoff, and settlement path before signing.
+> I have USDC. I want to buy BTC lower. Show me the reward, the risk, and the
+> construction before I sign.
 
-> I have USDC. I want to buy BTC lower. Tell me exactly what I earn for waiting, show me how you got that number, and let me keep custody of my money.
+**Live benchmark snapshot:** in the screenshot above, every visible matched BTC
+Buy Low row shows a positive edge. Across those targets, Anker is roughly
+**15-29 APR points above Binance** while keeping the product self-custodial,
+transparent, and verifiable on Sui. The 63,500 target shows **118.41% Anker APR
+vs. 94.07% Binance APR**, a **+24.34 APR-point** edge.
 
-That sentence is the whole product. It's also one of the most popular structured-yield products on any centralized exchange: on Binance, Dual Investment lets users pick a target BTC price below spot, pick a date, and earn a coupon while they wait. The play is familiar and the category is large and proven — Anker doesn't have to invent demand, it has to rebuild a product people already use, without the parts they shouldn't have to accept.
-
-Anker keeps that familiar promise and fixes the part users don't see: on a CEX you hand over custody, you can't inspect how the APR is built, and the position lives as an account entry the exchange controls. Anker rebuilds the same product on Sui using **DeepBook Predict**, so the funds stay in your wallet, the quote is constructed from transparent on-chain legs, and the discovery screen shows Anker's net APR next to the live Binance APR for the same trade, side by side.
+This is a live, market-dependent comparison, not a promised fixed spread. The
+point is that Anker makes the edge visible in the product: for each matched row,
+users see Anker APR, Binance APR, and the APR-point difference before deciding.
 
 Live on Sui testnet. First product: **BTC Buy Low**, denominated in dUSDC.
 
 ---
 
-## The user's job, and where today's product fails them
+## Why it matters
 
-The reason Dual Investment works on CEXs is that the pitch is concrete. A user doesn't need to understand volatility surfaces or binary options. They understand four things:
+Binance has already proved demand for Dual Investment. Users understand the job:
+pick a target BTC price, pick a settlement date, and earn a coupon for waiting.
+The category is real; the weak points are custody, opacity, and trust.
 
-- I have USDC.
-- I'd like to buy BTC lower than it is now.
-- I'm willing to take defined settlement risk.
-- I want to know the reward **before** I commit.
+Anker keeps the familiar CEX flow and replaces the trust layer:
 
-CEX Dual Investment answers the last point with a single APR number — and then asks the user to trust it. The problems are all the things behind that number:
+- **Self-custody** — funds stay in a wallet-owned product container, not a CEX account.
+- **Transparent APR** — every quote is compiled from DeepBook Predict legs with live quote previews.
+- **Live CEX benchmark** — the UI shows Anker APR, Binance APR, and Edge side by side.
+- **On-chain proof** — each subscription mints a wallet-owned `ProductNote` with terms, costs, expiry, fee snapshot, and status.
+- **Aligned revenue** — Anker charges a transparent performance fee on coupon actually earned.
 
-- **Custody is gone.** Your funds sit in an exchange account, not your wallet.
-- **The quote is a black box.** Spread, risk premium, and how the APR is built are the exchange's to set and yours to accept.
-- **The position isn't composable.** It's an account entry, not an on-chain object other protocols can read or build on.
-- **There's no proof.** You can't independently verify what you're holding or what it settles to.
+## Why Anker can beat Binance
 
-Anker keeps the exact same user journey — pick a price, pick a date, see the reward — and moves the construction on-chain so none of that is hidden.
+Dual Investment yield is option premium. On a CEX, the exchange packages that
+premium into a coupon and keeps an opaque spread. Anker sources the same
+economic exposure from DeepBook Predict, assembles the payoff from market-priced
+on-chain legs, and shows the construction before the user signs.
 
----
-
-## The wedge: a live Binance check, right on the screen
-
-Most "we're better than the CEX" claims are an assertion in a pitch deck. Anker turns it into a column in the product.
-
-The main discovery surface is the **Price & APR reference** table:
-
-```text
-Buy Low (target price) | Est. APR | Binance APR | Edge
-```
-
-- **Est. APR** — Anker's **net APR after the 10% protocol fee** (the real, take-home number).
-- **Binance APR** — the matched **live** Binance Dual Investment row, pulled from Binance's public earn API.
-- **Edge** — Anker net APR minus Binance APR, in percentage points.
-
-The Binance feed is fetched live, filtered to **BTCUSDC + projectType=DOWN** (= Buy Low), sorted by APY, and polled roughly every 10s. A row is matched only when the rounded strike equals the target **and** the settlement date lines up (exact time preferred).
-
-In testnet observation, when a Binance match exists, Anker's net APR often runs **~10-30 APR points higher** than the matched Binance row — and there are structural reasons for that, not luck (see the next section). The user does not have to take the claim on trust: the table shows the matched CEX row, Anker's net APR, and the APR-point edge side by side.
-
-The felt benefit isn't "we're cheaper." It's: **you don't have to take our word for it, and you keep custody either way.**
-
----
-
-## Why the edge is structural, not luck
-
-A bigger number only matters if there's a reason it should hold. Anker's edge comes from **where the yield is sourced and how little is skimmed before it reaches the user** — not from taking on more risk.
-
-Underneath, Dual Investment yield is an **option premium**: the user is paid to commit to buying BTC lower. The only real question is how much of that premium the user keeps. On a centralized exchange, structurally, the answer is "less than it could be":
-
-- **It's priced by a market, not a counterparty.** On a CEX the exchange *is* your counterparty and sets the coupon, keeping an opaque spread between the true premium and what it pays out. Anker sources the same premium from DeepBook Predict — a live, on-chain options market — and builds the payoff at market quotes. You buy near wholesale instead of the exchange's retail markup.
-- **Composability lets Anker build the exact payoff from cheap primitives.** Because Predict legs are composable, Anker assembles the precise Buy Low ladder from the best-priced legs and passes the real cost through, instead of reselling a pre-packaged product at a markup. You get the construction, not the bundle — and that opportunity only exists because DeepBook Predict exposes the legs in the first place.
-- **One small, explicit fee.** A CEX's take is spread + risk premium + implicit fees, baked invisibly into the quote. Anker charges a single disclosed **10% performance fee, and only on coupon actually earned** — materially less than a CEX's hidden cut. Less off the top, more net APR.
-- **Incentives point the right way.** A CEX earns more by paying you *less*. Anker earns a fixed share of the coupon, so it earns more only when *you* earn more. The business model itself pushes APR up, not down.
-- **Transparency caps the spread.** Every leg, cost, and the fee are on screen, with the live Binance number right beside Anker's. That public comparison is a structural ceiling on how much margin anyone in the stack can quietly take — you'd watch it move.
-- **No custody or settlement rent.** No exchange desk, off-chain accounting, or counterparty-risk premium to fund. On-chain settlement keeps that overhead out of the quote.
-
-That's why matched benchmark rows often show a meaningful APR-point edge: Anker is built so more of the premium reaches the user, and the user can verify the construction live.
-
----
+That does not mean Anker always wins every row. It means the product has a real
+reason to often price better: fewer hidden margins, an explicit fee model, and a
+live comparison that makes spread visible.
 
 ## Anker vs. CEX Dual Investment
 
-| The user's question | Binance-style Dual Investment | Anker Protocol |
+| Question | Binance-style Dual Investment | Anker Protocol |
 | --- | --- | --- |
-| Who holds my money? | The exchange | Your wallet + a wallet-owned product container |
-| How was this APR produced? | Exchange quote, take it or leave it | A basket of DeepBook Predict legs, priced with live quote previews |
-| Can I see the legs behind the number? | No | Yes — every strike, payout quantity, and ask cost |
-| Is the APR shown net of fees? | Exchange-defined | Yes — net APR after Anker's fee snapshot |
-| Can I compare it to the CEX I know? | No | Yes — live `Est. APR / Binance APR / Edge` on the same screen |
-| Can I prove what I hold? | Off-chain account record | On-chain `ProductNote` + events + explorer links |
-| Can another protocol build on it? | No | Roadmap to tokenized notes and vault shares |
-
-```text
-Binance proved users want Dual Investment.
-Anker makes it self-custodial, transparent, and on-chain —
-and proves the value with a live side-by-side instead of a slogan.
-```
+| Who holds the funds? | The exchange | The user's wallet-owned product container |
+| How is APR produced? | Opaque exchange quote | DeepBook Predict legs priced with live quote previews |
+| Can users benchmark it? | Not inside the product | Live `Anker APR / Binance APR / Edge` table |
+| Can users verify the position? | Off-chain account entry | On-chain `ProductNote`, events, and explorer links |
+| How does the protocol earn? | Hidden spread and exchange margin | Explicit performance fee on coupon earned |
 
 ---
 
