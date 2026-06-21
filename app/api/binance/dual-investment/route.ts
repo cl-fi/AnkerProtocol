@@ -1,10 +1,39 @@
-import { fetchBinanceDualInvestmentProducts } from '../../../../src/deepbook/binanceDualInvestment';
+import {
+  fetchBinanceDualInvestmentProducts,
+  type BinanceDualInvestmentProduct,
+} from '../../../../src/deepbook/binanceDualInvestment';
 
 export const dynamic = 'force-dynamic';
 
+const CACHE_TTL_MS = 15_000;
+const CACHE_CONTROL = 's-maxage=15, stale-while-revalidate=30';
+
+let cachedResponse: {
+  expiresAt: number;
+  products: BinanceDualInvestmentProduct[];
+} | null = null;
+
+async function getCachedProducts() {
+  const now = Date.now();
+  if (cachedResponse && cachedResponse.expiresAt > now) {
+    return cachedResponse.products;
+  }
+
+  const products = await fetchBinanceDualInvestmentProducts();
+  cachedResponse = {
+    expiresAt: now + CACHE_TTL_MS,
+    products,
+  };
+  return products;
+}
+
 export async function GET() {
   try {
-    return Response.json(await fetchBinanceDualInvestmentProducts());
+    return Response.json(await getCachedProducts(), {
+      headers: {
+        'cache-control': CACHE_CONTROL,
+      },
+    });
   } catch (error) {
     return Response.json(
       {

@@ -21,6 +21,7 @@ describe('buildCurrentAprResponse', () => {
     });
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('s-maxage=60, stale-while-revalidate=120');
     await expect(response.json()).resolves.toEqual(snapshot);
   });
 

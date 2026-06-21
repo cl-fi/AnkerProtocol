@@ -4,13 +4,23 @@ import { buildCuratedBtcOracleResponse } from '../../../../src/server/curatedOra
 
 export const dynamic = 'force-dynamic';
 
+const BTC_ORACLES_CACHE_CONTROL = 's-maxage=15, stale-while-revalidate=30';
+
+function jsonWithCache(payload: unknown) {
+  return Response.json(payload, {
+    headers: {
+      'cache-control': BTC_ORACLES_CACHE_CONTROL,
+    },
+  });
+}
+
 export async function GET() {
   if (isDeterministicE2E()) {
-    return Response.json(deterministicCuratedBtcOracleResponse());
+    return jsonWithCache(deterministicCuratedBtcOracleResponse());
   }
 
   try {
-    return Response.json(await buildCuratedBtcOracleResponse());
+    return jsonWithCache(await buildCuratedBtcOracleResponse());
   } catch (error) {
     return Response.json(
       {

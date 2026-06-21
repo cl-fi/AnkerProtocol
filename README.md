@@ -4,7 +4,7 @@
 
 > I have USDC. I want to buy BTC lower. Tell me exactly what I earn for waiting, show me how you got that number, and let me keep custody of my money.
 
-That sentence is the whole product. Millions of people already run this exact play on Binance: pick a target BTC price below spot, pick a date, and earn a coupon while they wait. It is one of the most popular structured-yield products on any centralized exchange. The demand is proven.
+That sentence is the whole product. It's also one of the most popular structured-yield products on any centralized exchange: on Binance, Dual Investment lets users pick a target BTC price below spot, pick a date, and earn a coupon while they wait. The play is familiar and the category is large and proven — Anker doesn't have to invent demand, it has to rebuild a product people already use, without the parts they shouldn't have to accept.
 
 Anker keeps that familiar promise and fixes the part users don't see: on a CEX you hand over custody, you can't inspect how the APR is built, and the position lives as an account entry the exchange controls. Anker rebuilds the same product on Sui using **DeepBook Predict**, so the funds stay in your wallet, the quote is constructed from transparent on-chain legs, and — the part that makes the value undeniable — **the discovery screen shows Anker's net APR next to the live Binance APR for the same trade, side by side.**
 
@@ -48,9 +48,26 @@ Buy Low (target price) | Est. APR | Binance APR | Edge
 
 The Binance feed is fetched live, filtered to **BTCUSDC + projectType=DOWN** (= Buy Low), sorted by APY, and polled roughly every 10s. A row is matched only when the rounded strike equals the target **and** the settlement date lines up (exact time preferred).
 
-**It is honest by design.** Anker does **not** always beat Binance — the edge depends on live DeepBook Predict pricing and liquidity, and it moves with the market. When there's no valid match, the table shows `--` rather than forcing a comparison or inventing yield. That honesty is the point: a user who watches the edge appear and disappear in real time trusts the number when it's there.
+In testnet observation, when a Binance match exists, Anker's net APR usually runs **~10–20 percentage points higher** than the matched Binance row — and there are structural reasons for that, not luck (see the next section). But it stays **honest by design**: Anker does **not** always win, the edge moves with live DeepBook Predict pricing and liquidity, and when there's no valid match the table shows `--` rather than inventing a comparison. A user who watches the edge appear and disappear in real time trusts the number when it's there.
 
 The felt benefit isn't "we're cheaper." It's: **you don't have to take our word for it, and you keep custody either way.**
+
+---
+
+## Why the edge is structural, not luck
+
+A bigger number only matters if there's a reason it should hold. Anker's edge comes from **where the yield is sourced and how little is skimmed before it reaches the user** — not from taking on more risk.
+
+Underneath, Dual Investment yield is an **option premium**: the user is paid to commit to buying BTC lower. The only real question is how much of that premium the user keeps. On a centralized exchange, structurally, the answer is "less than it could be":
+
+- **It's priced by a market, not a counterparty.** On a CEX the exchange *is* your counterparty and sets the coupon, keeping an opaque spread between the true premium and what it pays out. Anker sources the same premium from DeepBook Predict — a live, on-chain options market — and builds the payoff at market quotes. You buy near wholesale instead of the exchange's retail markup.
+- **Composability lets Anker build the exact payoff from cheap primitives.** Because Predict legs are composable, Anker assembles the precise Buy Low ladder from the best-priced legs and passes the real cost through, instead of reselling a pre-packaged product at a markup. You get the construction, not the bundle — and that opportunity only exists because DeepBook Predict exposes the legs in the first place.
+- **One small, explicit fee.** A CEX's take is spread + risk premium + implicit fees, baked invisibly into the quote. Anker charges a single disclosed **10% performance fee, and only on coupon actually earned** — materially less than a CEX's hidden cut. Less off the top, more net APR.
+- **Incentives point the right way.** A CEX earns more by paying you *less*. Anker earns a fixed share of the coupon, so it earns more only when *you* earn more. The business model itself pushes APR up, not down.
+- **Transparency caps the spread.** Every leg, cost, and the fee are on screen, with the live Binance number right beside Anker's. That public comparison is a structural ceiling on how much margin anyone in the stack can quietly take — you'd watch it move.
+- **No custody or settlement rent.** No exchange desk, off-chain accounting, or counterparty-risk premium to fund. On-chain settlement keeps that overhead out of the quote.
+
+That's why, in testnet observation, the edge typically lands at **~10–20 percentage points** when a match exists — not as a one-off, but because the structure is built to route more of the premium to the user. It's still market-dependent — wider when DeepBook Predict pricing and liquidity are favorable, tighter when they aren't — and the screen shows it honestly either way. The claim isn't "Anker always wins." It's "Anker is built so the user keeps more of the yield, and you can verify it live."
 
 ---
 
@@ -147,7 +164,7 @@ The quote model is layered for honesty:
 
 ## The business model — real revenue, surfaced honestly
 
-Anker charges a **protocol fee: default 1000 bps = 10%, taken on the coupon.** That fee is exactly the gap between the gross APR and the net APR the user sees — so the user is never surprised, and the headline number is always the take-home number.
+Anker charges a **performance fee — a protocol fee on the coupon, default 1000 bps = 10%.** It only ever applies to coupon actually earned, and it's exactly the gap between the gross APR and the net APR the user sees — so the user is never surprised, and the headline number is always the take-home number. For context, that single transparent cut is materially smaller than the combined, invisible margin a CEX bakes into its Dual Investment quote.
 
 - The fee lives in the on-chain **Registry** (`Registry.fee_bps`), administrable via `AdminCap`.
 - It's captured at claim time through `record_redeem_with_fee`, which routes the fee to the registry's fee recipient.

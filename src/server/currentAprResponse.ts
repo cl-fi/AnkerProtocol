@@ -6,6 +6,7 @@ import {
 } from '../current/currentUsdsuiApr';
 
 const FALLBACK_CURRENT_APR = 0.08;
+const CURRENT_APR_CACHE_CONTROL = 's-maxage=60, stale-while-revalidate=120';
 
 export async function buildCurrentAprResponse(input: {
   fetchSnapshot?: () => Promise<CurrentUsdsuiAprSnapshot>;
@@ -14,7 +15,11 @@ export async function buildCurrentAprResponse(input: {
   const fetchSnapshot = input.fetchSnapshot ?? (() => fetchCurrentUsdsuiAprFromCurrentApi(input.nowMs));
 
   try {
-    return Response.json(await fetchSnapshot());
+    return Response.json(await fetchSnapshot(), {
+      headers: {
+        'cache-control': CURRENT_APR_CACHE_CONTROL,
+      },
+    });
   } catch {
     const nowMs = input.nowMs ?? Date.now();
     return Response.json(

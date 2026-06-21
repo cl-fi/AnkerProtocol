@@ -12,6 +12,7 @@ describe('/api/markets/btc-oracles', () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('s-maxage=15, stale-while-revalidate=30');
     const payload = await response.json();
     expect(payload.oracles).toHaveLength(2);
     expect(payload.oracles).toEqual([
