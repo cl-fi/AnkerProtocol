@@ -87,6 +87,7 @@ async function fetchProductPage(input: {
   const url = buildBinanceDualInvestmentUrl(input);
 
   const response = await fetch(url.toString(), {
+    cache: 'no-store',
     credentials: 'omit',
     headers: {
       accept: 'application/json, text/plain, */*',

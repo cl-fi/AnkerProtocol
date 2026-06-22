@@ -17,6 +17,7 @@ import type { DualInvestmentInput, StructuredProductQuote } from '../products/ty
 import { buildCreatePredictManagerTransaction } from '../sui/ankerTransactions';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
 import { preflightTransaction } from '../sui/transactionPreflight';
+import { Button } from '../ui';
 
 interface TargetBuyExecutionPanelViewProps {
   hasAccount: boolean;
@@ -135,14 +136,14 @@ export function TargetBuyExecutionPanelView({
             {hasManager ? (
               <span className="exec-step-badge">Ready</span>
             ) : (
-              <button
-                className="small-action"
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={!hasAccount || isPending || isLoadingManagers}
                 onClick={onCreateManager}
               >
                 {isPending ? 'Waiting for wallet...' : isLoadingManagers ? 'Checking...' : 'Create Product Container'}
-              </button>
+              </Button>
             )}
           </div>
         </li>
@@ -154,9 +155,9 @@ export function TargetBuyExecutionPanelView({
             <span>Confirm in your wallet to lock in your reward.</span>
           </div>
           <div className="exec-step-action">
-            <button className="primary-action" type="button" disabled={!canSubscribe} onClick={onSubscribe}>
+            <Button variant="primary" disabled={!canSubscribe} onClick={onSubscribe}>
               {isPending ? 'Waiting for wallet...' : 'Subscribe Buy Low'}
-            </button>
+            </Button>
           </div>
         </li>
       </ol>

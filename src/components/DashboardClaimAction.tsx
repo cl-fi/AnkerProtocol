@@ -13,6 +13,7 @@ import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { lifecycleForProductNote, type DualInvestmentClaimState } from '../sui/predictManagerState';
 import { preflightTransaction } from '../sui/transactionPreflight';
 import { formatBtcAmount, formatPreciseAmount, formatPrice, shortId, suiExplorerTxUrl } from './DashboardFormat';
+import { Button } from '../ui';
 
 function partialUnavailableStatus(claimState: DualInvestmentClaimState) {
   if (claimState.missingLegs.length === 0) {
@@ -157,9 +158,9 @@ export function ClaimActionView({
           </>
         )}
       </div>
-      <button className="primary-action di-claim-button" type="button" disabled={!action.canClaim} onClick={onClaim}>
+      <Button variant="primary" className="di-claim-button" disabled={!action.canClaim} onClick={onClaim}>
         {isPending ? 'Submitting…' : action.actionLabel}
-      </button>
+      </Button>
       {digest ? (
         <p className="execution-message">
           Submitted —{' '}

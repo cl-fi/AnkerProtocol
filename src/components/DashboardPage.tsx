@@ -11,6 +11,7 @@ import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { AppHeader } from './AppHeader';
 import { formatAmount, formatPreciseAmount, shortId } from './DashboardFormat';
 import { ProductNoteCard, managerValidationForNote } from './DashboardProductNoteCard';
+import { Button } from '../ui';
 
 type PositionFilter = 'all' | 'ready' | 'active' | 'completed';
 type PositionBucket = Exclude<PositionFilter, 'all'>;
@@ -84,10 +85,10 @@ export function DashboardPage() {
           <h1>Dashboard</h1>
           <p>See your positions, what they&apos;ll pay, and claim your cash once they settle.</p>
         </div>
-        <button className="primary-action" type="button" onClick={() => void portfolioQuery.refetch()} disabled={!account}>
+        <Button variant="primary" onClick={() => void portfolioQuery.refetch()} disabled={!account}>
           <RefreshCw size={16} />
           Refresh
-        </button>
+        </Button>
       </section>
 
       {account && contractConfigured && openNotes.length > 0 ? (

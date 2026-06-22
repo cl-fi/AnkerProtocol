@@ -1,5 +1,6 @@
 import { ArrowRight, Eye, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { buttonClassName } from '../ui';
 
 const steps = [
   { n: '01', title: 'Set your target', body: 'Choose how much, your target BTC price, and when it settles.' },
@@ -47,7 +48,7 @@ export function HomePage() {
               Dual Investment.
             </p>
             <div className="lp-cta-row">
-              <Link className="primary-action" href="/app">
+              <Link className={buttonClassName()} href="/app">
                 Launch app
                 <ArrowRight size={17} />
               </Link>
@@ -132,7 +133,7 @@ export function HomePage() {
               <h2>Ready to drop anchor?</h2>
               <p>Set a target, preview the yield, and try BTC Buy Low on testnet.</p>
             </div>
-            <Link className="primary-action" href="/app">
+            <Link className={buttonClassName()} href="/app">
               Launch app
               <ArrowRight size={17} />
             </Link>

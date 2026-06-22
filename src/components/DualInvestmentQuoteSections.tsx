@@ -9,6 +9,7 @@ import { netAprAfterCouponFee } from '../products/feePolicy';
 import { formatTimeToExpiry } from '../products/timeFormat';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
+import { Button } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
@@ -194,10 +195,10 @@ export function ReferenceTable({
     <section className="di-reference" aria-label="APR reference">
       <div className="di-reference-head">
         <h3>Price &amp; APR reference</h3>
-        <button className="ghost-button" type="button" onClick={onRefresh}>
+        <Button variant="secondary" onClick={onRefresh}>
           <RefreshCw size={15} />
           {isFetching ? 'Updating' : 'Refresh'}
-        </button>
+        </Button>
       </div>
       <p className="di-reference-hint">Tap a price to load it into your Buy Low.</p>
       <div className="table-shell">

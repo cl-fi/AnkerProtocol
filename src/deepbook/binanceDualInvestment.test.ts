@@ -112,6 +112,7 @@ describe('fetchBinanceDualInvestmentProducts', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/bapi/earn/v5/friendly/pos/dc/project/list'),
       expect.objectContaining({
+        cache: 'no-store',
         credentials: 'omit',
         headers: expect.objectContaining({
           accept: 'application/json, text/plain, */*',
