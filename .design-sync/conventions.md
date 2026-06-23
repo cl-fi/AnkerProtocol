@@ -10,8 +10,9 @@ no theme provider.
 - **No provider, no context, no client-only setup.** Every component is a pure
   presentational primitive (props in → markup out). Render them directly.
 - Styling comes entirely from the bound `styles.css` closure (tokens + component
-  CSS) plus fonts. Fonts are wired for you: `Geist`/`GeistMono` ship locally and
-  `Fredoka` loads from Google Fonts. Just use the components and the tokens.
+  CSS) plus fonts. Fonts are wired for you and all ship as local `@font-face`
+  files (`Geist`, `GeistMono`, and the `Fredoka` display font). Just use the
+  components and the tokens.
 
 ### Styling idiom — props, then tokens (never utility classes)
 - **Style components through their PROPS**, not classes: `variant`, `tone`, `size`,

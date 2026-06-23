@@ -29,11 +29,13 @@ components (and their prop types) from a package's shipped `.d.ts`. So we genera
 ## Fonts
 
 - `Geist` + `GeistMono` ship as local woff2 (`fonts/`), scraped from sb-reference.
-- `Fredoka` (the brand **display** font, `--font-display`) loads via a Google Fonts
-  `@import url(...)` preserved at line 1 of `_ds_bundle.css` → validate reports `[FONT_REMOTE]`
-  (acceptable). Verified Fredoka actually loads in the preview render
-  (`document.fonts.check('700 16px Fredoka') === true`), so previews are faithful and shipped
-  designs get Fredoka at runtime (Google Fonts egress required, which claude.ai/design has).
+- `Fredoka` (the brand **display** font, `--font-display`) is **self-hosted** (woff2 in
+  `src/fonts/Fredoka-latin*.woff2`). `[GENERAL]` `.storybook/preview-fonts.css` was changed
+  from a Google Fonts `@import` to local `@font-face` rules (latin + latin-ext, with
+  unicode-range) so the converter ships the font FILES — Claude Design flagged the remote
+  `@import` as a "Missing brand font" (it wants uploaded files, not a runtime font host).
+  Verified Fredoka loads with external network blocked
+  (`document.fonts.check('700 16px Fredoka') === true`). No more `[FONT_REMOTE]`.
 
 ## CSS
 
@@ -53,10 +55,11 @@ components (and their prop types) from a package's shipped `.d.ts`. So we genera
 
 ## Re-sync risks (watch-list for the next run)
 
-- **Fredoka is CDN-loaded (`[FONT_REMOTE]`).** The compare needs Google Fonts egress or the
-  preview falls back to Geist (display font wrong). This run verified Fredoka actually loads
-  (`document.fonts.check('700 16px Fredoka') === true`). If a future compare shows the wrong
-  display font, it's egress, not a real regression — re-run with network access.
+- **Fredoka is self-hosted** (`src/fonts/Fredoka-latin*.woff2`, wired in
+  `.storybook/preview-fonts.css`). No network dependency. If Fredoka ever regresses, check
+  those woff2 files exist and the `@font-face` url()s in `preview-fonts.css` still resolve.
+  The files cover latin + latin-ext only (the DS text); add more Google subsets if a design
+  needs other scripts.
 - **Component discovery = exports of `src/ui/index.ts`.** A new primitive that isn't re-exported
   there won't be discovered (and won't get a `dist/ui` declaration). Keep `index.ts` current.
   After re-sync, sanity-check the build log shows `[DTS] parsed 9 .d.ts` and `components: 8`
