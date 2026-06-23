@@ -1,0 +1,11 @@
+{
+  "projectId": "1802f7a4-b9fe-4e53-9b29-2a053beb279f",
+  "shape": "storybook",
+  "storybookConfigDir": ".storybook",
+  "storybookStatic": ".design-sync/sb-reference",
+  "pkg": "@anker/ui",
+  "globalName": "AnkerUI",
+  "entry": "dist/ui/index.js",
+  "buildCmd": "node .design-sync/build-ds-pkg.mjs",
+  "readmeHeader": ".design-sync/conventions.md"
+}

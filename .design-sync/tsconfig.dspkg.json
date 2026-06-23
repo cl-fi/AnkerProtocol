@@ -1,0 +1,27 @@
+{
+  "//": "design-sync only: compiles src/ui into a self-contained dist/ui package (JS + .d.ts) so the converter can discover components from real declarations. Not used by the Next app. Regenerated on every sync via .design-sync/build-ds-pkg.mjs.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "declaration": true,
+    "emitDeclarationOnly": false,
+    "outDir": "../dist/ui",
+    "rootDir": "../src/ui",
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmitOnError": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "types": []
+  },
+  "include": ["../src/ui/**/*.ts", "../src/ui/**/*.tsx"],
+  "exclude": [
+    "../src/ui/**/*.stories.tsx",
+    "../src/ui/**/*.stories.ts",
+    "../src/ui/**/*.test.tsx",
+    "../src/ui/**/*.spec.tsx"
+  ]
+}
