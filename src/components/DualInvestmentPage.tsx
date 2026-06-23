@@ -20,6 +20,7 @@ import {
   type DualInvestmentMode,
 } from './DualInvestmentQuoteSections';
 import { DualInvestmentAdvanced, DualInvestmentConfirm, ReturnOverview } from './DualInvestmentQuoteDetail';
+import { Card } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteSections';
 
@@ -167,7 +168,7 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
           {displayQuote && effectiveInput ? (
             <ReturnOverview quote={displayQuote} productInput={effectiveInput} estimated={isEstimate} />
           ) : (
-            <article className="detail-panel return-overview-panel is-empty">
+            <Card as="article" className="return-overview-panel is-empty">
               <div className="return-overview-heading">
                 <div>
                   <h3>Return Overview</h3>
@@ -177,7 +178,7 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
               <p className="di-overview-empty">
                 Enter a Buy Low price below the current BTC price to preview your payout.
               </p>
-            </article>
+            </Card>
           )}
         </div>
 

@@ -17,7 +17,7 @@ import type { DualInvestmentInput, StructuredProductQuote } from '../products/ty
 import { buildCreatePredictManagerTransaction } from '../sui/ankerTransactions';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
 import { preflightTransaction } from '../sui/transactionPreflight';
-import { Button } from '../ui';
+import { Button, Card } from '../ui';
 
 interface TargetBuyExecutionPanelViewProps {
   hasAccount: boolean;
@@ -119,7 +119,7 @@ export function TargetBuyExecutionPanelView({
   const step2State = !hasAccount || !hasManager ? 'locked' : 'active';
 
   return (
-    <article className="detail-panel execution-panel">
+    <Card as="article" className="execution-panel">
       <div className="detail-title">
         <h3>On-chain Subscribe</h3>
         <span>Sui testnet</span>
@@ -175,7 +175,7 @@ export function TargetBuyExecutionPanelView({
         </p>
       ) : null}
       {error ? <p className="execution-error">{error}</p> : null}
-    </article>
+    </Card>
   );
 }
 

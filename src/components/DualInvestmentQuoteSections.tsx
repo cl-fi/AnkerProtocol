@@ -9,7 +9,7 @@ import { netAprAfterCouponFee } from '../products/feePolicy';
 import { formatTimeToExpiry } from '../products/timeFormat';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
-import { Button } from '../ui';
+import { Button, InputField, Tabs, tabClassName } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
@@ -84,8 +84,8 @@ export function DirectionPairBar({
 
       <div className="di-select-group">
         <span className="di-select-label">Direction</span>
-        <nav className="mode-tabs di-direction" aria-label="Dual Investment direction">
-          <Link className={mode === 'buy-low' ? 'active' : ''} href="/app/dual-investment">
+        <Tabs className="di-direction" aria-label="Dual Investment direction">
+          <Link className={tabClassName({ active: mode === 'buy-low' })} href="/app/dual-investment">
             Buy Low
           </Link>
           <button
@@ -98,7 +98,7 @@ export function DirectionPairBar({
           >
             Sell High
           </button>
-        </nav>
+        </Tabs>
       </div>
 
       <div className="di-select-group di-select-grow">
@@ -144,20 +144,24 @@ export function BuyLowControls({
   return (
     <section className="di-controls" aria-label="Set your Buy Low">
       <div className="di-controls-grid">
-        <label className="di-field">
-          <span>Amount</span>
-          <div className="di-input-wrap">
-            <input min="1" step="1" type="number" value={principal} onChange={updateNumber(onPrincipalChange)} />
-            <i>dUSDC</i>
-          </div>
-        </label>
-        <label className="di-field">
-          <span>Buy Low price</span>
-          <div className="di-input-wrap">
-            <input min="1" step="100" type="number" value={targetPrice} onChange={updateNumber(onTargetChange)} />
-            <i>{belowSpot !== '--' ? `${belowSpot} below` : 'BTC'}</i>
-          </div>
-        </label>
+        <InputField
+          label="Amount"
+          suffix="dUSDC"
+          min="1"
+          step="1"
+          type="number"
+          value={principal}
+          onChange={updateNumber(onPrincipalChange)}
+        />
+        <InputField
+          label="Buy Low price"
+          suffix={belowSpot !== '--' ? `${belowSpot} below` : 'BTC'}
+          min="1"
+          step="100"
+          type="number"
+          value={targetPrice}
+          onChange={updateNumber(onTargetChange)}
+        />
       </div>
       <div className="di-controls-apr">
         <span>Estimated reward</span>

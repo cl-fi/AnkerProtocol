@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { settlementNoteForProductNote } from '../application/settleProductNote';
 import { fetchOracleMarket } from '../deepbook/predictServer';
@@ -33,6 +33,7 @@ import {
   suiExplorerObjectUrl,
   suiExplorerTxUrl,
 } from './DashboardFormat';
+import { Badge, Card, Disclosure, KeyValue, KeyValueList, Stat, StatGroup, type Tone } from '../ui';
 
 function ProofLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -53,17 +54,15 @@ export function managerValidationForNote(
     : { label: 'Manager not found', tone: 'warn' as const };
 }
 
-type PositionStatusTone = 'active' | 'ready' | 'attention' | 'done';
-
 export function positionStatusBadge(
   note: Pick<AnkerProductNoteRecord, 'status'>,
   lifecycle: ProductNoteLifecycle,
-): { label: string; tone: PositionStatusTone } {
-  if (note.status === 'redeemed' || lifecycle === 'settled') return { label: 'Completed', tone: 'done' };
-  if (lifecycle === 'settlement-blocked') return { label: 'Action needed', tone: 'attention' };
-  if (lifecycle === 'positions-redeemable' || lifecycle === 'claimable') return { label: 'Ready to claim', tone: 'ready' };
-  if (lifecycle === 'matured') return { label: 'Settling', tone: 'ready' };
-  return { label: 'Active', tone: 'active' };
+): { label: string; tone: Tone } {
+  if (note.status === 'redeemed' || lifecycle === 'settled') return { label: 'Completed', tone: 'neutral' };
+  if (lifecycle === 'settlement-blocked') return { label: 'Action needed', tone: 'danger' };
+  if (lifecycle === 'positions-redeemable' || lifecycle === 'claimable') return { label: 'Ready to claim', tone: 'positive' };
+  if (lifecycle === 'matured') return { label: 'Settling', tone: 'positive' };
+  return { label: 'Active', tone: 'warning' };
 }
 
 function managerIsolationLabel(input: 'isolated' | 'shared' | 'unknown', notesUsingManager: number | null) {
@@ -171,31 +170,24 @@ export function ProductNoteCard({
       : 'Unavailable';
 
   return (
-    <article className="detail-panel di-position-card">
+    <Card as="article" className="di-position-card">
       <header className="di-position-head">
         <div className="di-position-title">
           <h3>{isDual ? 'Buy Low BTC' : 'Legacy product'}</h3>
           {isDual ? <span className="di-position-strike">@ {formatPrice(note.targetPrice)}</span> : null}
         </div>
-        <span className={`di-status-pill is-${status.tone}`}>{status.label}</span>
+        <Badge tone={status.tone}>{status.label}</Badge>
       </header>
 
-      <div className="di-position-stats">
-        <div>
-          <span>Deposit</span>
-          <strong>{depositedCashText(note, eventIndexEntry)} dUSDC</strong>
-        </div>
-        <div>
-          <span>Reward</span>
-          <strong>
-            +{formatPreciseAmount(note.coupon)} dUSDC<em>{formatApr(rewardApr)} APR</em>
-          </strong>
-        </div>
-        <div>
-          <span>Settles</span>
-          <strong>{settlesText}</strong>
-        </div>
-      </div>
+      <StatGroup>
+        <Stat label="Deposit" value={`${depositedCashText(note, eventIndexEntry)} dUSDC`} />
+        <Stat
+          label="Reward"
+          value={`+${formatPreciseAmount(note.coupon)} dUSDC`}
+          sub={`${formatApr(rewardApr)} APR`}
+        />
+        <Stat label="Settles" value={settlesText} />
+      </StatGroup>
 
       {isDual ? (
         <div className="di-position-outcome">
@@ -215,22 +207,13 @@ export function ProductNoteCard({
 
       <ClaimAction note={note} claimState={claimState} />
 
-      <details className="di-position-proof">
-        <summary>
-          <span>On-chain proof</span>
-          <ChevronDown size={18} />
-        </summary>
-        <div className="oracle-meta">
-          <div>
-            <span>Position ID</span>
-            <dd>
-              <ProofLink href={suiExplorerObjectUrl(note.noteId)}>{shortId(note.noteId)}</ProofLink>
-            </dd>
-          </div>
-          <div>
-            <span>{isDual ? 'Quote hash' : 'Product ID'}</span>
-            <dd>{note.productId || '--'}</dd>
-          </div>
+      <Disclosure summary="On-chain proof">
+        <KeyValueList>
+          <KeyValue
+            label="Position ID"
+            value={<ProofLink href={suiExplorerObjectUrl(note.noteId)}>{shortId(note.noteId)}</ProofLink>}
+          />
+          <KeyValue label={isDual ? 'Quote hash' : 'Product ID'} value={note.productId || '--'} />
           {isDual ? (
             <div>
               <span>Subscription tx</span>
@@ -253,30 +236,20 @@ export function ProductNoteCard({
               <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} />
             </div>
           ) : null}
-          <div>
-            <span>Product container</span>
-            <dd>
-              <ProofLink href={suiExplorerObjectUrl(note.managerId)}>{shortId(note.managerId)}</ProofLink>
-            </dd>
-          </div>
-          <div>
-            <span>Container check</span>
-            <dd className={`validation-${managerValidation.tone}`}>{managerValidation.label}</dd>
-          </div>
-          <div>
-            <span>Container isolation</span>
-            <dd>{managerIsolationLabel(backingProof.managerIsolation, backingProof.notesUsingManager)}</dd>
-          </div>
-          <div>
-            <span>Container balance</span>
-            <dd>{containerBalance}</dd>
-          </div>
-          <div>
-            <span>Oracle</span>
-            <dd>
-              <ProofLink href={suiExplorerObjectUrl(note.oracleId)}>{shortId(note.oracleId)}</ProofLink>
-            </dd>
-          </div>
+          <KeyValue
+            label="Product container"
+            value={<ProofLink href={suiExplorerObjectUrl(note.managerId)}>{shortId(note.managerId)}</ProofLink>}
+          />
+          <KeyValue label="Container check" value={managerValidation.label} tone={managerValidation.tone} />
+          <KeyValue
+            label="Container isolation"
+            value={managerIsolationLabel(backingProof.managerIsolation, backingProof.notesUsingManager)}
+          />
+          <KeyValue label="Container balance" value={containerBalance} />
+          <KeyValue
+            label="Oracle"
+            value={<ProofLink href={suiExplorerObjectUrl(note.oracleId)}>{shortId(note.oracleId)}</ProofLink>}
+          />
           {isDual ? (
             <div>
               <span>Price feed updated</span>
@@ -285,58 +258,40 @@ export function ProductNoteCard({
           ) : null}
           {isDual ? (
             <>
-              <div>
-                <span>Your price</span>
-                <dd>{formatPrice(note.targetPrice)}</dd>
-              </div>
-              <div>
-                <span>Floor</span>
-                <dd>{formatPrice(note.floorPrice)}</dd>
-              </div>
-              <div>
-                <span>Reward</span>
-                <dd>{formatAmount(note.coupon)} dUSDC</dd>
-              </div>
-              <div>
-                <span>Settlement</span>
-                <dd>Cash-settled dUSDC</dd>
-              </div>
+              <KeyValue label="Your price" value={formatPrice(note.targetPrice)} />
+              <KeyValue label="Floor" value={formatPrice(note.floorPrice)} />
+              <KeyValue label="Reward" value={`${formatAmount(note.coupon)} dUSDC`} />
+              <KeyValue label="Settlement" value="Cash-settled dUSDC" />
               <div>
                 <span>Payout range</span>
                 <SettlementRangeValue note={note} />
               </div>
-              <div>
-                <span>Positions held</span>
-                <dd>
-                  {claimState.path === 'unknown'
+              <KeyValue
+                label="Positions held"
+                value={
+                  claimState.path === 'unknown'
                     ? 'Checking'
-                    : `${claimState.availableLegCount}/${claimState.totalLegCount} held`}
-                </dd>
-              </div>
-              <div>
-                <span>Backing ratio</span>
-                <dd>{formatPercent(backingProof.collateralizationRatio)}</dd>
-              </div>
-              <div>
-                <span>Required positions</span>
-                <dd>{formatPreciseAmount(backingProof.requiredPositionQuantity)} dUSDC</dd>
-              </div>
+                    : `${claimState.availableLegCount}/${claimState.totalLegCount} held`
+                }
+              />
+              <KeyValue label="Backing ratio" value={formatPercent(backingProof.collateralizationRatio)} />
+              <KeyValue
+                label="Required positions"
+                value={`${formatPreciseAmount(backingProof.requiredPositionQuantity)} dUSDC`}
+              />
               <div>
                 <span>Allocated positions</span>
                 <AllocatedPositionsValue entry={eventIndexEntry} />
               </div>
-              <div>
-                <span>Current positions</span>
-                <dd>{formatPreciseAmount(backingProof.availablePositionQuantity)} dUSDC</dd>
-              </div>
-              <div>
-                <span>Legs</span>
-                <dd>{note.legs.length}</dd>
-              </div>
+              <KeyValue
+                label="Current positions"
+                value={`${formatPreciseAmount(backingProof.availablePositionQuantity)} dUSDC`}
+              />
+              <KeyValue label="Legs" value={note.legs.length} />
             </>
           ) : null}
-        </div>
-      </details>
-    </article>
+        </KeyValueList>
+      </Disclosure>
+    </Card>
   );
 }

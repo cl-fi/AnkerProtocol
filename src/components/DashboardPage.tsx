@@ -11,7 +11,7 @@ import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { AppHeader } from './AppHeader';
 import { formatAmount, formatPreciseAmount, shortId } from './DashboardFormat';
 import { ProductNoteCard, managerValidationForNote } from './DashboardProductNoteCard';
-import { Button } from '../ui';
+import { Badge, Button, Card } from '../ui';
 
 type PositionFilter = 'all' | 'ready' | 'active' | 'completed';
 type PositionBucket = Exclude<PositionFilter, 'all'>;
@@ -114,37 +114,37 @@ export function DashboardPage() {
 
       {!account ? (
         <section className="calculation-section">
-          <div className="detail-panel empty-preview">Connect your wallet to see your positions.</div>
+          <Card variant="empty">Connect your wallet to see your positions.</Card>
         </section>
       ) : !contractConfigured ? (
         <section className="calculation-section">
-          <div className="detail-panel error-panel">
+          <Card variant="error">
             Anker contract package is not configured. Set NEXT_PUBLIC_ANKER_PACKAGE_ID after publishing the Move package.
-          </div>
+          </Card>
         </section>
       ) : portfolioQuery.isPending ? (
         <section className="calculation-section">
-          <div className="detail-panel empty-preview">Loading your positions…</div>
+          <Card variant="empty">Loading your positions…</Card>
         </section>
       ) : portfolioQuery.error ? (
         <section className="calculation-section">
-          <div className="detail-panel error-panel">
+          <Card variant="error">
             {portfolioQuery.error instanceof Error ? portfolioQuery.error.message : 'Unable to load your positions.'}
-          </div>
+          </Card>
         </section>
       ) : notes.length === 0 ? (
         <section className="calculation-section">
-          <div className="detail-panel empty-preview">
+          <Card variant="empty">
             No positions yet for {shortId(account.address)}. Open a Buy Low position to get started.
-          </div>
+          </Card>
         </section>
       ) : (
         <section className="calculation-section">
           <div className="section-heading di-positions-heading">
             <h2>Your positions</h2>
-            <span className="quote-badge live">
+            <Badge tone="positive">
               {notes.length} {notes.length === 1 ? 'position' : 'positions'}
-            </span>
+            </Badge>
           </div>
           {showFilters ? (
             <div className="di-position-filters" role="tablist" aria-label="Filter positions by status">
@@ -164,7 +164,7 @@ export function DashboardPage() {
             </div>
           ) : null}
           {visibleNotes.length === 0 ? (
-            <div className="detail-panel empty-preview">No positions in this view.</div>
+            <Card variant="empty">No positions in this view.</Card>
           ) : (
             <div className="detail-grid notes-grid">
               {visibleNotes.map((note) => (

@@ -6,6 +6,7 @@ import { netAprAfterCouponFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
+import { Badge, Card } from '../ui';
 
 export const SMOOTHNESS_OPTIONS = [
   { label: 'Efficient', value: 3 },
@@ -126,15 +127,13 @@ export function ReturnOverview({
   const chartClassName = isAbove ? 'return-chart-visual above' : 'return-chart-visual below';
 
   return (
-    <article className="detail-panel return-overview-panel">
+    <Card as="article" className="return-overview-panel">
       <div className="return-overview-heading">
         <div>
           <h3>Return Overview</h3>
           <p>What you get at settlement, depending on where BTC lands</p>
         </div>
-        <span className={estimated ? 'quote-badge preview' : 'quote-badge live'}>
-          {estimated ? 'Estimate' : 'Live quote'}
-        </span>
+        <Badge tone={estimated ? 'warning' : 'positive'}>{estimated ? 'Estimate' : 'Live quote'}</Badge>
       </div>
 
       <div className="return-scenario-tabs" aria-label="Return scenario">
@@ -216,7 +215,7 @@ export function ReturnOverview({
           </strong>
         </div>
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -319,7 +318,7 @@ export function DualInvestmentAdvanced({
 
         <QuoteRiskSummary quote={quote} />
 
-        <article className="detail-panel">
+        <Card as="article">
           <div className="detail-title">
             <h3>DeepBook Predict Legs</h3>
             <span>Oracle {quote.oracle.oracleId.slice(0, 10)}...</span>
@@ -338,7 +337,7 @@ export function DualInvestmentAdvanced({
               </div>
             ))}
           </div>
-        </article>
+        </Card>
       </div>
     </details>
   );
