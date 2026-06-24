@@ -13,6 +13,7 @@ import {
 import { createDefaultQuoteProvider } from '../deepbook/quoteProvider';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
 import { usePredictManagers } from '../hooks/usePredictManagers';
+import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { buildCreatePredictManagerTransaction } from '../sui/ankerTransactions';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
@@ -29,6 +30,7 @@ interface TargetBuyExecutionPanelViewProps {
   managerId?: string;
   error?: string | null;
   digest?: string | null;
+  locale?: Locale;
   onCreateManager: () => void;
   onSubscribe: () => void;
 }
@@ -57,37 +59,39 @@ export function targetBuyExecutionViewModel({
   managerId,
   error,
   digest,
+  locale = DEFAULT_LOCALE,
 }: Pick<
   TargetBuyExecutionPanelViewProps,
-  'hasAccount' | 'hasManager' | 'isLoadingManagers' | 'isPending' | 'managerId' | 'error' | 'digest'
+  'hasAccount' | 'hasManager' | 'isLoadingManagers' | 'isPending' | 'managerId' | 'error' | 'digest' | 'locale'
 >) {
+  const copy = copyForLocale(locale);
   if (!hasAccount) {
-    return { state: 'connect-wallet' as const, status: 'Connect wallet to subscribe' };
+    return { state: 'connect-wallet' as const, status: copy.execution.status.connectWallet };
   }
   if (isPending) {
-    return { state: 'awaiting-signature' as const, status: 'Awaiting wallet signature.' };
+    return { state: 'awaiting-signature' as const, status: copy.execution.status.awaitingSignature };
   }
   if (error) {
     if (error.startsWith('Quote expired')) {
-      return { state: 'quote-expired' as const, status: 'Quote expired. Refresh pricing before signing.' };
+      return { state: 'quote-expired' as const, status: copy.execution.status.quoteExpired };
     }
-    return { state: 'transaction-failed' as const, status: 'Transaction failed. Review the error and retry.' };
+    return { state: 'transaction-failed' as const, status: copy.execution.status.transactionFailed };
   }
   if (digest) {
-    return { state: 'transaction-submitted' as const, status: 'Transaction submitted. Track it in your Dashboard.' };
+    return { state: 'transaction-submitted' as const, status: copy.execution.status.submitted };
   }
   if (isLoadingManagers) {
-    return { state: 'checking-manager' as const, status: 'Checking your product container...' };
+    return { state: 'checking-manager' as const, status: copy.execution.status.checkingManager };
   }
   if (!hasManager) {
     return {
       state: 'manager-required' as const,
-      status: 'Start with step 1 — create your product container.',
+      status: copy.execution.status.managerRequired,
     };
   }
   return {
     state: 'ready' as const,
-    status: `Product container ${managerId ? shortId(managerId) : ''} is ready. Subscribe to finish.`,
+    status: copy.execution.status.ready(managerId ? shortId(managerId) : ''),
   };
 }
 
@@ -101,9 +105,11 @@ export function TargetBuyExecutionPanelView({
   managerId,
   error,
   digest,
+  locale = DEFAULT_LOCALE,
   onCreateManager,
   onSubscribe,
 }: TargetBuyExecutionPanelViewProps) {
+  const copy = copyForLocale(locale);
   const canSubscribe = hasAccount && hasManager && isQuoteExecutable && !isPending;
   const execution = targetBuyExecutionViewModel({
     hasAccount,
@@ -113,6 +119,7 @@ export function TargetBuyExecutionPanelView({
     managerId,
     error,
     digest,
+    locale,
   });
 
   const step1State = !hasAccount ? 'locked' : hasManager ? 'done' : 'active';
@@ -121,20 +128,20 @@ export function TargetBuyExecutionPanelView({
   return (
     <Card as="article" className="execution-panel">
       <div className="detail-title">
-        <h3>On-chain Subscribe</h3>
-        <span>Sui testnet</span>
+        <h3>{copy.execution.onChainSubscribe}</h3>
+        <span>{copy.execution.suiTestnet}</span>
       </div>
 
       <ol className="exec-steps">
         <li className={`exec-step is-${step1State}`}>
           <span className="exec-step-mark">{hasManager ? '✓' : '1'}</span>
           <div className="exec-step-text">
-            <strong>Create product container</strong>
-            <span>Each Buy Low position needs its own container — create one before you subscribe.</span>
+            <strong>{copy.execution.createContainer}</strong>
+            <span>{copy.execution.createContainerHelp}</span>
           </div>
           <div className="exec-step-action">
             {hasManager ? (
-              <span className="exec-step-badge">Ready</span>
+              <span className="exec-step-badge">{copy.execution.ready}</span>
             ) : (
               <Button
                 variant="secondary"
@@ -142,7 +149,11 @@ export function TargetBuyExecutionPanelView({
                 disabled={!hasAccount || isPending || isLoadingManagers}
                 onClick={onCreateManager}
               >
-                {isPending ? 'Waiting for wallet...' : isLoadingManagers ? 'Checking...' : 'Create Product Container'}
+                {isPending
+                  ? copy.execution.waitingForWallet
+                  : isLoadingManagers
+                    ? copy.execution.checking
+                    : copy.execution.createProductContainer}
               </Button>
             )}
           </div>
@@ -151,12 +162,12 @@ export function TargetBuyExecutionPanelView({
         <li className={`exec-step is-${step2State}`}>
           <span className="exec-step-mark">2</span>
           <div className="exec-step-text">
-            <strong>Subscribe Buy Low</strong>
-            <span>Confirm in your wallet to lock in your reward.</span>
+            <strong>{copy.execution.subscribeBuyLow}</strong>
+            <span>{copy.execution.subscribeHelp}</span>
           </div>
           <div className="exec-step-action">
             <Button variant="primary" disabled={!canSubscribe} onClick={onSubscribe}>
-              {isPending ? 'Waiting for wallet...' : 'Subscribe Buy Low'}
+              {isPending ? copy.execution.waitingForWallet : copy.execution.subscribeBuyLow}
             </Button>
           </div>
         </li>
@@ -170,8 +181,8 @@ export function TargetBuyExecutionPanelView({
       {quoteWarning && !isQuoteExecutable ? <p className="execution-error">{quoteWarning}</p> : null}
       {digest ? (
         <p className="execution-message">
-          Transaction submitted: {shortId(digest)}
-          <a href="/app/dashboard">View Dashboard</a>
+          {copy.execution.transactionSubmittedPrefix} {shortId(digest)}
+          <a href={localizedPath(locale, '/app/dashboard')}>{copy.execution.viewDashboard}</a>
         </p>
       ) : null}
       {error ? <p className="execution-error">{error}</p> : null}
@@ -189,10 +200,13 @@ function transactionDigest(result: Awaited<ReturnType<ReturnType<typeof useDAppK
 export function TargetBuyExecutionPanel({
   quote,
   productInput,
+  locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
   productInput: DualInvestmentInput;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
   const account = useCurrentAccount();
   const client = useCurrentClient();
   const dAppKit = useDAppKit();
@@ -214,7 +228,7 @@ export function TargetBuyExecutionPanel({
       await queryClient.invalidateQueries({ queryKey: ['predict-managers', account?.address] });
       await queryClient.invalidateQueries({ queryKey: ['anker-portfolio', account?.address] });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Transaction failed.');
+      setError(nextError instanceof Error ? nextError.message : copy.execution.errors.transactionFailed);
     } finally {
       setIsPending(false);
     }
@@ -278,6 +292,7 @@ export function TargetBuyExecutionPanel({
       managerId={manager?.managerId}
       error={error}
       digest={digest}
+      locale={locale}
       onCreateManager={handleCreateManager}
       onSubscribe={handleSubscribe}
     />

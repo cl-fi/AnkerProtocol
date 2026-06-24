@@ -8,6 +8,7 @@ import {
 } from '../hooks/useDualInvestmentScan';
 import { useBinanceDualInvestment } from '../hooks/useBinanceDualInvestment';
 import { useMarketData } from '../hooks/useMarketData';
+import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
 import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
@@ -26,8 +27,16 @@ export { QuoteRiskSummary } from './DualInvestmentQuoteSections';
 
 const DEFAULT_LEG_COUNT = 6;
 
-export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: DualInvestmentMode }) {
+export function DualInvestmentPage({
+  initialMode = 'buy-low',
+  locale = DEFAULT_LOCALE,
+}: {
+  initialMode?: DualInvestmentMode;
+  locale?: Locale;
+}) {
   const mode = initialMode;
+  const copy = copyForLocale(locale);
+  const format = formattersForLocale(locale);
   const [selectedOracleId, setSelectedOracleId] = useState<string | undefined>();
   const marketQuery = useMarketData(selectedOracleId);
   const market = marketQuery.data?.market;
@@ -137,22 +146,22 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
 
   return (
     <main className="dual-page" id="dual-investment">
-      <AppHeader activeProduct="dual-investment" />
+      <AppHeader activeProduct="dual-investment" locale={locale} />
 
       <section className="dual-hero calculation-hero">
         <div>
-          <h1>Dual Investment</h1>
-          <p>Enjoy high rewards — Buy Low, Sell High</p>
+          <h1>{copy.dualInvestment.title}</h1>
+          <p>{copy.dualInvestment.subtitle}</p>
         </div>
         <div className="di-hero-ticker">
           <span className="di-hero-label">
-            BTC price
+            {copy.dualInvestment.btcPrice}
             <span className={marketQuery.data?.staleSnapshot ? 'di-live-flag is-stale' : 'di-live-flag'}>
               <span className="di-live-dot" aria-hidden="true" />
-              {marketQuery.data?.staleSnapshot ? 'Snapshot' : 'Live'}
+              {marketQuery.data?.staleSnapshot ? copy.common.snapshot : copy.common.live}
             </span>
           </span>
-          <strong>{market ? `$${market.spot.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '--'}</strong>
+          <strong>{market ? format.usd(market.spot) : '--'}</strong>
         </div>
       </section>
 
@@ -161,23 +170,22 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
         market={market}
         productOracles={productOracles}
         onSelectOracle={setSelectedOracleId}
+        locale={locale}
       />
 
       <div className="di-terminal">
         <div className="di-terminal-chart">
           {displayQuote && effectiveInput ? (
-            <ReturnOverview quote={displayQuote} productInput={effectiveInput} estimated={isEstimate} />
+            <ReturnOverview quote={displayQuote} productInput={effectiveInput} estimated={isEstimate} locale={locale} />
           ) : (
             <Card as="article" className="return-overview-panel is-empty">
               <div className="return-overview-heading">
                 <div>
-                  <h3>Return Overview</h3>
-                  <p>What you get at settlement, depending on where BTC lands</p>
+                  <h3>{copy.dualInvestment.returnOverview}</h3>
+                  <p>{copy.dualInvestment.returnOverviewBody}</p>
                 </div>
               </div>
-              <p className="di-overview-empty">
-                Enter a Buy Low price below the current BTC price to preview your payout.
-              </p>
+              <p className="di-overview-empty">{copy.dualInvestment.emptyOverview}</p>
             </Card>
           )}
         </div>
@@ -193,6 +201,7 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
             onRefresh={() => {
               void scanQuery.refetch();
             }}
+            locale={locale}
           />
           <BuyLowControls
             market={market}
@@ -201,6 +210,7 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
             estimateApr={estimateApr}
             onPrincipalChange={setPrincipal}
             onTargetChange={setTargetPrice}
+            locale={locale}
           />
         </div>
       </div>
@@ -212,11 +222,17 @@ export function DualInvestmentPage({ initialMode = 'buy-low' }: { initialMode?: 
           subscribeQuote={subscribeQuote}
           isVerifying={isVerifying}
           error={verifyError}
+          locale={locale}
         />
       ) : null}
 
       {displayQuote && effectiveInput ? (
-        <DualInvestmentAdvanced quote={displayQuote} legCount={legCount} onLegCountChange={setLegCount} />
+        <DualInvestmentAdvanced
+          quote={displayQuote}
+          legCount={legCount}
+          onLegCountChange={setLegCount}
+          locale={locale}
+        />
       ) : null}
     </main>
   );

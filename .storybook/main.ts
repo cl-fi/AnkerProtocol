@@ -21,8 +21,16 @@ const config: StorybookConfig = {
   async viteFinal(viteConfig) {
     const { mergeConfig } = await import('vite');
     return mergeConfig(viteConfig, {
+      // Force the automatic JSX runtime for our SOURCE (.tsx files use no
+      // `import React`; the repo tsconfig sets jsx:"preserve" for Next, which
+      // would otherwise leave JSX untransformed → "React is not defined").
       esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
-      optimizeDeps: { esbuildOptions: { jsx: 'automatic' } },
+      // Pre-bundle React so its CommonJS default export gets proper ESM interop
+      // in dev. Do NOT set optimizeDeps.esbuildOptions.jsx here: applying the
+      // JSX transform while pre-bundling React breaks its default export
+      // ("react … does not provide an export named 'default'") and the preview
+      // iframe renders blank with an endless spinner.
+      optimizeDeps: { include: ['react', 'react-dom', 'react/jsx-runtime'] },
     });
   },
 };

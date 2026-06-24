@@ -8,6 +8,7 @@ import {
   settlementEstimateForNote,
   settlementFromManagerBalance,
 } from '../application/settleProductNote';
+import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 import type { SettlementResult } from '../products/settlement';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { lifecycleForProductNote, type DualInvestmentClaimState } from '../sui/predictManagerState';
@@ -15,12 +16,13 @@ import { preflightTransaction } from '../sui/transactionPreflight';
 import { formatBtcAmount, formatPreciseAmount, formatPrice, shortId, suiExplorerTxUrl } from './DashboardFormat';
 import { Button } from '../ui';
 
-function partialUnavailableStatus(claimState: DualInvestmentClaimState) {
+function partialUnavailableStatus(claimState: DualInvestmentClaimState, locale: Locale) {
+  const copy = copyForLocale(locale);
   if (claimState.missingLegs.length === 0) {
-    return 'Settling — positions are still reconciling. Claim opens shortly.';
+    return copy.dashboard.claim.settlingNoMissing;
   }
-  const strikes = claimState.missingLegs.map((leg) => formatPrice(leg.strike)).join(', ');
-  return `Settling — positions at ${strikes} are still reconciling. Claim opens shortly.`;
+  const strikes = claimState.missingLegs.map((leg) => formatPrice(leg.strike, locale)).join(', ');
+  return copy.dashboard.claim.settlingMissing(strikes);
 }
 
 export function claimActionViewModel({
@@ -28,12 +30,15 @@ export function claimActionViewModel({
   nowMs,
   claimState,
   isPending,
+  locale = DEFAULT_LOCALE,
 }: {
   note: AnkerProductNoteRecord;
   nowMs: number;
   claimState: DualInvestmentClaimState;
   isPending: boolean;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
   const isDual = note.productType === 'dual-investment';
   const isExpired = nowMs >= note.expiryMs;
   const lifecycle = lifecycleForProductNote(note, claimState, nowMs);
@@ -42,20 +47,21 @@ export function claimActionViewModel({
     note.status === 'open' &&
     (lifecycle === 'positions-redeemable' || lifecycle === 'claimable') &&
     !isPending;
-  const actionLabel = claimState.path === 'redeem-and-withdraw' ? 'Redeem positions' : 'Claim cash';
+  const actionLabel =
+    claimState.path === 'redeem-and-withdraw' ? copy.dashboard.claim.redeemPositions : copy.dashboard.claim.claimCash;
   const status = !isDual
-    ? 'Legacy product claim is staged.'
+    ? copy.dashboard.claim.legacyStaged
     : note.status === 'redeemed'
-      ? 'Already claimed.'
+      ? copy.dashboard.claim.alreadyClaimed
       : !isExpired
-        ? 'Opens after settlement — nothing to do yet.'
+        ? copy.dashboard.claim.opensAfterSettlement
         : lifecycle === 'positions-redeemable'
-          ? 'Ready to settle — redeem your positions, then claim your cash.'
+          ? copy.dashboard.claim.readyToSettle
           : lifecycle === 'claimable'
-            ? 'Ready — claim your cash from this position.'
+            ? copy.dashboard.claim.readyClaim
             : lifecycle === 'settlement-blocked'
-              ? partialUnavailableStatus(claimState)
-              : 'Checking this position…';
+              ? partialUnavailableStatus(claimState, locale)
+              : copy.dashboard.claim.checkingPosition;
 
   return {
     lifecycle,
@@ -98,6 +104,7 @@ export function ClaimActionView({
   isPending,
   digest,
   error,
+  locale = DEFAULT_LOCALE,
   onClaim,
 }: {
   note: AnkerProductNoteRecord;
@@ -106,12 +113,18 @@ export function ClaimActionView({
   isPending: boolean;
   digest?: string | null;
   error?: string | null;
+  locale?: Locale;
   onClaim: () => void;
 }) {
-  const action = claimActionViewModel({ note, nowMs, claimState, isPending });
+  const copy = copyForLocale(locale);
+  const action = claimActionViewModel({ note, nowMs, claimState, isPending, locale });
   const estimate = redeemEstimateForClaimState(note, claimState);
   const claimed = note.status === 'redeemed';
-  const amountLabel = claimed ? 'You received' : action.canClaim ? "You'll receive" : 'Projected payout';
+  const amountLabel = claimed
+    ? copy.dashboard.claim.youReceived
+    : action.canClaim
+      ? copy.dashboard.claim.youllReceive
+      : copy.dashboard.claim.projectedPayout;
 
   // The real settlement direction is only known once the legs are redeemed (withdraw-only)
   // or the note is claimed. Until then, the outcome is "projected" and we show both sides.
@@ -123,7 +136,7 @@ export function ClaimActionView({
   const dusdcAmount = outcomeKnown ? estimate.netPayout : projectedDusdc;
   // BTC ended below your price → the fee-adjusted deposit plus reward buys BTC at your target price.
   const btcAmount = note.targetPrice > 0 ? projectedDusdc / note.targetPrice : 0;
-  const feeText = `${formatPreciseAmount(estimate.feeAmount)} dUSDC fee`;
+  const feeText = copy.dashboard.claim.fee(formatPreciseAmount(estimate.feeAmount, locale));
 
   // The status line only adds value once a position needs an action the buttons don't already
   // spell out — hide it for Active, Completed, and the one-click "Ready to claim" (claimable) case.
@@ -136,34 +149,34 @@ export function ClaimActionView({
         <span className="di-claim-label">{amountLabel}</span>
         {mode === 'btc' ? (
           <>
-            <strong className="di-claim-amount">~{formatBtcAmount(btcAmount)} BTC</strong>
+            <strong className="di-claim-amount">~{formatBtcAmount(btcAmount, locale)} BTC</strong>
             <small className="di-claim-fee">
-              ≈ {formatPreciseAmount(dusdcAmount)} dUSDC on testnet · after {feeText}
+              {copy.dashboard.claim.onTestnetAfterFee(formatPreciseAmount(dusdcAmount, locale), feeText)}
             </small>
           </>
         ) : mode === 'projected' ? (
           <>
-            <strong className="di-claim-amount">~{formatPreciseAmount(dusdcAmount)} dUSDC</strong>
+            <strong className="di-claim-amount">~{formatPreciseAmount(dusdcAmount, locale)} dUSDC</strong>
             <small className="di-claim-fee">
-              or ~{formatBtcAmount(btcAmount)} BTC · after {feeText}
+              {copy.dashboard.claim.orBtcAfterFee(formatBtcAmount(btcAmount, locale), feeText)}
             </small>
           </>
         ) : (
           <>
             <strong className="di-claim-amount">
               {claimed ? '' : '~'}
-              {formatPreciseAmount(dusdcAmount)} dUSDC
+              {formatPreciseAmount(dusdcAmount, locale)} dUSDC
             </strong>
-            <small className="di-claim-fee">after {feeText}</small>
+            <small className="di-claim-fee">{copy.dashboard.claim.afterFee(feeText)}</small>
           </>
         )}
       </div>
       <Button variant="primary" className="di-claim-button" disabled={!action.canClaim} onClick={onClaim}>
-        {isPending ? 'Submitting…' : action.actionLabel}
+        {isPending ? copy.dashboard.claim.submitting : action.actionLabel}
       </Button>
       {digest ? (
         <p className="execution-message">
-          Submitted —{' '}
+          {copy.dashboard.claim.submitted} —{' '}
           <a className="di-proof-link" href={suiExplorerTxUrl(digest)} target="_blank" rel="noreferrer">
             {shortId(digest)}
           </a>
@@ -184,10 +197,13 @@ function transactionDigest(result: Awaited<ReturnType<ReturnType<typeof useDAppK
 export function ClaimAction({
   note,
   claimState,
+  locale = DEFAULT_LOCALE,
 }: {
   note: AnkerProductNoteRecord;
   claimState: DualInvestmentClaimState;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
   const account = useCurrentAccount();
   const client = useCurrentClient();
   const dAppKit = useDAppKit();
@@ -220,7 +236,7 @@ export function ClaimAction({
       await queryClient.invalidateQueries({ queryKey: ['anker-portfolio', account.address] });
       await queryClient.invalidateQueries({ queryKey: ['predict-manager-state', note.managerId] });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Claim transaction failed.');
+      setError(nextError instanceof Error ? nextError.message : copy.dashboard.claim.transactionFailed);
     } finally {
       setIsPending(false);
     }
@@ -234,6 +250,7 @@ export function ClaimAction({
       isPending={isPending}
       digest={digest}
       error={error}
+      locale={locale}
       onClaim={handleClaim}
     />
   );

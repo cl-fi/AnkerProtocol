@@ -2,61 +2,12 @@
 
 import { ChevronDown, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
+import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { netAprAfterCouponFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
 import { Badge, Card } from '../ui';
-
-export const SMOOTHNESS_OPTIONS = [
-  { label: 'Efficient', value: 3 },
-  { label: 'Standard', value: 6 },
-  { label: 'Smooth', value: 9 },
-];
-
-function formatAmount(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
-}
-
-function formatApr(value: number) {
-  return `${(value * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
-}
-
-function formatPercent(value: number) {
-  return `${(value * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
-}
-
-function formatPrice(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-function formatTokenAmount(value: number, decimals: number) {
-  return value.toLocaleString('en-US', {
-    maximumFractionDigits: decimals,
-    minimumFractionDigits: decimals,
-  });
-}
-
-function formatBtc(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 6 });
-}
-
-function formatChartDate(value: number) {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  }).format(value);
-}
-
-function formatSettlement(value: number) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(value);
-}
 
 function oldestQuoteTimestamp(quote: StructuredProductQuote) {
   return quote.legs.reduce(
@@ -65,37 +16,51 @@ function oldestQuoteTimestamp(quote: StructuredProductQuote) {
   );
 }
 
-export function QuoteRiskSummary({ quote }: { quote: StructuredProductQuote }) {
+export function QuoteRiskSummary({
+  quote,
+  locale = DEFAULT_LOCALE,
+}: {
+  quote: StructuredProductQuote;
+  locale?: Locale;
+}) {
   const risk = riskMetricsForDualInvestmentQuote(quote);
+  const copy = copyForLocale(locale);
+  const format = formattersForLocale(locale);
   return (
     <div className="quote-summary compact-summary">
       <div>
-        <span>Minimum Payout</span>
-        <strong>{formatAmount(risk.minimumPayout)} dUSDC</strong>
+        <span>{copy.dualInvestment.risk.minimumPayout}</span>
+        <strong>{format.amount(risk.minimumPayout)} dUSDC</strong>
       </div>
       <div>
-        <span>Maximum Loss</span>
-        <strong>{formatAmount(risk.maximumLoss)} dUSDC</strong>
+        <span>{copy.dualInvestment.risk.maximumLoss}</span>
+        <strong>{format.amount(risk.maximumLoss)} dUSDC</strong>
       </div>
       <div>
-        <span>Option Budget</span>
-        <strong>{formatAmount(risk.optionBudget)} dUSDC</strong>
+        <span>{copy.dualInvestment.risk.optionBudget}</span>
+        <strong>{format.amount(risk.optionBudget)} dUSDC</strong>
       </div>
       <div>
-        <span>Hold Return</span>
-        <strong>{formatPercent(risk.holdingPeriodReturn)}</strong>
+        <span>{copy.dualInvestment.risk.holdReturn}</span>
+        <strong>{format.percent(risk.holdingPeriodReturn)}</strong>
       </div>
       <div>
-        <span>Quote Validity</span>
+        <span>{copy.dualInvestment.risk.quoteValidity}</span>
         <strong>{risk.quoteTtlSeconds}s</strong>
       </div>
       <div>
-        <span>Slippage Limit</span>
-        <strong>{formatPercent(risk.maxCostSlippage)} max cost</strong>
+        <span>{copy.dualInvestment.risk.slippageLimit}</span>
+        <strong>
+          {format.percent(risk.maxCostSlippage)} {copy.dualInvestment.risk.maxCost}
+        </strong>
       </div>
       <div>
-        <span>Liquidity</span>
-        <strong>{risk.liquidityStatus === 'verified' ? 'Verified' : 'Unavailable'}</strong>
+        <span>{copy.dualInvestment.risk.liquidity}</span>
+        <strong>
+          {risk.liquidityStatus === 'verified'
+            ? copy.dualInvestment.risk.verified
+            : copy.dualInvestment.risk.unavailable}
+        </strong>
       </div>
     </div>
   );
@@ -105,22 +70,24 @@ export function ReturnOverview({
   quote,
   productInput,
   estimated = false,
+  locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
   productInput: DualInvestmentInput;
   estimated?: boolean;
+  locale?: Locale;
 }) {
   const [scenario, setScenario] = useState<'above' | 'below'>('above');
+  const copy = copyForLocale(locale);
+  const format = formattersForLocale(locale);
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
   const total = quote.principal + quote.coupon;
   const netApr = netAprAfterCouponFee(quote.apr);
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
   const isAbove = scenario === 'above';
-  const receiveAmount = isAbove ? formatTokenAmount(total, 6) : formatTokenAmount(btcEquivalent, 8);
-  const receiveAsset = isAbove ? 'dUSDC' : 'BTC equiv.';
-  const settleNote = isAbove
-    ? null
-    : 'Cash-settled in dUSDC for now — you receive the equivalent value, not real BTC. On-chain BTC settlement arrives in a future mainnet release.';
+  const receiveAmount = isAbove ? format.fixedTokenAmount(total, 6) : format.fixedTokenAmount(btcEquivalent, 8);
+  const receiveAsset = isAbove ? copy.dualInvestment.receiveAssetDusdc : copy.dualInvestment.receiveAssetBtcEquivalent;
+  const settleNote = isAbove ? null : copy.dualInvestment.cashSettledTip;
   const equivNoteProps = settleNote
     ? { className: 'di-equiv-note', 'data-tip': settleNote, tabIndex: 0, 'aria-label': `${receiveAsset}. ${settleNote}` }
     : {};
@@ -130,23 +97,25 @@ export function ReturnOverview({
     <Card as="article" className="return-overview-panel">
       <div className="return-overview-heading">
         <div>
-          <h3>Return Overview</h3>
-          <p>What you get at settlement, depending on where BTC lands</p>
+          <h3>{copy.dualInvestment.returnOverview}</h3>
+          <p>{copy.dualInvestment.returnOverviewBody}</p>
         </div>
-        <Badge tone={estimated ? 'warning' : 'positive'}>{estimated ? 'Estimate' : 'Live quote'}</Badge>
+        <Badge tone={estimated ? 'warning' : 'positive'}>
+          {estimated ? copy.dualInvestment.estimate : copy.dualInvestment.liveQuote}
+        </Badge>
       </div>
 
-      <div className="return-scenario-tabs" aria-label="Return scenario">
+      <div className="return-scenario-tabs" aria-label={copy.dualInvestment.scenarioLabel}>
         <button className={isAbove ? 'active' : ''} type="button" onClick={() => setScenario('above')}>
-          Above {formatPrice(targetPrice)}
+          {copy.dualInvestment.above} {format.usd(targetPrice)}
         </button>
         <button className={!isAbove ? 'active' : ''} type="button" onClick={() => setScenario('below')}>
-          At or Below {formatPrice(targetPrice)}
+          {copy.dualInvestment.atOrBelow} {format.usd(targetPrice)}
         </button>
       </div>
 
       <div className={chartClassName}>
-        <svg viewBox="0 0 720 320" role="img" aria-label="Return scenario illustration">
+        <svg viewBox="0 0 720 320" role="img" aria-label={copy.dualInvestment.chartLabel}>
           <defs>
             <linearGradient id="returnPathFade" x1="0" x2="1" y1="0" y2="0">
               <stop offset="0%" stopColor="#b9772f" stopOpacity="0.95" />
@@ -170,23 +139,23 @@ export function ReturnOverview({
         </svg>
 
         <div className="return-target-label">
-          <span>Target Price</span>
-          <strong>{formatPrice(targetPrice)}</strong>
+          <span>{copy.dualInvestment.targetPrice}</span>
+          <strong>{format.usd(targetPrice)}</strong>
         </div>
         <div className="return-current-label">
-          <span>Current Price</span>
-          <strong>{formatPrice(quote.oracle.spot)}</strong>
+          <span>{copy.dualInvestment.currentPrice}</span>
+          <strong>{format.usd(quote.oracle.spot)}</strong>
         </div>
         <div className="return-date-label start">
-          <span>Start</span>
-          <strong>{formatChartDate(oldestQuoteTimestamp(quote))}</strong>
+          <span>{copy.dualInvestment.start}</span>
+          <strong>{format.chartDate(oldestQuoteTimestamp(quote))}</strong>
         </div>
         <div className="return-date-label settle">
-          <span>Settle</span>
-          <strong>{formatChartDate(quote.oracle.expiryMs)}</strong>
+          <span>{copy.dualInvestment.settle}</span>
+          <strong>{format.chartDate(quote.oracle.expiryMs)}</strong>
         </div>
         <div className="return-receive-card">
-          <span>You will receive</span>
+          <span>{copy.dualInvestment.youWillReceive}</span>
           <strong>{receiveAmount}</strong>
           <b {...equivNoteProps}>{receiveAsset}</b>
         </div>
@@ -194,21 +163,21 @@ export function ReturnOverview({
 
       <div className="return-overview-breakdown">
         <div>
-          <span>Subscription Amount</span>
-          <strong>{formatAmount(quote.principal)} dUSDC</strong>
+          <span>{copy.dualInvestment.subscriptionAmount}</span>
+          <strong>{format.amount(quote.principal)} dUSDC</strong>
         </div>
         <div>
           <span>
-            Rewards (<b>{formatApr(netApr)}</b> APR)
+            {copy.dualInvestment.rewards} (<b>{format.apr(netApr)}</b> APR)
           </span>
-          <strong>+{formatAmount(quote.coupon)} dUSDC</strong>
+          <strong>+{format.amount(quote.coupon)} dUSDC</strong>
         </div>
         <div>
-          <span>Total</span>
-          <strong>+{formatAmount(total)} dUSDC</strong>
+          <span>{copy.dualInvestment.total}</span>
+          <strong>+{format.amount(total)} dUSDC</strong>
         </div>
         <div className="return-receive-row">
-          <span>You will receive</span>
+          <span>{copy.dualInvestment.youWillReceive}</span>
           <strong>
             {receiveAmount}
             <i {...equivNoteProps}>{receiveAsset}</i>
@@ -225,36 +194,40 @@ export function DualInvestmentConfirm({
   subscribeQuote,
   isVerifying,
   error,
+  locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
   productInput: DualInvestmentInput;
   subscribeQuote: StructuredProductQuote | null;
   isVerifying: boolean;
   error?: string | null;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
+  const format = formattersForLocale(locale);
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
   const total = quote.principal + quote.coupon;
   const netApr = netAprAfterCouponFee(quote.apr);
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
 
   return (
-    <section className="di-confirm" aria-label="Confirm your Buy Low">
+    <section className="di-confirm" aria-label={copy.dualInvestment.confirmLabel}>
       <div className="di-confirm-numbers">
         <div>
-          <span>You deposit</span>
-          <strong>{formatAmount(quote.principal)} dUSDC</strong>
+          <span>{copy.dualInvestment.youDeposit}</span>
+          <strong>{format.amount(quote.principal)} dUSDC</strong>
         </div>
         <div className="di-confirm-arrow" aria-hidden="true">
           →
         </div>
         <div>
-          <span>You receive at settlement</span>
-          <strong>{formatAmount(total)} dUSDC</strong>
-          <em>{formatApr(netApr)} APR</em>
+          <span>{copy.dualInvestment.receiveAtSettlement}</span>
+          <strong>{format.amount(total)} dUSDC</strong>
+          <em>{format.apr(netApr)} APR</em>
         </div>
         <div>
-          <span>Settles</span>
-          <strong>{formatSettlement(quote.oracle.expiryMs)}</strong>
+          <span>{copy.dualInvestment.settles}</span>
+          <strong>{format.expiry(quote.oracle.expiryMs)}</strong>
         </div>
       </div>
 
@@ -262,25 +235,21 @@ export function DualInvestmentConfirm({
         <ShieldCheck size={16} />
         <span className="di-confirm-worstcase-text">
           <span className="di-confirm-worstcase-main">
-            Worst case: if BTC settles at or below {formatPrice(targetPrice)}, you buy about {formatBtc(btcEquivalent)} BTC
-            at {formatPrice(targetPrice)} — the price you chose.
+            {copy.dualInvestment.worstCase(format.usd(targetPrice), format.btcAmount(btcEquivalent))}
           </span>
-          <small>
-            On testnet this settles in dUSDC, not BTC — if BTC ends below your price you&apos;d receive slightly less cash
-            than you deposited (e.g. ~990 from 1,000 dUSDC). On mainnet, positions settle in real wrapped BTC.
-          </small>
+          <small>{copy.dualInvestment.testnetSettlementNote}</small>
         </span>
       </div>
 
       {subscribeQuote ? (
-        <TargetBuyExecutionPanel quote={subscribeQuote} productInput={productInput} />
+        <TargetBuyExecutionPanel quote={subscribeQuote} productInput={productInput} locale={locale} />
       ) : (
         <div className={error ? 'di-confirm-pending is-error' : 'di-confirm-pending'} aria-live="polite">
           {error
             ? error
             : isVerifying
-              ? 'Confirming live quote…'
-              : 'Adjust your Buy Low price to get a live quote.'}
+              ? copy.dualInvestment.confirmingLiveQuote
+              : copy.dualInvestment.adjustForLiveQuote}
         </div>
       )}
     </section>
@@ -291,48 +260,56 @@ export function DualInvestmentAdvanced({
   quote,
   legCount,
   onLegCountChange,
+  locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
   legCount: number;
   onLegCountChange: (value: number) => void;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
+  const format = formattersForLocale(locale);
   return (
     <details className="di-advanced">
       <summary>
-        <span>Advanced details</span>
+        <span>{copy.dualInvestment.advancedDetails}</span>
         <ChevronDown size={18} aria-hidden="true" />
       </summary>
 
       <div className="di-advanced-body">
         <label className="di-advanced-control">
-          <span>Payoff smoothness</span>
+          <span>{copy.dualInvestment.payoffSmoothness}</span>
           <select value={legCount} onChange={(event) => onLegCountChange(Number(event.currentTarget.value))}>
-            {SMOOTHNESS_OPTIONS.map((option) => (
+            {copy.dualInvestment.smoothnessOptions.map((option) => (
               <option value={option.value} key={option.value}>
-                {option.label} ({option.value} legs)
+                {option.label} ({option.value} {copy.dualInvestment.legsSuffix})
               </option>
             ))}
           </select>
-          <small>More legs make the payout smoother near your target, at a slightly higher option budget.</small>
+          <small>{copy.dualInvestment.smoothnessHelp}</small>
         </label>
 
-        <QuoteRiskSummary quote={quote} />
+        <QuoteRiskSummary quote={quote} locale={locale} />
 
         <Card as="article">
           <div className="detail-title">
-            <h3>DeepBook Predict Legs</h3>
-            <span>Oracle {quote.oracle.oracleId.slice(0, 10)}...</span>
+            <h3>{copy.dualInvestment.deepbookLegs}</h3>
+            <span>
+              {copy.dualInvestment.oracle} {quote.oracle.oracleId.slice(0, 10)}...
+            </span>
           </div>
           <div className="leg-disclosure">
             {quote.legs.map((leg) => (
               <div className="leg-disclosure-row" key={leg.id}>
                 <div>
                   <strong>{leg.description}</strong>
-                  <span>{formatAmount(leg.quantity)} dUSDC payout</span>
+                  <span>
+                    {format.amount(leg.quantity)} {copy.dualInvestment.payout}
+                  </span>
                 </div>
                 <div>
-                  <strong>{formatAmount(leg.askCost)}</strong>
-                  <span>dUSDC ask</span>
+                  <strong>{format.amount(leg.askCost)}</strong>
+                  <span>{copy.dualInvestment.ask}</span>
                 </div>
               </div>
             ))}

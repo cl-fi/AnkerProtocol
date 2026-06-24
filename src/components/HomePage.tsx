@@ -1,108 +1,91 @@
 import { ArrowRight, Eye, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import { buttonClassName } from '../ui';
-
-const steps = [
-  { n: '01', title: 'Set your target', body: 'Choose how much, your target BTC price, and when it settles.' },
-  {
-    n: '02',
-    title: 'Preview your yield',
-    body: 'See the live APR and exactly how the payout is built before you commit.',
-  },
-  { n: '03', title: 'Subscribe & claim', body: 'Confirm in your wallet, then claim your payout after it settles.' },
-];
-
-const shelf = [
-  { label: 'BTC Buy Low', tag: 'Live' },
-  { label: 'Sell High', tag: 'Soon' },
-  { label: 'Range yield', tag: 'Planned' },
-  { label: 'Auto-roll', tag: 'Planned' },
-];
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 const DOCS_URL = 'https://docs.sui.io/onchain-finance/deepbook-predict/';
 const GITHUB_URL = 'https://github.com/cl-fi/AnkerProtocol';
 
-export function HomePage() {
+export function HomePage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
+  const copy = copyForLocale(locale);
   return (
     <div className="landing-page">
       <header className="landing-nav">
-        <Link className="landing-brand" href="/">
+        <Link className="landing-brand" href={localizedPath(locale, '/')}>
           <span className="anchor-mark" />
-          Anker Protocol
+          {copy.common.brand}
         </Link>
-        <Link className="landing-launch" href="/app">
-          Launch app
-          <ArrowRight size={17} />
-        </Link>
+        <div className="landing-nav-actions">
+          <LanguageSwitcher locale={locale} currentPath="/" />
+          <Link className="landing-launch" href={localizedPath(locale, '/app')}>
+            {copy.landing.launchApp}
+            <ArrowRight size={17} />
+          </Link>
+        </div>
       </header>
 
       <main>
-        <section className="lp-hero" aria-label="Anker Protocol">
+        <section className="lp-hero" aria-label={copy.common.brand}>
           <div className="lp-hero-copy">
             <span className="lp-eyebrow">
-              <span className="lp-dot" /> Built on DeepBook Predict · Sui testnet
+              <span className="lp-dot" /> {copy.landing.eyebrow}
             </span>
-            <h1>Drop anchor on your yield.</h1>
-            <p>
-              DeepBook Predict prices volatility on-chain. Anker turns it into structured yield products — starting with
-              Dual Investment.
-            </p>
+            <h1>{copy.landing.title}</h1>
+            <p>{copy.landing.lead}</p>
             <div className="lp-cta-row">
-              <Link className={buttonClassName()} href="/app">
-                Launch app
+              <Link className={buttonClassName()} href={localizedPath(locale, '/app')}>
+                {copy.landing.launchApp}
                 <ArrowRight size={17} />
               </Link>
             </div>
-            <ul className="lp-trust" aria-label="Highlights">
-              <li>Buy BTC lower</li>
-              <li>Fully transparent</li>
-              <li>You stay in control</li>
+            <ul className="lp-trust" aria-label={copy.landing.highlightsLabel}>
+              {copy.landing.highlights.map((highlight) => (
+                <li key={highlight}>{highlight}</li>
+              ))}
             </ul>
           </div>
 
           <div className="lp-hero-art">
-            <div className="lp-art-tile" role="img" aria-label="Anker anchor mark" />
+            <div className="lp-art-tile" role="img" aria-label={copy.landing.artLabel} />
             <span className="lp-art-chip lp-art-chip-1">
-              <Eye size={15} /> No black box
+              <Eye size={15} /> {copy.landing.artChips.noBlackBox}
             </span>
             <span className="lp-art-chip lp-art-chip-2">
-              <ShieldCheck size={15} /> Yield you can check
+              <ShieldCheck size={15} /> {copy.landing.artChips.checkableYield}
             </span>
           </div>
         </section>
 
         <section className="lp-section lp-problem" aria-labelledby="why-heading">
-          <span className="section-kicker">Why Anker</span>
-          <h2 id="why-heading">Dual Investment, minus the black box</h2>
-          <p className="lp-lead">
-            Buy Low is already one of the most popular products on exchanges. The catch: you can&apos;t see how the yield
-            is made, and the exchange controls the price.
-          </p>
+          <span className="section-kicker">{copy.landing.whyKicker}</span>
+          <h2 id="why-heading">{copy.landing.whyTitle}</h2>
+          <p className="lp-lead">{copy.landing.whyLead}</p>
           <div className="lp-compare">
             <article className="lp-compare-card is-before">
-              <h3>On a typical exchange</h3>
+              <h3>{copy.landing.exchangeTitle}</h3>
               <ul>
-                <li>You can&apos;t see where the yield comes from</li>
-                <li>The exchange sets the price and keeps the spread</li>
-                <li>Everything happens off-chain, out of view</li>
+                {copy.landing.exchangePoints.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
               </ul>
             </article>
             <article className="lp-compare-card is-after">
-              <h3>With Anker</h3>
+              <h3>{copy.landing.ankerTitle}</h3>
               <ul>
-                <li>See exactly how the yield is built</li>
-                <li>Prices come straight from the on-chain market</li>
-                <li>Your position stays in your own wallet</li>
+                {copy.landing.ankerPoints.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
               </ul>
             </article>
           </div>
         </section>
 
         <section className="lp-section" id="how" aria-labelledby="how-heading">
-          <span className="section-kicker">How it works</span>
-          <h2 id="how-heading">Three steps, fully on-chain</h2>
+          <span className="section-kicker">{copy.landing.howKicker}</span>
+          <h2 id="how-heading">{copy.landing.howTitle}</h2>
           <ol className="lp-steps">
-            {steps.map(({ n, title, body }) => (
+            {copy.landing.steps.map(({ n, title, body }) => (
               <li className="lp-step" key={n}>
                 <span className="lp-step-n">{n}</span>
                 <div>
@@ -115,11 +98,11 @@ export function HomePage() {
         </section>
 
         <section className="lp-section" id="shelf" aria-labelledby="shelf-heading">
-          <span className="section-kicker">What&apos;s next</span>
-          <h2 id="shelf-heading">Buy Low today. More to come.</h2>
+          <span className="section-kicker">{copy.landing.nextKicker}</span>
+          <h2 id="shelf-heading">{copy.landing.nextTitle}</h2>
           <ul className="lp-shelf">
-            {shelf.map(({ label, tag }) => (
-              <li className={`lp-shelf-item tag-${tag.toLowerCase()}`} key={label}>
+            {copy.landing.shelf.map(({ label, tag, tone }) => (
+              <li className={`lp-shelf-item tag-${tone}`} key={label}>
                 {label}
                 <span>{tag}</span>
               </li>
@@ -130,11 +113,11 @@ export function HomePage() {
         <section className="lp-section">
           <div className="lp-final">
             <div>
-              <h2>Ready to drop anchor?</h2>
-              <p>Set a target, preview the yield, and try BTC Buy Low on testnet.</p>
+              <h2>{copy.landing.finalTitle}</h2>
+              <p>{copy.landing.finalBody}</p>
             </div>
-            <Link className={buttonClassName()} href="/app">
-              Launch app
+            <Link className={buttonClassName()} href={localizedPath(locale, '/app')}>
+              {copy.landing.launchApp}
               <ArrowRight size={17} />
             </Link>
           </div>
@@ -145,23 +128,23 @@ export function HomePage() {
         <div className="lp-foot-brand">
           <span className="landing-brand">
             <span className="anchor-mark" />
-            Anker Protocol
+            {copy.common.brand}
           </span>
-          <p>Structured yield products, built on DeepBook Predict.</p>
+          <p>{copy.landing.footerDescription}</p>
         </div>
-        <nav className="lp-foot-cols" aria-label="Footer">
+        <nav className="lp-foot-cols" aria-label={copy.landing.footerLabel}>
           <div>
-            <h3>Product</h3>
-            <Link href="/app/dual-investment">Dual Investment</Link>
-            <Link href="/app/dashboard">Dashboard</Link>
+            <h3>{copy.landing.footerProduct}</h3>
+            <Link href={localizedPath(locale, '/app/dual-investment')}>{copy.common.dualInvestment}</Link>
+            <Link href={localizedPath(locale, '/app/dashboard')}>{copy.common.dashboard}</Link>
           </div>
           <div>
-            <h3>Build</h3>
+            <h3>{copy.landing.footerBuild}</h3>
             <a href={DOCS_URL} target="_blank" rel="noreferrer">
-              DeepBook Predict docs
+              {copy.landing.deepbookDocs}
             </a>
             <a href={GITHUB_URL} target="_blank" rel="noreferrer">
-              GitHub
+              {copy.landing.github}
             </a>
           </div>
         </nav>

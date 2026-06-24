@@ -1,52 +1,40 @@
-export function formatAmount(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+import { DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
+
+export function formatAmount(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).amount(value);
 }
 
-export function formatPrice(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 0 });
+export function formatPrice(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).usd(value);
 }
 
-export function formatApr(value: number) {
-  return `${(value * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
+export function formatApr(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).apr(value);
 }
 
-export function formatPreciseAmount(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 6 });
+export function formatPreciseAmount(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).preciseAmount(value);
 }
 
-export function formatBtcAmount(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 8 });
+export function formatBtcAmount(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).btcAmount(value);
 }
 
 export function formatQuoteBaseUnits(value: bigint) {
-  const scale = 1_000_000n;
-  const whole = value / scale;
-  const fraction = (value % scale).toString().padStart(6, '0').replace(/0+$/, '');
-  return fraction ? `${whole}.${fraction}` : whole.toString();
+  return formattersForLocale(DEFAULT_LOCALE).quoteBaseUnits(value);
 }
 
-export function formatPercent(value: number | null) {
-  if (value === null) return 'Checking';
-  return `${(value * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
+export function formatPercent(value: number | null, locale: Locale = DEFAULT_LOCALE, checkingLabel = 'Checking') {
+  if (value === null) return checkingLabel;
+  return formattersForLocale(locale).percent(value);
 }
 
-export function formatExpiry(value: number) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(value);
+export function formatExpiry(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).expiry(value);
 }
 
-export function formatOracleTimestamp(value: number) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  }).format(value);
+export function formatOracleTimestamp(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).oracleTimestamp(value);
 }
 
 export function shortId(value: string) {

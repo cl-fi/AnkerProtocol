@@ -95,7 +95,27 @@ describe('TargetBuyExecutionPanelView', () => {
     );
 
     expect(screen.getByText('Transaction submitted: 0xdigest')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'View Dashboard' })).toHaveAttribute('href', '/app/dashboard');
+    expect(screen.getByRole('link', { name: 'View Dashboard' })).toHaveAttribute('href', '/en/app/dashboard');
+  });
+
+  it('renders execution copy and links in Chinese', () => {
+    render(
+      <TargetBuyExecutionPanelView
+        hasAccount
+        hasManager
+        isQuoteExecutable={true}
+        isLoadingManagers={false}
+        isPending={false}
+        managerId="0xabc"
+        digest="0xdigest"
+        locale="zh-CN"
+        onCreateManager={() => undefined}
+        onSubscribe={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('交易已提交。你可以在仪表盘中跟踪。')).toBeVisible();
+    expect(screen.getByRole('link', { name: '查看仪表盘' })).toHaveAttribute('href', '/zh-CN/app/dashboard');
   });
 
   it('surfaces the awaiting-signature execution state while a wallet transaction is pending', () => {

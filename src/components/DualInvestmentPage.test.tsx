@@ -269,6 +269,44 @@ describe('Dual Investment APR display', () => {
     expect(screen.getByText('+55.00 pts')).toBeVisible();
     expect(screen.getByText(/BTCUSDC Dual Investment/i)).toBeVisible();
   });
+
+  it('renders Chinese copy while keeping target prices in USD', () => {
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
+    const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
+    const rows: DualInvestmentScanRow[] = [
+      {
+        input: productInput,
+        quote: pageQuoteFixture({ market, productInput, coupon: 0.02 }),
+      },
+    ];
+
+    render(
+      <>
+        <BuyLowControls
+          market={market}
+          principal={5}
+          targetPrice={64_000}
+          estimateApr={1.5}
+          locale="zh-CN"
+          onPrincipalChange={() => undefined}
+          onTargetChange={() => undefined}
+        />
+        <ReferenceTable
+          market={market}
+          rows={rows}
+          activeTargetPrice={64_000}
+          isFetching={false}
+          locale="zh-CN"
+          onSelect={() => undefined}
+          onRefresh={() => undefined}
+        />
+      </>,
+    );
+
+    expect(screen.getByText('低买价格')).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: '预估 APR' })).toBeVisible();
+    expect(screen.getByText('$64,000')).toBeVisible();
+  });
 });
 
 describe('DualInvestmentPage', () => {

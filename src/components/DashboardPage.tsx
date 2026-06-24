@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
 import { usePredictManagers } from '../hooks/usePredictManagers';
 import { useProductNoteEventIndex } from '../hooks/useProductNoteEventIndex';
+import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { AppHeader } from './AppHeader';
@@ -16,12 +17,7 @@ import { Badge, Button, Card } from '../ui';
 type PositionFilter = 'all' | 'ready' | 'active' | 'completed';
 type PositionBucket = Exclude<PositionFilter, 'all'>;
 
-const FILTER_TABS: { key: PositionFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'ready', label: 'Ready to claim' },
-  { key: 'active', label: 'Active' },
-  { key: 'completed', label: 'Completed' },
-];
+const FILTER_TABS: { key: PositionFilter }[] = [{ key: 'all' }, { key: 'ready' }, { key: 'active' }, { key: 'completed' }];
 
 // Coarse bucket from owned-object fields alone (no per-note manager state needed).
 // The card pill still shows the precise lifecycle (Settling / Action needed / …).
@@ -43,7 +39,8 @@ export {
   positionStatusBadge,
 } from './DashboardProductNoteCard';
 
-export function DashboardPage() {
+export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
+  const copy = copyForLocale(locale);
   const account = useCurrentAccount();
   const portfolioQuery = useAnkerPortfolio();
   const managersQuery = usePredictManagers();
@@ -78,16 +75,16 @@ export function DashboardPage() {
 
   return (
     <main className="dual-page" id="wallet-dashboard">
-      <AppHeader activeProduct="dashboard" />
+      <AppHeader activeProduct="dashboard" locale={locale} />
 
       <section className="dual-hero calculation-hero">
         <div>
-          <h1>Dashboard</h1>
-          <p>See your positions, what they&apos;ll pay, and claim your cash once they settle.</p>
+          <h1>{copy.dashboard.title}</h1>
+          <p>{copy.dashboard.subtitle}</p>
         </div>
         <Button variant="primary" onClick={() => void portfolioQuery.refetch()} disabled={!account}>
           <RefreshCw size={16} />
-          Refresh
+          {copy.dashboard.refresh}
         </Button>
       </section>
 
@@ -95,17 +92,17 @@ export function DashboardPage() {
         <section className="calculation-section">
           <div className="di-portfolio">
             <div>
-              <span>Total deposited</span>
-              <strong>{formatAmount(totalDeposited)} dUSDC</strong>
+              <span>{copy.dashboard.totalDeposited}</span>
+              <strong>{formatAmount(totalDeposited, locale)} dUSDC</strong>
             </div>
             <div>
-              <span>Expected rewards</span>
+              <span>{copy.dashboard.expectedRewards}</span>
               <strong>
-                +{formatPreciseAmount(expectedRewards)} <em>dUSDC</em>
+                +{formatPreciseAmount(expectedRewards, locale)} <em>dUSDC</em>
               </strong>
             </div>
             <div>
-              <span>Open positions</span>
+              <span>{copy.dashboard.openPositions}</span>
               <strong>{openNotes.length}</strong>
             </div>
           </div>
@@ -114,40 +111,38 @@ export function DashboardPage() {
 
       {!account ? (
         <section className="calculation-section">
-          <Card variant="empty">Connect your wallet to see your positions.</Card>
+          <Card variant="empty">{copy.dashboard.connectWallet}</Card>
         </section>
       ) : !contractConfigured ? (
         <section className="calculation-section">
-          <Card variant="error">
-            Anker contract package is not configured. Set NEXT_PUBLIC_ANKER_PACKAGE_ID after publishing the Move package.
-          </Card>
+          <Card variant="error">{copy.dashboard.contractNotConfigured}</Card>
         </section>
       ) : portfolioQuery.isPending ? (
         <section className="calculation-section">
-          <Card variant="empty">Loading your positions…</Card>
+          <Card variant="empty">{copy.dashboard.loadingPositions}</Card>
         </section>
       ) : portfolioQuery.error ? (
         <section className="calculation-section">
           <Card variant="error">
-            {portfolioQuery.error instanceof Error ? portfolioQuery.error.message : 'Unable to load your positions.'}
+            {portfolioQuery.error instanceof Error ? portfolioQuery.error.message : copy.dashboard.unableToLoad}
           </Card>
         </section>
       ) : notes.length === 0 ? (
         <section className="calculation-section">
           <Card variant="empty">
-            No positions yet for {shortId(account.address)}. Open a Buy Low position to get started.
+            {copy.dashboard.noPositions(shortId(account.address))}
           </Card>
         </section>
       ) : (
         <section className="calculation-section">
           <div className="section-heading di-positions-heading">
-            <h2>Your positions</h2>
+            <h2>{copy.dashboard.yourPositions}</h2>
             <Badge tone="positive">
-              {notes.length} {notes.length === 1 ? 'position' : 'positions'}
+              {notes.length} {notes.length === 1 ? copy.dashboard.position : copy.dashboard.positions}
             </Badge>
           </div>
           {showFilters ? (
-            <div className="di-position-filters" role="tablist" aria-label="Filter positions by status">
+            <div className="di-position-filters" role="tablist" aria-label={copy.dashboard.filterLabel}>
               {FILTER_TABS.filter((tab) => tab.key === 'all' || counts[tab.key] > 0).map((tab) => (
                 <button
                   key={tab.key}
@@ -157,22 +152,23 @@ export function DashboardPage() {
                   className={activeFilter === tab.key ? 'di-filter is-active' : 'di-filter'}
                   onClick={() => setFilter(tab.key)}
                 >
-                  {tab.label}
+                  {copy.dashboard.filters[tab.key]}
                   <em>{counts[tab.key]}</em>
                 </button>
               ))}
             </div>
           ) : null}
           {visibleNotes.length === 0 ? (
-            <Card variant="empty">No positions in this view.</Card>
+            <Card variant="empty">{copy.dashboard.noPositionsInView}</Card>
           ) : (
             <div className="detail-grid notes-grid">
               {visibleNotes.map((note) => (
                 <ProductNoteCard
                   note={note}
-                  managerValidation={managerValidationForNote(note, managersQuery.data)}
+                  managerValidation={managerValidationForNote(note, managersQuery.data, locale)}
                   notes={notes}
                   eventIndexEntry={productNoteEventIndexQuery.data?.byNoteId[note.noteId]}
+                  locale={locale}
                   key={note.noteId}
                 />
               ))}

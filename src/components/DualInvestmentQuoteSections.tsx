@@ -4,9 +4,9 @@ import { RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import { findBinanceDualInvestmentMatch, type BinanceDualInvestmentProduct } from '../deepbook/binanceDualInvestment';
+import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
 import { scanQuoteDisplayMetrics, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
 import { netAprAfterCouponFee } from '../products/feePolicy';
-import { formatTimeToExpiry } from '../products/timeFormat';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
 import { Button, InputField, Tabs, tabClassName } from '../ui';
@@ -16,48 +16,26 @@ export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 export const DEFAULT_PRINCIPAL = 5;
 export type DualInvestmentMode = 'buy-low';
 
-function formatPrice(value: number) {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-function formatApr(value: number) {
-  return `${(value * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
-}
-
-function formatReferenceApr(value: number) {
-  return `${(value * 100).toLocaleString('en-US', {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  })}%`;
-}
-
-function formatEdge(value: number) {
+function formatEdge(value: number, locale: Locale) {
   const sign = value > 0 ? '+' : '';
-  return `${sign}${(value * 100).toLocaleString('en-US', {
+  const numberLocale = locale === 'zh-CN' ? 'zh-CN' : 'en-US';
+  return `${sign}${(value * 100).toLocaleString(numberLocale, {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
   })} pts`;
 }
 
-function formatBelowSpot(targetPrice: number, spot: number) {
+function formatBelowSpot(targetPrice: number, spot: number, locale: Locale) {
   if (spot <= 0 || targetPrice >= spot) return '--';
-  return `${(((spot - targetPrice) / spot) * 100).toLocaleString('en-US', {
+  return formattersForLocale(locale).percent((spot - targetPrice) / spot, {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
-  })}%`;
+  });
 }
 
-function formatTime(value: number) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(value);
-}
-
-function formatExpiryOption(oracle: CuratedOracleListItem) {
-  return `${formatTime(oracle.expiry)} · ${formatTimeToExpiry(oracle.expiry)}`;
+function formatExpiryOption(oracle: CuratedOracleListItem, locale: Locale) {
+  const format = formattersForLocale(locale);
+  return `${format.time(oracle.expiry)} · ${format.timeToExpiry(oracle.expiry)}`;
 }
 
 export function DirectionPairBar({
@@ -65,16 +43,19 @@ export function DirectionPairBar({
   market,
   productOracles,
   onSelectOracle,
+  locale = DEFAULT_LOCALE,
 }: {
   mode: DualInvestmentMode;
   market?: OracleMarket;
   productOracles: CuratedOracleListItem[];
   onSelectOracle: (oracleId: string) => void;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
   return (
-    <section className="di-selection" aria-label="Choose your market">
+    <section className="di-selection" aria-label={copy.dualInvestment.chooseMarketLabel}>
       <div className="di-select-group">
-        <span className="di-select-label">Pair</span>
+        <span className="di-select-label">{copy.dualInvestment.pair}</span>
         <div className="di-pair-chip">
           <span className="coin-dot">₿</span>
           <strong>BTC</strong>
@@ -83,10 +64,13 @@ export function DirectionPairBar({
       </div>
 
       <div className="di-select-group">
-        <span className="di-select-label">Direction</span>
-        <Tabs className="di-direction" aria-label="Dual Investment direction">
-          <Link className={tabClassName({ active: mode === 'buy-low' })} href="/app/dual-investment">
-            Buy Low
+        <span className="di-select-label">{copy.dualInvestment.direction}</span>
+        <Tabs className="di-direction" aria-label={copy.dualInvestment.directionLabel}>
+          <Link
+            className={tabClassName({ active: mode === 'buy-low' })}
+            href={localizedPath(locale, '/app/dual-investment')}
+          >
+            {copy.common.buyLow}
           </Link>
           <button
             aria-disabled="true"
@@ -96,22 +80,22 @@ export function DirectionPairBar({
             }}
             type="button"
           >
-            Sell High
+            {copy.common.sellHigh}
           </button>
         </Tabs>
       </div>
 
       <div className="di-select-group di-select-grow">
-        <span className="di-select-label">Settlement date</span>
+        <span className="di-select-label">{copy.dualInvestment.settlementDate}</span>
         <label className="expiry-select">
           <select
-            aria-label="Settlement date"
+            aria-label={copy.dualInvestment.settlementDate}
             value={market?.oracleId ?? ''}
             onChange={(event) => onSelectOracle(event.currentTarget.value)}
           >
             {productOracles.map((oracle) => (
               <option value={oracle.oracle_id} key={oracle.oracle_id}>
-                {formatExpiryOption(oracle)}
+                {formatExpiryOption(oracle, locale)}
               </option>
             ))}
           </select>
@@ -128,6 +112,7 @@ export function BuyLowControls({
   estimateApr,
   onPrincipalChange,
   onTargetChange,
+  locale = DEFAULT_LOCALE,
 }: {
   market?: OracleMarket;
   principal: number;
@@ -135,17 +120,20 @@ export function BuyLowControls({
   estimateApr: number | null;
   onPrincipalChange: (value: number) => void;
   onTargetChange: (value: number) => void;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
+  const format = formattersForLocale(locale);
   const updateNumber = (handler: (value: number) => void) => (event: ChangeEvent<HTMLInputElement>) => {
     handler(Number(event.currentTarget.value));
   };
-  const belowSpot = market ? formatBelowSpot(targetPrice, market.spot) : '--';
+  const belowSpot = market ? formatBelowSpot(targetPrice, market.spot, locale) : '--';
 
   return (
-    <section className="di-controls" aria-label="Set your Buy Low">
+    <section className="di-controls" aria-label={copy.dualInvestment.setBuyLowLabel}>
       <div className="di-controls-grid">
         <InputField
-          label="Amount"
+          label={copy.dualInvestment.amount}
           suffix="dUSDC"
           min="1"
           step="1"
@@ -154,8 +142,8 @@ export function BuyLowControls({
           onChange={updateNumber(onPrincipalChange)}
         />
         <InputField
-          label="Buy Low price"
-          suffix={belowSpot !== '--' ? `${belowSpot} below` : 'BTC'}
+          label={copy.dualInvestment.buyLowPrice}
+          suffix={belowSpot !== '--' ? `${belowSpot} ${copy.dualInvestment.below}` : 'BTC'}
           min="1"
           step="100"
           type="number"
@@ -164,8 +152,8 @@ export function BuyLowControls({
         />
       </div>
       <div className="di-controls-apr">
-        <span>Estimated reward</span>
-        <strong>{estimateApr !== null ? `${formatApr(netAprAfterCouponFee(estimateApr))} APR` : '--'}</strong>
+        <span>{copy.dualInvestment.estimatedReward}</span>
+        <strong>{estimateApr !== null ? `${format.apr(netAprAfterCouponFee(estimateApr))} APR` : '--'}</strong>
       </div>
     </section>
   );
@@ -179,6 +167,7 @@ export function ReferenceTable({
   isFetching,
   onSelect,
   onRefresh,
+  locale = DEFAULT_LOCALE,
 }: {
   market?: OracleMarket;
   rows: DualInvestmentScanRow[];
@@ -187,7 +176,10 @@ export function ReferenceTable({
   isFetching: boolean;
   onSelect: (input: DualInvestmentInput) => void;
   onRefresh: () => void;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
+  const format = formattersForLocale(locale);
   const handleKey = (input: DualInvestmentInput) => (event: KeyboardEvent<HTMLTableRowElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -196,29 +188,31 @@ export function ReferenceTable({
   };
 
   return (
-    <section className="di-reference" aria-label="APR reference">
+    <section className="di-reference" aria-label={copy.dualInvestment.aprReferenceLabel}>
       <div className="di-reference-head">
-        <h3>Price &amp; APR reference</h3>
+        <h3>{copy.dualInvestment.priceAprReference}</h3>
         <Button variant="secondary" onClick={onRefresh}>
           <RefreshCw size={15} />
-          {isFetching ? 'Updating' : 'Refresh'}
+          {isFetching ? copy.dualInvestment.updating : copy.dualInvestment.refresh}
         </Button>
       </div>
-      <p className="di-reference-hint">Tap a price to load it into your Buy Low.</p>
+      <p className="di-reference-hint">{copy.dualInvestment.referenceHint}</p>
       <div className="table-shell">
         <table className="offer-table di-reference-table">
           <thead>
             <tr>
-              <th>Buy Low</th>
-              <th>Est. APR</th>
-              <th>Binance APR</th>
-              <th>Edge</th>
+              <th>{copy.common.buyLow}</th>
+              <th>{copy.dualInvestment.estApr}</th>
+              <th>{copy.dualInvestment.binanceApr}</th>
+              <th>{copy.dualInvestment.edge}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => {
               const displayMetrics = scanQuoteDisplayMetrics(row);
-              const belowSpot = market ? `${formatBelowSpot(row.input.targetPrice, market.spot)} below` : '--';
+              const belowSpot = market
+                ? `${formatBelowSpot(row.input.targetPrice, market.spot, locale)} ${copy.dualInvestment.below}`
+                : '--';
               const binanceMatch = market
                 ? findBinanceDualInvestmentMatch({
                     products: binanceProducts,
@@ -239,28 +233,28 @@ export function ReferenceTable({
                   onClick={() => onSelect(row.input)}
                   onKeyDown={handleKey(row.input)}
                 >
-                  <td data-label="Buy Low">
-                    <strong>{formatPrice(row.input.targetPrice)}</strong>
+                  <td data-label={copy.common.buyLow}>
+                    <strong>{format.usd(row.input.targetPrice)}</strong>
                     <span>{belowSpot}</span>
                   </td>
-                  <td className={displayMetrics.apr !== null ? 'apr-cell' : ''} data-label="Est. APR">
-                    {displayMetrics.apr !== null ? formatReferenceApr(displayMetrics.apr) : '--'}
+                  <td className={displayMetrics.apr !== null ? 'apr-cell' : ''} data-label={copy.dualInvestment.estApr}>
+                    {displayMetrics.apr !== null ? format.referenceApr(displayMetrics.apr) : '--'}
                   </td>
-                  <td className={binanceMatch ? 'binance-apr' : 'muted-cell'} data-label="Binance APR">
-                    {binanceMatch ? formatReferenceApr(binanceMatch.apr) : '--'}
+                  <td className={binanceMatch ? 'binance-apr' : 'muted-cell'} data-label={copy.dualInvestment.binanceApr}>
+                    {binanceMatch ? format.referenceApr(binanceMatch.apr) : '--'}
                   </td>
-                  <td className={edge !== null ? `edge-cell ${edge >= 0 ? 'positive' : ''}` : 'muted-cell'} data-label="Edge">
-                    {edge !== null ? formatEdge(edge) : '--'}
+                  <td
+                    className={edge !== null ? `edge-cell ${edge >= 0 ? 'positive' : ''}` : 'muted-cell'}
+                    data-label={copy.dualInvestment.edge}
+                  >
+                    {edge !== null ? formatEdge(edge, locale) : '--'}
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        <p className="di-reference-footnote">
-          Binance benchmark uses BTCUSDC Dual Investment, matched by target price and nearest settlement date. Anker
-          APR is net after protocol fee and based on live DeepBook Predict quote preview.
-        </p>
+        <p className="di-reference-footnote">{copy.dualInvestment.referenceFootnote}</p>
       </div>
     </section>
   );

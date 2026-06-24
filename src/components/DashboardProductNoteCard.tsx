@@ -7,9 +7,9 @@ import { settlementNoteForProductNote } from '../application/settleProductNote';
 import { fetchOracleMarket } from '../deepbook/predictServer';
 import type { PredictManagerSummary } from '../deepbook/predictManagers';
 import { usePredictManagerState } from '../hooks/usePredictManagerState';
+import { copyForLocale, DEFAULT_LOCALE, formatTimeToExpiry, type Locale } from '../i18n';
 import { netAprAfterCouponFee } from '../products/feePolicy';
 import { settlementPayoutRange } from '../products/settlement';
-import { formatTimeToExpiry } from '../products/timeFormat';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 import {
@@ -46,29 +46,40 @@ function ProofLink({ href, children }: { href: string; children: React.ReactNode
 export function managerValidationForNote(
   note: AnkerProductNoteRecord,
   managers: Pick<PredictManagerSummary, 'managerId'>[] | undefined,
+  locale: Locale = DEFAULT_LOCALE,
 ) {
-  if (!managers) return { label: 'Checking manager', tone: 'neutral' as const };
+  const copy = copyForLocale(locale);
+  if (!managers) return { label: copy.dashboard.manager.checking, tone: 'neutral' as const };
   const verified = managers.some((manager) => manager.managerId.toLowerCase() === note.managerId.toLowerCase());
   return verified
-    ? { label: 'Manager verified', tone: 'good' as const }
-    : { label: 'Manager not found', tone: 'warn' as const };
+    ? { label: copy.dashboard.manager.verified, tone: 'good' as const }
+    : { label: copy.dashboard.manager.notFound, tone: 'warn' as const };
 }
 
 export function positionStatusBadge(
   note: Pick<AnkerProductNoteRecord, 'status'>,
   lifecycle: ProductNoteLifecycle,
+  locale: Locale = DEFAULT_LOCALE,
 ): { label: string; tone: Tone } {
-  if (note.status === 'redeemed' || lifecycle === 'settled') return { label: 'Completed', tone: 'neutral' };
-  if (lifecycle === 'settlement-blocked') return { label: 'Action needed', tone: 'danger' };
-  if (lifecycle === 'positions-redeemable' || lifecycle === 'claimable') return { label: 'Ready to claim', tone: 'positive' };
-  if (lifecycle === 'matured') return { label: 'Settling', tone: 'positive' };
-  return { label: 'Active', tone: 'warning' };
+  const copy = copyForLocale(locale);
+  if (note.status === 'redeemed' || lifecycle === 'settled')
+    return { label: copy.dashboard.status.completed, tone: 'neutral' };
+  if (lifecycle === 'settlement-blocked') return { label: copy.dashboard.status.actionNeeded, tone: 'danger' };
+  if (lifecycle === 'positions-redeemable' || lifecycle === 'claimable')
+    return { label: copy.dashboard.status.readyToClaim, tone: 'positive' };
+  if (lifecycle === 'matured') return { label: copy.dashboard.status.settling, tone: 'positive' };
+  return { label: copy.dashboard.status.active, tone: 'warning' };
 }
 
-function managerIsolationLabel(input: 'isolated' | 'shared' | 'unknown', notesUsingManager: number | null) {
-  if (input === 'unknown') return 'Checking';
-  if (input === 'isolated') return 'Isolated';
-  return `Shared by ${notesUsingManager ?? 0} notes`;
+function managerIsolationLabel(
+  input: 'isolated' | 'shared' | 'unknown',
+  notesUsingManager: number | null,
+  locale: Locale,
+) {
+  const copy = copyForLocale(locale);
+  if (input === 'unknown') return copy.common.checking;
+  if (input === 'isolated') return copy.dashboard.card.isolated;
+  return copy.dashboard.card.sharedBy(notesUsingManager ?? 0);
 }
 
 function useSubscriptionDigest(owner: string, quoteHash: string) {
@@ -83,30 +94,54 @@ export function SubscriptionDigestValue({
   owner,
   quoteHash,
   eventDigest,
+  locale = DEFAULT_LOCALE,
 }: {
   owner: string;
   quoteHash: string;
   eventDigest?: string;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
   const localDigest = useSubscriptionDigest(owner, quoteHash);
   const digest = eventDigest || localDigest;
-  return <dd>{digest ? <ProofLink href={suiExplorerTxUrl(digest)}>{shortId(digest)}</ProofLink> : 'Not indexed'}</dd>;
+  return (
+    <dd>{digest ? <ProofLink href={suiExplorerTxUrl(digest)}>{shortId(digest)}</ProofLink> : copy.common.notIndexed}</dd>
+  );
 }
 
-export function IndexedTransactionDigestValue({ digest }: { digest?: string }) {
-  return <dd>{digest ? <ProofLink href={suiExplorerTxUrl(digest)}>{shortId(digest)}</ProofLink> : 'Not indexed'}</dd>;
+export function IndexedTransactionDigestValue({
+  digest,
+  locale = DEFAULT_LOCALE,
+}: {
+  digest?: string;
+  locale?: Locale;
+}) {
+  const copy = copyForLocale(locale);
+  return (
+    <dd>{digest ? <ProofLink href={suiExplorerTxUrl(digest)}>{shortId(digest)}</ProofLink> : copy.common.notIndexed}</dd>
+  );
 }
 
-export function AllocatedPositionsValue({ entry }: { entry?: ProductNoteEventIndexEntry }) {
-  if (!entry) return <dd>Not indexed</dd>;
+export function AllocatedPositionsValue({
+  entry,
+  locale = DEFAULT_LOCALE,
+}: {
+  entry?: ProductNoteEventIndexEntry;
+  locale?: Locale;
+}) {
+  const copy = copyForLocale(locale);
+  if (!entry) return <dd>{copy.common.notIndexed}</dd>;
 
   const quantityBaseUnits = entry.allocatedPositions.reduce((sum, position) => sum + position.quantityBaseUnits, 0n);
   const costBaseUnits = entry.allocatedPositions.reduce((sum, position) => sum + position.costBaseUnits, 0n);
 
   return (
     <dd>
-      {entry.allocatedPositions.length} indexed / {formatQuoteBaseUnits(quantityBaseUnits)} dUSDC qty /{' '}
-      {formatQuoteBaseUnits(costBaseUnits)} dUSDC cost
+      {copy.dashboard.card.indexedAllocated(
+        entry.allocatedPositions.length,
+        formatQuoteBaseUnits(quantityBaseUnits),
+        formatQuoteBaseUnits(costBaseUnits),
+      )}
     </dd>
   );
 }
@@ -118,7 +153,8 @@ export function depositedCashText(
   return formatQuoteBaseUnits(entry?.principalBaseUnits ?? note.principalBaseUnits);
 }
 
-export function OracleLastUpdateValue({ oracleId }: { oracleId: string }) {
+export function OracleLastUpdateValue({ oracleId, locale = DEFAULT_LOCALE }: { oracleId: string; locale?: Locale }) {
+  const copy = copyForLocale(locale);
   const oracleQuery = useQuery({
     queryKey: ['oracle-last-update', oracleId],
     queryFn: () => fetchOracleMarket(oracleId, { serverLagSeconds: 0 }),
@@ -127,13 +163,21 @@ export function OracleLastUpdateValue({ oracleId }: { oracleId: string }) {
     refetchInterval: 60_000,
   });
 
-  if (oracleQuery.isPending) return <dd>Checking</dd>;
-  if (oracleQuery.error || !oracleQuery.data) return <dd>Unavailable</dd>;
+  if (oracleQuery.isPending) return <dd>{copy.common.checking}</dd>;
+  if (oracleQuery.error || !oracleQuery.data) return <dd>{copy.common.unavailable}</dd>;
 
-  return <dd>{formatOracleTimestamp(Math.max(oracleQuery.data.spotTimestampMs, oracleQuery.data.sviTimestampMs))}</dd>;
+  return (
+    <dd>{formatOracleTimestamp(Math.max(oracleQuery.data.spotTimestampMs, oracleQuery.data.sviTimestampMs), locale)}</dd>
+  );
 }
 
-export function SettlementRangeValue({ note }: { note: AnkerProductNoteRecord }) {
+export function SettlementRangeValue({
+  note,
+  locale = DEFAULT_LOCALE,
+}: {
+  note: AnkerProductNoteRecord;
+  locale?: Locale;
+}) {
   const range = settlementPayoutRange(settlementNoteForProductNote(note));
   return (
     <dd>
@@ -148,45 +192,52 @@ export function ProductNoteCard({
   managerValidation,
   notes,
   eventIndexEntry,
+  locale = DEFAULT_LOCALE,
 }: {
   note: AnkerProductNoteRecord;
   managerValidation: ReturnType<typeof managerValidationForNote>;
   notes: readonly AnkerProductNoteRecord[];
   eventIndexEntry?: ProductNoteEventIndexEntry;
+  locale?: Locale;
 }) {
+  const copy = copyForLocale(locale);
   const isDual = note.productType === 'dual-investment';
   const managerStateQuery = usePredictManagerState(note.managerId);
   const claimState = claimStateForDualInvestmentNote(note, managerStateQuery.data);
   const lifecycle = lifecycleForProductNote(note, claimState, Date.now());
   const backingProof = backingProofForDualInvestmentNote(note, managerStateQuery.data, notes);
-  const status = positionStatusBadge(note, lifecycle);
+  const status = positionStatusBadge(note, lifecycle, locale);
   const rewardApr = netAprAfterCouponFee(note.apr, note.feeBps);
-  const settlesText =
-    lifecycle === 'active' ? `in ${formatTimeToExpiry(note.expiryMs, Date.now())}` : formatExpiry(note.expiryMs);
+  const localizedSettlesText =
+    lifecycle === 'active'
+      ? locale === 'zh-CN'
+        ? formatTimeToExpiry(note.expiryMs, locale)
+        : `in ${formatTimeToExpiry(note.expiryMs, locale)}`
+      : formatExpiry(note.expiryMs, locale);
   const containerBalance = managerStateQuery.isPending
-    ? 'Checking'
+    ? copy.common.checking
     : managerStateQuery.data?.dusdcBalance !== null && managerStateQuery.data?.dusdcBalance !== undefined
-      ? `${formatPreciseAmount(managerStateQuery.data.dusdcBalance)} dUSDC`
-      : 'Unavailable';
+      ? `${formatPreciseAmount(managerStateQuery.data.dusdcBalance, locale)} dUSDC`
+      : copy.common.unavailable;
 
   return (
     <Card as="article" className="di-position-card">
       <header className="di-position-head">
         <div className="di-position-title">
-          <h3>{isDual ? 'Buy Low BTC' : 'Legacy product'}</h3>
-          {isDual ? <span className="di-position-strike">@ {formatPrice(note.targetPrice)}</span> : null}
+          <h3>{isDual ? copy.dashboard.card.buyLowBtc : copy.dashboard.card.legacyProduct}</h3>
+          {isDual ? <span className="di-position-strike">@ {formatPrice(note.targetPrice, locale)}</span> : null}
         </div>
         <Badge tone={status.tone}>{status.label}</Badge>
       </header>
 
       <StatGroup>
-        <Stat label="Deposit" value={`${depositedCashText(note, eventIndexEntry)} dUSDC`} />
+        <Stat label={copy.dashboard.card.deposit} value={`${depositedCashText(note, eventIndexEntry)} dUSDC`} />
         <Stat
-          label="Reward"
-          value={`+${formatPreciseAmount(note.coupon)} dUSDC`}
-          sub={`${formatApr(rewardApr)} APR`}
+          label={copy.dashboard.card.reward}
+          value={`+${formatPreciseAmount(note.coupon, locale)} dUSDC`}
+          sub={`${formatApr(rewardApr, locale)} APR`}
         />
-        <Stat label="Settles" value={settlesText} />
+        <Stat label={copy.dashboard.card.settles} value={localizedSettlesText} />
       </StatGroup>
 
       {isDual ? (
@@ -194,100 +245,107 @@ export function ProductNoteCard({
           <ShieldCheck size={16} />
           <span className="di-position-outcome-text">
             <span className="di-position-outcome-main">
-              If BTC is at or above {formatPrice(note.targetPrice)} when it settles, you keep your deposit plus the
-              reward. If it ends lower, your deposit buys BTC at {formatPrice(note.targetPrice)} — the price you chose.
+              {copy.dashboard.card.outcomeMain(formatPrice(note.targetPrice, locale))}
             </span>
-            <small>
-              On testnet this settles in dUSDC, not BTC — you may receive slightly less cash if BTC ends below your
-              price. On mainnet, positions settle in real wrapped BTC.
-            </small>
+            <small>{copy.dashboard.card.outcomeTestnet}</small>
           </span>
         </div>
       ) : null}
 
-      <ClaimAction note={note} claimState={claimState} />
+      <ClaimAction note={note} claimState={claimState} locale={locale} />
 
-      <Disclosure summary="On-chain proof">
+      <Disclosure summary={copy.dashboard.card.onChainProof}>
         <KeyValueList>
           <KeyValue
-            label="Position ID"
+            label={copy.dashboard.card.positionId}
             value={<ProofLink href={suiExplorerObjectUrl(note.noteId)}>{shortId(note.noteId)}</ProofLink>}
           />
-          <KeyValue label={isDual ? 'Quote hash' : 'Product ID'} value={note.productId || '--'} />
+          <KeyValue
+            label={isDual ? copy.dashboard.card.quoteHash : copy.dashboard.card.productId}
+            value={note.productId || '--'}
+          />
           {isDual ? (
             <div>
-              <span>Subscription tx</span>
+              <span>{copy.dashboard.card.subscriptionTx}</span>
               <SubscriptionDigestValue
                 owner={note.owner}
                 quoteHash={note.productId}
                 eventDigest={eventIndexEntry?.subscriptionDigest}
+                locale={locale}
               />
             </div>
           ) : null}
           {isDual ? (
             <div>
-              <span>Redeem tx</span>
-              <IndexedTransactionDigestValue digest={eventIndexEntry?.positionsRedeemedDigest} />
+              <span>{copy.dashboard.card.redeemTx}</span>
+              <IndexedTransactionDigestValue digest={eventIndexEntry?.positionsRedeemedDigest} locale={locale} />
             </div>
           ) : null}
           {isDual ? (
             <div>
-              <span>Settlement tx</span>
-              <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} />
+              <span>{copy.dashboard.card.settlementTx}</span>
+              <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} locale={locale} />
             </div>
           ) : null}
           <KeyValue
-            label="Product container"
+            label={copy.dashboard.card.productContainer}
             value={<ProofLink href={suiExplorerObjectUrl(note.managerId)}>{shortId(note.managerId)}</ProofLink>}
           />
-          <KeyValue label="Container check" value={managerValidation.label} tone={managerValidation.tone} />
           <KeyValue
-            label="Container isolation"
-            value={managerIsolationLabel(backingProof.managerIsolation, backingProof.notesUsingManager)}
+            label={copy.dashboard.card.containerCheck}
+            value={managerValidation.label}
+            tone={managerValidation.tone}
           />
-          <KeyValue label="Container balance" value={containerBalance} />
           <KeyValue
-            label="Oracle"
+            label={copy.dashboard.card.containerIsolation}
+            value={managerIsolationLabel(backingProof.managerIsolation, backingProof.notesUsingManager, locale)}
+          />
+          <KeyValue label={copy.dashboard.card.containerBalance} value={containerBalance} />
+          <KeyValue
+            label={copy.dualInvestment.oracle}
             value={<ProofLink href={suiExplorerObjectUrl(note.oracleId)}>{shortId(note.oracleId)}</ProofLink>}
           />
           {isDual ? (
             <div>
-              <span>Price feed updated</span>
-              <OracleLastUpdateValue oracleId={note.oracleId} />
+              <span>{copy.dashboard.card.priceFeedUpdated}</span>
+              <OracleLastUpdateValue oracleId={note.oracleId} locale={locale} />
             </div>
           ) : null}
           {isDual ? (
             <>
-              <KeyValue label="Your price" value={formatPrice(note.targetPrice)} />
-              <KeyValue label="Floor" value={formatPrice(note.floorPrice)} />
-              <KeyValue label="Reward" value={`${formatAmount(note.coupon)} dUSDC`} />
-              <KeyValue label="Settlement" value="Cash-settled dUSDC" />
+              <KeyValue label={copy.dashboard.card.yourPrice} value={formatPrice(note.targetPrice, locale)} />
+              <KeyValue label={copy.dashboard.card.floor} value={formatPrice(note.floorPrice, locale)} />
+              <KeyValue label={copy.dashboard.card.reward} value={`${formatAmount(note.coupon, locale)} dUSDC`} />
+              <KeyValue label={copy.dashboard.card.settlement} value={copy.dashboard.card.cashSettled} />
               <div>
-                <span>Payout range</span>
-                <SettlementRangeValue note={note} />
+                <span>{copy.dashboard.card.payoutRange}</span>
+                <SettlementRangeValue note={note} locale={locale} />
               </div>
               <KeyValue
-                label="Positions held"
+                label={copy.dashboard.card.positionsHeld}
                 value={
                   claimState.path === 'unknown'
-                    ? 'Checking'
-                    : `${claimState.availableLegCount}/${claimState.totalLegCount} held`
+                    ? copy.common.checking
+                    : copy.dashboard.card.held(claimState.availableLegCount, claimState.totalLegCount)
                 }
               />
-              <KeyValue label="Backing ratio" value={formatPercent(backingProof.collateralizationRatio)} />
               <KeyValue
-                label="Required positions"
-                value={`${formatPreciseAmount(backingProof.requiredPositionQuantity)} dUSDC`}
+                label={copy.dashboard.card.backingRatio}
+                value={formatPercent(backingProof.collateralizationRatio, locale, copy.common.checking)}
+              />
+              <KeyValue
+                label={copy.dashboard.card.requiredPositions}
+                value={`${formatPreciseAmount(backingProof.requiredPositionQuantity, locale)} dUSDC`}
               />
               <div>
-                <span>Allocated positions</span>
-                <AllocatedPositionsValue entry={eventIndexEntry} />
+                <span>{copy.dashboard.card.allocatedPositions}</span>
+                <AllocatedPositionsValue entry={eventIndexEntry} locale={locale} />
               </div>
               <KeyValue
-                label="Current positions"
-                value={`${formatPreciseAmount(backingProof.availablePositionQuantity)} dUSDC`}
+                label={copy.dashboard.card.currentPositions}
+                value={`${formatPreciseAmount(backingProof.availablePositionQuantity, locale)} dUSDC`}
               />
-              <KeyValue label="Legs" value={note.legs.length} />
+              <KeyValue label={copy.dashboard.card.legs} value={note.legs.length} />
             </>
           ) : null}
         </KeyValueList>

@@ -208,7 +208,7 @@ describe('RedeemActionView', () => {
     );
 
     expect(
-      screen.getByText('Settling — positions at 65,000 are still reconciling. Claim opens shortly.'),
+      screen.getByText('Settling — positions at $65,000 are still reconciling. Claim opens shortly.'),
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Claim cash' })).toBeDisabled();
   });
@@ -324,6 +324,33 @@ describe('claimActionViewModel', () => {
       actionLabel: 'Claim cash',
       status: 'Ready — claim your cash from this position.',
     });
+  });
+});
+
+describe('Chinese locale', () => {
+  it('renders claim actions in Chinese while keeping BTC prices in USD', () => {
+    const claimState: DualInvestmentClaimState = {
+      path: 'partial-unavailable',
+      availableLegCount: 1,
+      missingLegCount: 1,
+      totalLegCount: 2,
+      managerDusdcBalance: null,
+      missingLegs: [{ strike: 65_000, requiredQuantity: 0.012345, availableQuantity: 0 }],
+    };
+
+    render(
+      <ClaimActionView
+        note={noteFixture({ expiryMs: 1_000 })}
+        nowMs={2_000}
+        claimState={claimState}
+        isPending={false}
+        locale="zh-CN"
+        onClaim={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('结算中：$65,000 的仓位仍在对账，稍后开放领取。')).toBeVisible();
+    expect(screen.getByRole('button', { name: '领取现金' })).toBeDisabled();
   });
 });
 
