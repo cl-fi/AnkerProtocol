@@ -13,6 +13,8 @@ export const enCopy = {
     checking: 'Checking',
     unavailable: 'Unavailable',
     notIndexed: 'Not indexed',
+    socialLinks: 'Social links',
+    copyright: '©2026 Anker Protocol. All rights reserved',
   },
   metadata: {
     description: 'Structured yield products, built on DeepBook Predict.',
@@ -304,6 +306,8 @@ export const zhCnCopy: AppCopy = {
     checking: '检查中',
     unavailable: '不可用',
     notIndexed: '未索引',
+    socialLinks: '社交链接',
+    copyright: '©2026 Anker Protocol. 保留所有权利',
   },
   metadata: {
     description: '基于 DeepBook Predict 构建的结构化收益产品。',

@@ -9,6 +9,7 @@ import { useProductNoteEventIndex } from '../hooks/useProductNoteEventIndex';
 import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
+import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { formatAmount, formatPreciseAmount, shortId } from './DashboardFormat';
 import { ProductNoteCard, managerValidationForNote } from './DashboardProductNoteCard';
@@ -176,6 +177,7 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
           )}
         </section>
       )}
+      <AppFooter locale={locale} />
     </main>
   );
 }

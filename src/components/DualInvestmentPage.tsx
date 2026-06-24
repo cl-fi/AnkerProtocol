@@ -12,6 +12,7 @@ import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from 
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
 import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
+import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import {
   BuyLowControls,
@@ -234,6 +235,8 @@ export function DualInvestmentPage({
           locale={locale}
         />
       ) : null}
+
+      <AppFooter locale={locale} />
     </main>
   );
 }

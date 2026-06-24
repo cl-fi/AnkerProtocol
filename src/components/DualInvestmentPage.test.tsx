@@ -40,6 +40,8 @@ vi.mock('lucide-react', () => ({
   RefreshCw: () => <span data-testid="refresh-icon" />,
   ChevronDown: () => <span data-testid="chevron-icon" />,
   ShieldCheck: () => <span data-testid="shield-icon" />,
+  Github: () => <span data-testid="github-icon" />,
+  Send: () => <span data-testid="send-icon" />,
 }));
 
 vi.mock('../hooks/useMarketData', () => ({

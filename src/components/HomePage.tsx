@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import { buttonClassName } from '../ui';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { SocialLinks } from './SocialLinks';
 
 const DOCS_URL = 'https://docs.sui.io/onchain-finance/deepbook-predict/';
 const GITHUB_URL = 'https://github.com/cl-fi/AnkerProtocol';
@@ -131,6 +132,7 @@ export function HomePage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
             {copy.common.brand}
           </span>
           <p>{copy.landing.footerDescription}</p>
+          <SocialLinks locale={locale} variant="footer" />
         </div>
         <nav className="lp-foot-cols" aria-label={copy.landing.footerLabel}>
           <div>
