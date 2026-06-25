@@ -15,6 +15,7 @@ export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
 export const DEFAULT_PRINCIPAL = 5;
 export type DualInvestmentMode = 'buy-low';
+export type BinanceBenchmarkStatus = 'loading' | 'error' | 'ready';
 
 function formatEdge(value: number, locale: Locale) {
   const sign = value > 0 ? '+' : '';
@@ -163,6 +164,7 @@ export function ReferenceTable({
   market,
   rows,
   binanceProducts = [],
+  binanceStatus = 'ready',
   activeTargetPrice,
   isFetching,
   onSelect,
@@ -172,6 +174,7 @@ export function ReferenceTable({
   market?: OracleMarket;
   rows: DualInvestmentScanRow[];
   binanceProducts?: BinanceDualInvestmentProduct[];
+  binanceStatus?: BinanceBenchmarkStatus;
   activeTargetPrice: number;
   isFetching: boolean;
   onSelect: (input: DualInvestmentInput) => void;
@@ -186,6 +189,31 @@ export function ReferenceTable({
       onSelect(input);
     }
   };
+
+  function binanceAprDisplay(match: BinanceDualInvestmentProduct | undefined) {
+    if (binanceStatus === 'loading') return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.loading };
+    if (binanceStatus === 'error')
+      return { className: 'muted-cell benchmark-status is-error', label: copy.dualInvestment.binanceStatus.fetchError };
+    if (!match) return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noProduct };
+    if (match.apr === null)
+      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.aprUnavailable };
+    return { className: 'binance-apr', label: format.referenceApr(match.apr) };
+  }
+
+  function edgeDisplay(input: {
+    displayApr: number | null;
+    match: BinanceDualInvestmentProduct | undefined;
+  }) {
+    if (input.displayApr === null) return { className: 'muted-cell benchmark-status', label: '--' };
+    if (binanceStatus === 'loading') return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.waiting };
+    if (binanceStatus === 'error')
+      return { className: 'muted-cell benchmark-status is-error', label: copy.dualInvestment.binanceStatus.noBenchmark };
+    if (!input.match) return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noProduct };
+    if (input.match.apr === null)
+      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noApr };
+    const edge = input.displayApr - input.match.apr;
+    return { className: `edge-cell ${edge >= 0 ? 'positive' : ''}`, label: formatEdge(edge, locale) };
+  }
 
   return (
     <section className="di-reference" aria-label={copy.dualInvestment.aprReferenceLabel}>
@@ -220,8 +248,8 @@ export function ReferenceTable({
                     settlementTimeMs: market.expiryMs,
                   })
                 : undefined;
-              const edge =
-                displayMetrics.apr !== null && binanceMatch ? displayMetrics.apr - binanceMatch.apr : null;
+              const binanceApr = binanceAprDisplay(binanceMatch);
+              const edge = edgeDisplay({ displayApr: displayMetrics.apr, match: binanceMatch });
               const isActive = row.input.targetPrice === activeTargetPrice;
               return (
                 <tr
@@ -240,14 +268,14 @@ export function ReferenceTable({
                   <td className={displayMetrics.apr !== null ? 'apr-cell' : ''} data-label={copy.dualInvestment.estApr}>
                     {displayMetrics.apr !== null ? format.referenceApr(displayMetrics.apr) : '--'}
                   </td>
-                  <td className={binanceMatch ? 'binance-apr' : 'muted-cell'} data-label={copy.dualInvestment.binanceApr}>
-                    {binanceMatch ? format.referenceApr(binanceMatch.apr) : '--'}
+                  <td className={binanceApr.className} data-label={copy.dualInvestment.binanceApr}>
+                    {binanceApr.label}
                   </td>
                   <td
-                    className={edge !== null ? `edge-cell ${edge >= 0 ? 'positive' : ''}` : 'muted-cell'}
+                    className={edge.className}
                     data-label={copy.dualInvestment.edge}
                   >
-                    {edge !== null ? formatEdge(edge, locale) : '--'}
+                    {edge.label}
                   </td>
                 </tr>
               );

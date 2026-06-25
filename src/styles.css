@@ -1437,6 +1437,16 @@ a {
   color: #8a9a95;
 }
 
+.offer-table .benchmark-status {
+  font-size: 0.76rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.offer-table .benchmark-status.is-error {
+  color: var(--coral);
+}
+
 .offer-table .edge-cell {
   color: #df5b32;
 }

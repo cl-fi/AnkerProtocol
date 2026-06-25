@@ -44,6 +44,8 @@ export function DualInvestmentPage({
   const productOracles = marketQuery.data?.productOracles ?? [];
   const scanQuery = useDualInvestmentScan({ market, principal: DEFAULT_PRINCIPAL, enabled: true });
   const binanceQuery = useBinanceDualInvestment({ market, enabled: true });
+  const binanceStatus =
+    binanceQuery.isPending && !binanceQuery.data ? 'loading' : binanceQuery.isError ? 'error' : 'ready';
 
   const [principal, setPrincipal] = useState(DEFAULT_PRINCIPAL);
   const [targetPrice, setTargetPrice] = useState(0);
@@ -196,6 +198,7 @@ export function DualInvestmentPage({
             market={market}
             rows={scanQuery.data ?? []}
             binanceProducts={binanceQuery.data ?? []}
+            binanceStatus={binanceStatus}
             activeTargetPrice={targetPrice}
             isFetching={scanQuery.isFetching}
             onSelect={handleSelectPreset}

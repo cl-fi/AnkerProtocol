@@ -108,6 +108,15 @@ export const enCopy = {
     estApr: 'Est. APR',
     binanceApr: 'Binance APR',
     edge: 'Edge',
+    binanceStatus: {
+      loading: 'Loading',
+      fetchError: 'APR fetch failed',
+      noProduct: 'No product',
+      aprUnavailable: 'APR unavailable',
+      waiting: 'Waiting',
+      noBenchmark: 'No benchmark',
+      noApr: 'No APR',
+    },
     referenceFootnote:
       'Binance benchmark uses BTCUSDC Dual Investment, matched by target price and nearest settlement date. Anker APR is net after protocol fee and based on live DeepBook Predict quote preview.',
     estimate: 'Estimate',
@@ -383,6 +392,15 @@ export const zhCnCopy: AppCopy = {
     estApr: '预估 APR',
     binanceApr: 'Binance APR',
     edge: '优势',
+    binanceStatus: {
+      loading: '加载中',
+      fetchError: 'APR 获取失败',
+      noProduct: '无对应产品',
+      aprUnavailable: 'APR 不可用',
+      waiting: '等待数据',
+      noBenchmark: '无基准',
+      noApr: '无 APR',
+    },
     referenceFootnote:
       'Binance 基准使用 BTCUSDC 双币赢，按目标价格和最近结算日匹配。Anker APR 为扣除协议费后的净值，并基于实时 DeepBook Predict 报价预览。',
     estimate: '预估',

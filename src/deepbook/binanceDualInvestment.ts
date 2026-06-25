@@ -30,7 +30,7 @@ export interface BinanceDualInvestmentProduct {
   targetAsset: 'BTC' | string;
   strikePrice: number;
   settleTimeMs: number;
-  apr: number;
+  apr: number | null;
   durationDays: number;
   canPurchase: boolean;
 }
@@ -40,15 +40,20 @@ function toNumber(value: string | undefined) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function toPositiveNumberOrNull(value: string | undefined) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function parseProducts(rows: BinanceDualInvestmentApiRow[]) {
   return rows
     .map((row): BinanceDualInvestmentProduct | null => {
       const strikePrice = toNumber(row.strikePrice);
       const settleTimeMs = toNumber(row.settleTime);
-      const apr = toNumber(row.apr);
+      const apr = toPositiveNumberOrNull(row.apr);
       const durationDays = toNumber(row.duration);
 
-      if (!row.id || strikePrice <= 0 || settleTimeMs <= 0 || apr <= 0) {
+      if (!row.id || strikePrice <= 0 || settleTimeMs <= 0) {
         return null;
       }
 
@@ -154,7 +159,9 @@ export function findBinanceDualInvestmentMatch(input: {
     const bExact = b.settleTimeMs === input.settlementTimeMs;
     if (aExact !== bExact) return aExact ? -1 : 1;
     if (a.canPurchase !== b.canPurchase) return a.canPurchase ? -1 : 1;
-    return b.apr - a.apr;
+    const aApr = a.apr ?? -Infinity;
+    const bApr = b.apr ?? -Infinity;
+    return bApr - aApr;
   })[0];
 }
 

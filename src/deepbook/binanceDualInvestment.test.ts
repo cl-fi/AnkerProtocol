@@ -49,6 +49,29 @@ describe('findBinanceDualInvestmentMatch', () => {
     expect(match?.id).toBe('lower-open');
   });
 
+  it('keeps a matching product even when Binance does not expose APR', () => {
+    const match = findBinanceDualInvestmentMatch({
+      products: [{ ...baseProduct, id: 'missing-apr', apr: null }],
+      targetPrice: 71_000,
+      settlementTimeMs: Date.UTC(2026, 5, 12, 8),
+    });
+
+    expect(match).toMatchObject({ id: 'missing-apr', apr: null });
+  });
+
+  it('prefers a matching row with APR over one with missing APR', () => {
+    const match = findBinanceDualInvestmentMatch({
+      products: [
+        { ...baseProduct, id: 'missing-apr', apr: null },
+        { ...baseProduct, id: 'with-apr', apr: 0.4 },
+      ],
+      targetPrice: 71_000,
+      settlementTimeMs: Date.UTC(2026, 5, 12, 8),
+    });
+
+    expect(match?.id).toBe('with-apr');
+  });
+
   it('falls back to matching by UTC settlement date when exact timestamps differ', () => {
     const match = findBinanceDualInvestmentMatch({
       products: [
@@ -119,5 +142,38 @@ describe('fetchBinanceDualInvestmentProducts', () => {
         }),
       }),
     );
+  });
+
+  it('keeps products that match strike and settlement even when APR is missing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: '000000',
+        message: null,
+        data: {
+          total: '1',
+          list: [
+            {
+              id: 'binance-missing-apr',
+              investmentAsset: 'USDC',
+              targetAsset: 'BTC',
+              strikePrice: '64000.00000000',
+              settleTime: '1782115200000',
+              duration: '1',
+              canPurchase: true,
+            },
+          ],
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchBinanceDualInvestmentProducts({ pageSize: 1, maxPageCount: 1 })).resolves.toMatchObject([
+      {
+        id: 'binance-missing-apr',
+        strikePrice: 64_000,
+        apr: null,
+      },
+    ]);
   });
 });

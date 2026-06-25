@@ -272,6 +272,82 @@ describe('Dual Investment APR display', () => {
     expect(screen.getByText(/BTCUSDC Dual Investment/i)).toBeVisible();
   });
 
+  it('distinguishes missing Binance products from unavailable APR', () => {
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
+    const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
+    const rows: DualInvestmentScanRow[] = [
+      {
+        input: productInput,
+        quote: pageQuoteFixture({ market, productInput, coupon: 0.02 }),
+      },
+    ];
+
+    const { rerender } = render(
+      <ReferenceTable
+        market={market}
+        rows={rows}
+        activeTargetPrice={64_000}
+        isFetching={false}
+        onSelect={() => undefined}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    expect(screen.getAllByText('No product')).toHaveLength(2);
+
+    rerender(
+      <ReferenceTable
+        market={market}
+        rows={rows}
+        binanceProducts={[
+          {
+            id: 'binance-64000',
+            investmentAsset: 'USDC',
+            targetAsset: 'BTC',
+            strikePrice: 64_000,
+            settleTimeMs: Date.UTC(2026, 5, 22, 8),
+            apr: null,
+            durationDays: 1,
+            canPurchase: true,
+          },
+        ]}
+        activeTargetPrice={64_000}
+        isFetching={false}
+        onSelect={() => undefined}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('APR unavailable')).toBeVisible();
+    expect(screen.getByText('No APR')).toBeVisible();
+  });
+
+  it('surfaces Binance APR fetch failures in the reference table', () => {
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
+    const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
+    const rows: DualInvestmentScanRow[] = [
+      {
+        input: productInput,
+        quote: pageQuoteFixture({ market, productInput, coupon: 0.02 }),
+      },
+    ];
+
+    render(
+      <ReferenceTable
+        market={market}
+        rows={rows}
+        binanceStatus="error"
+        activeTargetPrice={64_000}
+        isFetching={false}
+        onSelect={() => undefined}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('APR fetch failed')).toBeVisible();
+    expect(screen.getByText('No benchmark')).toBeVisible();
+  });
+
   it('renders Chinese copy while keeping target prices in USD', () => {
     const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
     const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
