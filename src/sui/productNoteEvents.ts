@@ -17,7 +17,6 @@ export type ProductNoteEventIndexEntry = {
   managerId?: string;
   oracleId?: string;
   subscriptionDigest?: string;
-  positionsRedeemedDigest?: string;
   settlementDigest?: string;
   expiryMs?: bigint;
   principalBaseUnits?: bigint;

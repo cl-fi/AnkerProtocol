@@ -277,12 +277,6 @@ export function ProductNoteCard({
           ) : null}
           {isDual ? (
             <div>
-              <span>{copy.dashboard.card.redeemTx}</span>
-              <IndexedTransactionDigestValue digest={eventIndexEntry?.positionsRedeemedDigest} locale={locale} />
-            </div>
-          ) : null}
-          {isDual ? (
-            <div>
               <span>{copy.dashboard.card.settlementTx}</span>
               <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} locale={locale} />
             </div>
