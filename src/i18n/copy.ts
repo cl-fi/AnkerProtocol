@@ -83,6 +83,13 @@ export const enCopy = {
   appHeader: {
     productsLabel: 'Products',
   },
+  demo: {
+    bannerTitle: 'Demo data',
+    bannerBody:
+      'DeepBook Predict testnet is being redeployed — Anker is showing sample market data while we migrate. On-chain transactions are temporarily disabled.',
+    subscribeDisabled: 'Demo mode — subscriptions reopen once the DeepBook Predict migration completes.',
+    claimDisabled: 'Demo mode — claims reopen once the DeepBook Predict migration completes.',
+  },
   dualInvestment: {
     title: 'Dual Investment',
     subtitle: 'Enjoy high rewards — Buy Low, Sell High',
@@ -365,6 +372,12 @@ export const zhCnCopy: AppCopy = {
   },
   appHeader: {
     productsLabel: '产品',
+  },
+  demo: {
+    bannerTitle: '演示数据',
+    bannerBody: 'DeepBook Predict 测试网正在重新部署，迁移期间 Anker 展示演示行情数据，链上交易暂时停用。',
+    subscribeDisabled: '演示模式：DeepBook Predict 迁移完成后将重新开放认购。',
+    claimDisabled: '演示模式：DeepBook Predict 迁移完成后将重新开放领取。',
   },
   dualInvestment: {
     title: '双币赢',

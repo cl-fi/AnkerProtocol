@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildClaimDualInvestmentNoteTransaction,
   buildCreatePredictManagerTransaction,
@@ -324,5 +324,32 @@ describe('Anker transaction builders', () => {
       `${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`,
       'transferObjects',
     ]);
+  });
+
+  describe('demo mode', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('refuses to build any transaction plan while demo mode is enabled', () => {
+      vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'true');
+
+      expect(() => buildCreatePredictManagerTransaction({ config })).toThrow(/demo mode/i);
+      expect(() =>
+        buildRedeemDualInvestmentPositionsTransaction({
+          accountAddress: OWNER,
+          note: noteFixture(),
+          config,
+        }),
+      ).toThrow(/demo mode/i);
+      expect(() =>
+        buildClaimDualInvestmentNoteTransaction({
+          accountAddress: OWNER,
+          note: noteFixture(),
+          settlement: settlementFixture(),
+          config,
+        }),
+      ).toThrow(/demo mode/i);
+    });
   });
 });

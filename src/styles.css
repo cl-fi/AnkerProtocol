@@ -724,6 +724,33 @@ a {
   border-bottom-color: #cf8a22;
 }
 
+.demo-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 28px;
+  border-bottom: 1px solid var(--copper-line);
+  background: var(--gold-tint);
+  color: var(--navy);
+  font-size: 0.86rem;
+}
+
+.demo-banner svg {
+  flex-shrink: 0;
+  color: var(--gold-3);
+}
+
+.demo-banner p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+}
+
+.demo-banner strong {
+  font-weight: 900;
+}
+
 .mode-tabs {
   display: flex;
   gap: 8px;

@@ -120,4 +120,23 @@ describe('/api/predict proxy allowlist', () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('serves fixtures and an empty manager list in demo mode without fetching upstream', async () => {
+    const fetchMock = vi.fn();
+    vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'true');
+    vi.stubGlobal('fetch', fetchMock);
+
+    const status = await GET(new Request('http://localhost/api/predict/status'), {
+      params: { path: ['status'] },
+    });
+    const managers = await GET(new Request(`http://localhost/api/predict/managers?owner=0x${'a'.repeat(64)}`), {
+      params: { path: ['managers'] },
+    });
+
+    expect(status.status).toBe(200);
+    await expect(status.json()).resolves.toMatchObject({ status: 'OK' });
+    expect(managers.status).toBe(200);
+    await expect(managers.json()).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

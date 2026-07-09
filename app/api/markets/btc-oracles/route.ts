@@ -1,4 +1,4 @@
-import { isDeterministicE2E } from '../../../../src/config/runtimeModes';
+import { isFixtureDataMode } from '../../../../src/config/runtimeModes';
 import { deterministicCuratedBtcOracleResponse } from '../../../../src/server/deterministicPredictFixtures';
 import { buildCuratedBtcOracleResponse } from '../../../../src/server/curatedOracles';
 
@@ -15,7 +15,7 @@ function jsonWithCache(payload: unknown) {
 }
 
 export async function GET() {
-  if (isDeterministicE2E()) {
+  if (isFixtureDataMode()) {
     return jsonWithCache(deterministicCuratedBtcOracleResponse());
   }
 

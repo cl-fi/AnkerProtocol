@@ -2,6 +2,8 @@ import {
   fetchBinanceDualInvestmentProducts,
   type BinanceDualInvestmentProduct,
 } from '../../../../src/deepbook/binanceDualInvestment';
+import { isFixtureDataMode } from '../../../../src/config/runtimeModes';
+import { deterministicBinanceDualInvestmentProducts } from '../../../../src/server/deterministicPredictFixtures';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +30,14 @@ async function getCachedProducts() {
 }
 
 export async function GET() {
+  if (isFixtureDataMode()) {
+    return Response.json(deterministicBinanceDualInvestmentProducts(), {
+      headers: {
+        'cache-control': CACHE_CONTROL,
+      },
+    });
+  }
+
   try {
     return Response.json(await getCachedProducts(), {
       headers: {

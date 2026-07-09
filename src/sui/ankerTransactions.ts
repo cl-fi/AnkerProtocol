@@ -1,6 +1,7 @@
 import { coinWithBalance, Transaction } from '@mysten/sui/transactions';
 import { ANKER_PROTOCOL } from '../config/anker';
 import { DEEPBOOK_PREDICT, SUI_NETWORK } from '../config/deepbook';
+import { isDemoMode } from '../config/runtimeModes';
 import { assertQuoteEnvelope, type QuoteEnvelope } from '../products/quoteEnvelope';
 import type { SettlementResult } from '../products/settlement';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
@@ -70,9 +71,18 @@ export const DEFAULT_ANKER_CONFIG: AnkerProtocolConfig = {
   quoteAssetDecimals: DEEPBOOK_PREDICT.quoteAssetDecimals,
 };
 
+// Backstop for demo mode: the UI disables every transaction entry point, but no
+// transaction plan may be built even if a path is missed.
+function assertTransactionsEnabled() {
+  if (isDemoMode()) {
+    throw new Error('Demo mode: on-chain transactions are temporarily disabled.');
+  }
+}
+
 export function buildCreatePredictManagerTransaction(input: {
   config?: AnkerProtocolConfig;
 } = {}): CreateManagerTransactionPlan {
+  assertTransactionsEnabled();
   const config = input.config ?? DEFAULT_ANKER_CONFIG;
   const tx = new Transaction();
   const calls: string[] = [];
@@ -91,6 +101,7 @@ export function buildSubscribeDualInvestmentTransaction(input: {
   nowMs?: number;
   config?: AnkerProtocolConfig;
 }): SubscribeDualInvestmentTransactionPlan {
+  assertTransactionsEnabled();
   const config = input.config ?? DEFAULT_ANKER_CONFIG;
   assertDualInvestmentQuote(input.quote);
   assertQuoteMatchesConfig(input.quote, config);
@@ -207,6 +218,7 @@ export function buildRedeemDualInvestmentPositionsTransaction(input: {
   note: AnkerProductNoteRecord;
   config?: AnkerProtocolConfig;
 }): RedeemDualInvestmentTransactionPlan {
+  assertTransactionsEnabled();
   if (input.note.productType !== 'dual-investment') {
     throw new Error('Expected a Dual Investment product note.');
   }
@@ -245,6 +257,7 @@ export function buildClaimDualInvestmentNoteTransaction(input: {
   settlement: SettlementResult;
   config?: AnkerProtocolConfig;
 }): RedeemDualInvestmentTransactionPlan {
+  assertTransactionsEnabled();
   if (input.note.productType !== 'dual-investment') {
     throw new Error('Expected a Dual Investment product note.');
   }

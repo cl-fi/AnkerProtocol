@@ -194,6 +194,7 @@ export function DualInvestmentConfirm({
   subscribeQuote,
   isVerifying,
   error,
+  demoMode = false,
   locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
@@ -201,6 +202,7 @@ export function DualInvestmentConfirm({
   subscribeQuote: StructuredProductQuote | null;
   isVerifying: boolean;
   error?: string | null;
+  demoMode?: boolean;
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
@@ -241,15 +243,17 @@ export function DualInvestmentConfirm({
         </span>
       </div>
 
-      {subscribeQuote ? (
+      {subscribeQuote && !demoMode ? (
         <TargetBuyExecutionPanel quote={subscribeQuote} productInput={productInput} locale={locale} />
       ) : (
         <div className={error ? 'di-confirm-pending is-error' : 'di-confirm-pending'} aria-live="polite">
-          {error
-            ? error
-            : isVerifying
-              ? copy.dualInvestment.confirmingLiveQuote
-              : copy.dualInvestment.adjustForLiveQuote}
+          {demoMode
+            ? copy.demo.subscribeDisabled
+            : error
+              ? error
+              : isVerifying
+                ? copy.dualInvestment.confirmingLiveQuote
+                : copy.dualInvestment.adjustForLiveQuote}
         </div>
       )}
     </section>

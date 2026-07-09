@@ -1,5 +1,5 @@
 import { PREDICT_SERVER_URL } from '../../../../src/config/deepbook';
-import { isDeterministicE2E } from '../../../../src/config/runtimeModes';
+import { isFixtureDataMode } from '../../../../src/config/runtimeModes';
 import { deterministicPredictResponse } from '../../../../src/server/deterministicPredictFixtures';
 import { isAllowedPredictProxyPath } from './allowlist';
 
@@ -67,7 +67,7 @@ export async function GET(request: Request, { params }: { params: { path?: strin
     );
   }
 
-  if (isDeterministicE2E()) {
+  if (isFixtureDataMode()) {
     const fixture = deterministicPredictResponse(path);
     if (fixture) {
       return Response.json(fixture, {

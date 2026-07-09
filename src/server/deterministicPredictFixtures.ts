@@ -1,9 +1,11 @@
-import oracleStateFixture from '../test/fixtures/oracleState.json';
+// Demo dataset calibrated against a real pre-migration market snapshot
+// (BTC ≈ $61,297, ~19h expiry) so fixture-mode quotes look like live ones.
+import oracleStateFixture from '../test/fixtures/demoOracleState.json';
 import statusFixture from '../test/fixtures/status.json';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import type { CuratedOracleListItem, CuratedOracleMarketResponse } from './curatedOracles';
 
-const FIXTURE_EXPIRY_OFFSET_MS = 7 * 24 * 60 * 60_000;
+const FIXTURE_EXPIRY_OFFSET_MS = (19 * 60 + 7) * 60_000;
 
 function fixtureNowMs() {
   return Date.now();
@@ -83,11 +85,42 @@ function deterministicVaultSummary() {
 
 export function deterministicPredictResponse(path: string, nowMs = fixtureNowMs()): unknown | null {
   if (path === 'status') return deterministicStatus(nowMs);
+  // Wallet users resolve to the empty-manager state instead of hitting the dead upstream.
+  if (path === 'managers') return [];
   if (/^predicts\/0x[0-9a-fA-F]+\/oracles$/.test(path)) return deterministicOracleList(nowMs);
   if (/^predicts\/0x[0-9a-fA-F]+\/vault\/summary$/.test(path)) return deterministicVaultSummary();
   const oracleStateMatch = path.match(/^oracles\/(0x[0-9a-fA-F]+)\/state$/);
   if (oracleStateMatch) return deterministicOracleState(nowMs, oracleStateMatch[1]);
   return null;
+}
+
+// Benchmark column for the demo reference table — strikes on the same $500 grid as
+// the scan targets, APRs from the same pre-migration snapshot the SVI fixture mirrors.
+const DEMO_BINANCE_APR_BY_STRIKE: Array<[number, number]> = [
+  [61_000, 1.8366],
+  [60_500, 1.2336],
+  [60_000, 0.7866],
+  [59_500, 0.5679],
+  [59_000, 0.4137],
+  [58_500, 0.3216],
+  [58_000, 0.2506],
+  [57_500, 0.1904],
+];
+const NEXT_DAY_APR_RATIO = 0.6;
+
+export function deterministicBinanceDualInvestmentProducts(nowMs = fixtureNowMs()) {
+  return [0, 1].flatMap((dayIndex) =>
+    DEMO_BINANCE_APR_BY_STRIKE.map(([strikePrice, apr]) => ({
+      id: `demo-binance-${dayIndex}-${strikePrice}`,
+      investmentAsset: 'USDC',
+      targetAsset: 'BTC',
+      strikePrice,
+      settleTimeMs: fixtureExpiryMs(nowMs + dayIndex * 24 * 60 * 60_000),
+      apr: dayIndex === 0 ? apr : Number((apr * NEXT_DAY_APR_RATIO).toFixed(4)),
+      durationDays: dayIndex + 1,
+      canPurchase: true,
+    })),
+  );
 }
 
 export function deterministicCuratedBtcOracleResponse(nowMs = fixtureNowMs()): CuratedOracleMarketResponse {

@@ -1,7 +1,7 @@
 import { SuiJsonRpcClient, getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
 import { Transaction } from '@mysten/sui/transactions';
 import { DEEPBOOK_PREDICT, SUI_NETWORK } from '../config/deepbook';
-import { isDeterministicE2E } from '../config/runtimeModes';
+import { isFixtureDataMode } from '../config/runtimeModes';
 import type { LegIntent, LegQuote } from '../products/types';
 import { toChainPrice } from '../products/units';
 
@@ -250,5 +250,5 @@ export class BatchedLivePreviewQuoteProvider implements QuoteProvider {
 }
 
 export function createDefaultQuoteProvider(): QuoteProvider {
-  return isDeterministicE2E() ? new SnapshotQuoteProvider() : new BatchedLivePreviewQuoteProvider();
+  return isFixtureDataMode() ? new SnapshotQuoteProvider() : new BatchedLivePreviewQuoteProvider();
 }

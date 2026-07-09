@@ -90,4 +90,10 @@ describe('createDefaultQuoteProvider', () => {
 
     expect(createDefaultQuoteProvider()).toBeInstanceOf(SnapshotQuoteProvider);
   });
+
+  it('uses deterministic snapshot quotes in demo mode', () => {
+    vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'true');
+
+    expect(createDefaultQuoteProvider()).toBeInstanceOf(SnapshotQuoteProvider);
+  });
 });

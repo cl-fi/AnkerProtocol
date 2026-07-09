@@ -8,6 +8,7 @@ import {
 } from '../hooks/useDualInvestmentScan';
 import { useBinanceDualInvestment } from '../hooks/useBinanceDualInvestment';
 import { useMarketData } from '../hooks/useMarketData';
+import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
 import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
@@ -120,7 +121,9 @@ export function DualInvestmentPage({
   }, []);
 
   // Debounced verification whenever the inputs settle on a new combination.
+  // Demo mode stays on the local SVI estimate — there is no live deployment to verify against.
   useEffect(() => {
+    if (isDemoMode()) return undefined;
     if (!market || !effectiveInput || !currentKey || verifiedKey === currentKey) return undefined;
     const handle = window.setTimeout(() => {
       void runVerify(effectiveInput, currentKey, market);
@@ -226,6 +229,7 @@ export function DualInvestmentPage({
           subscribeQuote={subscribeQuote}
           isVerifying={isVerifying}
           error={verifyError}
+          demoMode={isDemoMode()}
           locale={locale}
         />
       ) : null}

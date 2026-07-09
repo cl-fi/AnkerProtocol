@@ -8,6 +8,7 @@ import {
   settlementEstimateForNote,
   settlementFromManagerBalance,
 } from '../application/settleProductNote';
+import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 import type { SettlementResult } from '../products/settlement';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
@@ -104,6 +105,7 @@ export function ClaimActionView({
   isPending,
   digest,
   error,
+  demoMode = false,
   locale = DEFAULT_LOCALE,
   onClaim,
 }: {
@@ -113,16 +115,19 @@ export function ClaimActionView({
   isPending: boolean;
   digest?: string | null;
   error?: string | null;
+  demoMode?: boolean;
   locale?: Locale;
   onClaim: () => void;
 }) {
   const copy = copyForLocale(locale);
   const action = claimActionViewModel({ note, nowMs, claimState, isPending, locale });
+  const canClaim = action.canClaim && !demoMode;
+  const demoBlocked = demoMode && action.canClaim;
   const estimate = redeemEstimateForClaimState(note, claimState);
   const claimed = note.status === 'redeemed';
   const amountLabel = claimed
     ? copy.dashboard.claim.youReceived
-    : action.canClaim
+    : canClaim
       ? copy.dashboard.claim.youllReceive
       : copy.dashboard.claim.projectedPayout;
 
@@ -140,12 +145,14 @@ export function ClaimActionView({
 
   // The status line only adds value once a position needs an action the buttons don't already
   // spell out — hide it for Active, Completed, and the one-click "Ready to claim" (claimable) case.
-  const showStatus = !claimed && nowMs >= note.expiryMs && action.lifecycle !== 'claimable';
+  // In demo mode a blocked claim needs the explanation the disabled button can't give.
+  const showStatus = demoBlocked || (!claimed && nowMs >= note.expiryMs && action.lifecycle !== 'claimable');
+  const statusText = demoBlocked ? copy.demo.claimDisabled : action.status;
 
   return (
     <div className="di-claim">
       <div className="di-claim-info">
-        {showStatus ? <span className="di-claim-status">{action.status}</span> : null}
+        {showStatus ? <span className="di-claim-status">{statusText}</span> : null}
         <span className="di-claim-label">{amountLabel}</span>
         {mode === 'btc' ? (
           <>
@@ -171,7 +178,7 @@ export function ClaimActionView({
           </>
         )}
       </div>
-      <Button variant="primary" className="di-claim-button" disabled={!action.canClaim} onClick={onClaim}>
+      <Button variant="primary" className="di-claim-button" disabled={!canClaim} onClick={onClaim}>
         {isPending ? copy.dashboard.claim.submitting : action.actionLabel}
       </Button>
       {digest ? (
@@ -213,7 +220,7 @@ export function ClaimAction({
   const [error, setError] = useState<string | null>(null);
 
   async function handleClaim() {
-    if (!account || note.productType !== 'dual-investment') return;
+    if (isDemoMode() || !account || note.productType !== 'dual-investment') return;
     if (claimState.path !== 'redeem-and-withdraw' && claimState.path !== 'withdraw-only') return;
     setIsPending(true);
     setDigest(null);
@@ -250,6 +257,7 @@ export function ClaimAction({
       isPending={isPending}
       digest={digest}
       error={error}
+      demoMode={isDemoMode()}
       locale={locale}
       onClaim={handleClaim}
     />
