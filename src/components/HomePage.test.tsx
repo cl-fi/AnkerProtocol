@@ -20,7 +20,7 @@ describe('HomePage', () => {
       'href',
       'https://github.com/cl-fi/AnkerProtocol',
     );
-    expect(screen.getByRole('link', { name: 'Telegram' })).toHaveAttribute('href', 'https://t.me/cl_dev');
+    expect(screen.getByRole('link', { name: 'Telegram' })).toHaveAttribute('href', 'https://t.me/+vCpWOfrt2I9jZWRl');
   });
 
   it('renders Chinese landing copy with localized app links', () => {

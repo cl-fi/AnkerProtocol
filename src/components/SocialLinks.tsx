@@ -17,7 +17,7 @@ const SOCIAL_LINKS = [
   {
     key: 'telegram',
     label: 'Telegram',
-    href: 'https://t.me/cl_dev',
+    href: 'https://t.me/+vCpWOfrt2I9jZWRl',
     icon: <Send size={17} aria-hidden="true" />,
   },
 ] as const;
