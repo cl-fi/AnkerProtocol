@@ -6,7 +6,9 @@ export default defineConfig({
     // Dedicated port so e2e never reuses a developer's plain `next dev` on 3000,
     // which lacks the deterministic-fixture env and fails against dead upstreams.
     command: 'ANKER_DETERMINISTIC_E2E=true NEXT_PUBLIC_ANKER_DETERMINISTIC_E2E=true npm run dev -- --port 4123',
-    url: 'http://127.0.0.1:4123',
+    // Ready only after /en/app compiles — CI was flaking on the landing→app click
+    // while Next cold-compiled that route under parallel workers.
+    url: 'http://127.0.0.1:4123/en/app',
     reuseExistingServer: !process.env.CI,
   },
   use: {

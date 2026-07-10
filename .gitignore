@@ -22,3 +22,5 @@ docs/presentation/
 .design-sync/node_modules
 .ds-sync/
 ds-bundle/
+.vercel
+.env*

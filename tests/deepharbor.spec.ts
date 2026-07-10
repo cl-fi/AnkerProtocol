@@ -31,8 +31,14 @@ test('landing page launches the Dual Investment workspace', async ({ page }) => 
   await expect(hero.getByRole('heading', { name: 'Drop anchor on your yield.' })).toBeVisible();
   await expect(hero.getByText('DeepBook Predict prices volatility on-chain.')).toBeVisible();
 
-  await page.locator('header').getByRole('link', { name: 'Launch app' }).click();
-  await expect(page).toHaveURL(/\/app$/);
+  // Prefer the header CTA class so we don't race LanguageSwitcher links, and allow
+  // a long URL wait — CI cold-compiles /en/app under parallel workers.
+  const launch = page.locator('header a.landing-launch');
+  await expect(launch).toHaveAttribute('href', '/en/app');
+  await Promise.all([
+    page.waitForURL(/\/en\/app\/?$/, { timeout: 30_000 }),
+    launch.click(),
+  ]);
   await expectDualInvestmentWorkspace(page);
 });
 
