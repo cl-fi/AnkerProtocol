@@ -1,24 +1,20 @@
-'use client';
-
-import { useQuery } from '@tanstack/react-query';
 import type { PredictManagerState } from '../sui/predictManagerState';
 
-async function fetchPredictManagerState(managerId: string): Promise<PredictManagerState> {
-  const response = await fetch(`/api/predict/manager-state?managerId=${encodeURIComponent(managerId)}`, {
-    cache: 'no-store',
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.error ?? `Predict manager state request failed: ${response.status}`);
-  }
-  return payload as PredictManagerState;
-}
-
-export function usePredictManagerState(managerId?: string) {
-  return useQuery({
-    queryKey: ['predict-manager-state', managerId],
-    enabled: Boolean(managerId),
-    queryFn: () => fetchPredictManagerState(managerId!),
-    refetchInterval: 10_000,
-  });
+/**
+ * Manager-state JSON-RPC route was removed with the 6-24 migration.
+ * Claim/custody moves to AccountWrapper in later tickets; this hook stays as a
+ * disabled stub so portfolio UI can keep compiling against the old claim helpers.
+ */
+export function usePredictManagerState(_managerId?: string): {
+  data: PredictManagerState | undefined;
+  isPending: boolean;
+  isError: boolean;
+  error: null;
+} {
+  return {
+    data: undefined,
+    isPending: false,
+    isError: false,
+    error: null,
+  };
 }

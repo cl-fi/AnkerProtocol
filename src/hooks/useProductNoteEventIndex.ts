@@ -1,6 +1,4 @@
-import { SuiJsonRpcClient, getJsonRpcFullnodeUrl, type EventId } from '@mysten/sui/jsonRpc';
 import { useQuery } from '@tanstack/react-query';
-import { SUI_NETWORK } from '../config/deepbook';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import {
   buildProductNoteEventIndex,
@@ -13,16 +11,18 @@ const PRODUCT_NOTE_EVENT_LIMIT = 100;
 type ProductNoteEventClient = {
   queryEvents(input: {
     query: { MoveEventType: string };
-    cursor?: EventId | null;
+    cursor?: unknown;
     order?: 'ascending' | 'descending';
     limit?: number;
-  }): Promise<{ data?: unknown[]; hasNextPage?: boolean; nextCursor?: EventId | null }>;
+  }): Promise<{ data?: unknown[]; hasNextPage?: boolean; nextCursor?: unknown }>;
 };
 
-const productNoteEventClient = new SuiJsonRpcClient({
-  network: SUI_NETWORK,
-  url: getJsonRpcFullnodeUrl(SUI_NETWORK),
-});
+/** Empty client — JSON-RPC event indexing was removed (D7); GraphQL path is #9. */
+const disabledProductNoteEventClient: ProductNoteEventClient = {
+  async queryEvents() {
+    return { data: [], hasNextPage: false, nextCursor: null };
+  },
+};
 
 function configuredPackageId(packageId: string) {
   return packageId.length > 0 && packageId !== '0x0';
@@ -62,7 +62,7 @@ export async function fetchProductNoteEventIndex(
   const eventsByType = await Promise.all(
     productNoteEventTypes(packageId).map(async (MoveEventType) => {
       const events: unknown[] = [];
-      let cursor: EventId | null | undefined;
+      let cursor: unknown;
 
       do {
         const page = await client.queryEvents({
@@ -85,13 +85,14 @@ export async function fetchProductNoteEventIndex(
 export function useProductNoteEventIndex(
   noteIds: readonly string[] | undefined,
   packageId = DEFAULT_ANKER_CONFIG.packageId,
-  client: ProductNoteEventClient = productNoteEventClient,
+  client: ProductNoteEventClient = disabledProductNoteEventClient,
 ) {
   const sortedNoteIds = [...(noteIds ?? [])].sort();
 
   return useQuery({
     queryKey: ['product-note-event-index', packageId, sortedNoteIds],
-    queryFn: async () => filterProductNoteEventIndex(await fetchProductNoteEventIndex(client, packageId), sortedNoteIds),
+    queryFn: async () =>
+      filterProductNoteEventIndex(await fetchProductNoteEventIndex(client, packageId), sortedNoteIds),
     enabled: configuredPackageId(packageId) && sortedNoteIds.length > 0,
     staleTime: 30_000,
     refetchInterval: 60_000,

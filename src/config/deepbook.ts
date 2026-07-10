@@ -1,4 +1,4 @@
-export const PREDICT_SERVER_URL = 'https://predict-server.testnet.mystenlabs.com';
+import { PREDICT_DEPLOYMENT, turboCadence } from './predictDeployment';
 
 export type ProtocolNetwork = 'testnet';
 
@@ -9,23 +9,31 @@ export function resolveProtocolNetwork(network = process.env.NEXT_PUBLIC_SUI_NET
   return 'testnet';
 }
 
+export const PREDICT_SERVER_URL = PREDICT_DEPLOYMENT.endpoints.predictServerUrl;
+export const PROPBOOK_SERVER_URL = PREDICT_DEPLOYMENT.endpoints.propbookServerUrl;
+export const SUI_GRPC_URL = PREDICT_DEPLOYMENT.endpoints.grpcUrl;
+export const SUI_GRAPHQL_URL = PREDICT_DEPLOYMENT.endpoints.graphqlUrl;
+
 export const DEEPBOOK_PREDICT = {
-  packageId:
-    process.env.NEXT_PUBLIC_DEEPBOOK_PREDICT_PACKAGE_ID ??
-    '0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138',
-  predictObjectId:
-    process.env.NEXT_PUBLIC_DEEPBOOK_PREDICT_OBJECT_ID ??
-    '0xc8736204d12f0a7277c86388a68bf8a194b0a14c5538ad13f22cbd8e2a38028a',
-  quoteAssetType:
-    '0xe95040085976bfd54a1a07225cd46c8a2b4e8e2b6732f140a0fc49850ba73e1a::dusdc::DUSDC',
-  quoteAssetDecimals: 6,
-  baseSpread: 0.02,
-  minSpread: 0.005,
-  utilizationMultiplier: 2,
-  minAskPrice: 0.01,
-  maxAskPrice: 0.99,
-  underlyingAsset: 'BTC',
+  packageId: PREDICT_DEPLOYMENT.packages.predict,
+  accountPackageId: PREDICT_DEPLOYMENT.packages.account,
+  propbookPackageId: PREDICT_DEPLOYMENT.packages.propbook,
+  protocolConfigId: PREDICT_DEPLOYMENT.sharedObjects.protocolConfig,
+  poolVaultId: PREDICT_DEPLOYMENT.sharedObjects.poolVault,
+  predictRegistryId: PREDICT_DEPLOYMENT.sharedObjects.predictRegistry,
+  oracleRegistryId: PREDICT_DEPLOYMENT.sharedObjects.oracleRegistry,
+  accountRegistryId: PREDICT_DEPLOYMENT.sharedObjects.accountRegistry,
+  accumulatorRoot: PREDICT_DEPLOYMENT.accumulatorRoot,
+  feeds: PREDICT_DEPLOYMENT.feeds,
+  turboCadence: turboCadence(PREDICT_DEPLOYMENT),
+  quoteAssetType: PREDICT_DEPLOYMENT.quoteAssetType,
+  quoteAssetDecimals: PREDICT_DEPLOYMENT.quoteAssetDecimals,
+  baseSpread: PREDICT_DEPLOYMENT.pricing.baseSpread,
+  minSpread: PREDICT_DEPLOYMENT.pricing.minSpread,
+  utilizationMultiplier: PREDICT_DEPLOYMENT.pricing.utilizationMultiplier,
+  minAskPrice: PREDICT_DEPLOYMENT.pricing.minAskPrice,
+  maxAskPrice: PREDICT_DEPLOYMENT.pricing.maxAskPrice,
+  underlyingAsset: PREDICT_DEPLOYMENT.underlyingAsset,
 } as const;
 
-export const TESTNET_GRPC_URL = 'https://fullnode.testnet.sui.io:443';
 export const SUI_NETWORK = resolveProtocolNetwork();

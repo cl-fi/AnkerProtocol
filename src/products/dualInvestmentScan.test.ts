@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
-import { parseOracleState } from '../deepbook/predictServer';
-import oracleFixture from '../test/fixtures/oracleState.json';
+import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
 import { buildDualInvestmentScanInputs, scanQuoteDisplayMetrics } from './dualInvestmentScan';
 
 describe('buildDualInvestmentScanInputs', () => {
@@ -41,7 +40,7 @@ describe('buildDualInvestmentScanInputs', () => {
   });
 
   it('uses oracle SVI to avoid a too-deep default floor when pricing parameters are available', () => {
-    const market = parseOracleState(oracleFixture, { serverLagSeconds: 1 });
+    const market = oracleMarketFromFixture();
     const [row] = buildDualInvestmentScanInputs({
       market,
       principal: 1_000,

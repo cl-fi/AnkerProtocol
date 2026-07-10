@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import oracleFixture from '../test/fixtures/oracleState.json';
-import { parseOracleState } from '../deepbook/predictServer';
+import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
 import {
   DEFAULT_MIN_PREDICT_ASK,
   estimateBinaryUpAskPrice,
@@ -11,7 +10,7 @@ import {
 import type { OracleMarket } from './types';
 
 function marketFixture(): OracleMarket {
-  return parseOracleState(oracleFixture, { serverLagSeconds: 1 });
+  return oracleMarketFromFixture();
 }
 
 describe('estimateBinaryUpFairPrice', () => {

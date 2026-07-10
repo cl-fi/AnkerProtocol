@@ -445,26 +445,26 @@ describe('OracleLastUpdateValue', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string | URL | Request) => {
-        expect(String(url)).toBe('/api/predict/oracles/0xoracle/state');
-        return rpcResponse({
-          oracle: {
-            predict_id: '0xpredict',
-            oracle_id: '0xoracle',
-            underlying_asset: 'BTC',
-            expiry: 1_781_683_200_000,
-            min_strike: 50_000_000_000_000,
-            tick_size: 1_000_000_000,
-            status: 'active',
-          },
-          latest_price: {
-            spot: '65000000000000',
-            forward: '65100000000000',
-            onchain_timestamp: Date.UTC(2026, 5, 1, 1, 2, 0),
-          },
-          latest_svi: {
-            onchain_timestamp: Date.UTC(2026, 5, 1, 1, 1, 0),
-          },
-        });
+        const href = String(url);
+        if (href === '/api/predict/markets/0xoracle/state') {
+          return rpcResponse({
+            expiry_market_id: '0xoracle',
+            market: {
+              expiry_market_id: '0xoracle',
+              expiry: 1_781_683_200_000,
+              tick_size: '10000000',
+              admission_tick_size: '1000000000',
+              pool_vault_id: '0xvault',
+            },
+          });
+        }
+        if (href.includes('/api/propbook/oracles/') && href.endsWith('/pyth/latest')) {
+          return rpcResponse({
+            normalized_spot: '65000000000000',
+            update_timestamp_ms: Date.UTC(2026, 5, 1, 1, 2, 0),
+          });
+        }
+        throw new Error(`Unexpected fetch: ${href}`);
       }),
     );
 

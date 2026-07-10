@@ -60,7 +60,7 @@ export function assertDualInvestmentQuote(quote: StructuredProductQuote) {
 }
 
 export function assertQuoteMatchesConfig(quote: StructuredProductQuote, config: AnkerProtocolConfig) {
-  if (quote.oracle.predictId.toLowerCase() !== config.predictObjectId.toLowerCase()) {
+  if (quote.oracle.predictId.toLowerCase() !== config.poolVaultId.toLowerCase()) {
     throw new Error('Quote Predict object does not match configured Predict object.');
   }
 }
@@ -151,7 +151,7 @@ export function addRedeemDualInvestmentPositionCommands(input: {
   config: AnkerProtocolConfig;
 }) {
   const manager = input.tx.object(input.managerId);
-  const predict = input.tx.object(input.config.predictObjectId);
+  const predict = input.tx.object(input.config.poolVaultId);
   const oracle = input.tx.object(input.oracleId);
 
   input.legs.forEach((leg, index) => {

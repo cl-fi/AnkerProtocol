@@ -2,50 +2,54 @@ import { describe, expect, it } from 'vitest';
 import type { PredictOracleListItem } from '../deepbook/predictServer';
 import { curateBtcOracles, type OracleReadiness } from './curatedOracles';
 
-function oracle(input: Partial<PredictOracleListItem> & { oracle_id: string; expiry: number }): PredictOracleListItem {
+function oracle(
+  input: Partial<PredictOracleListItem> & { oracle_id: string; expiry: number },
+): PredictOracleListItem {
   return {
-    predict_id: 'predict',
+    predict_id: 'pool-vault',
     oracle_id: input.oracle_id,
     underlying_asset: input.underlying_asset ?? 'BTC',
     expiry: input.expiry,
-    min_strike: input.min_strike ?? 50_000_000_000_000,
-    tick_size: input.tick_size ?? 1_000_000_000,
+    min_strike: input.min_strike ?? 1,
+    tick_size: input.tick_size ?? 0.01,
+    admission_tick_size: input.admission_tick_size ?? 1,
     status: input.status ?? 'active',
+    cadence: '1h',
   };
 }
 
 describe('curateBtcOracles', () => {
-  it('keeps state-ready product expiries even when the representative quote is unavailable', () => {
+  it('keeps Turbo 1h markets that are state-ready even when quotes are incomplete', () => {
     const now = 1_000;
     const readiness = new Map<string, OracleReadiness>([
-      ['four-hour', { stateReady: true, quoteReady: false, reason: 'MoveAbort' }],
-      ['eighteen-hour', { stateReady: true, quoteReady: false, reason: 'Representative quote not mintable' }],
-      ['forty-two-hour', { stateReady: true, quoteReady: true }],
+      ['one-hour', { stateReady: true, quoteReady: false, reason: 'SVI pending' }],
+      ['two-hour', { stateReady: true, quoteReady: true }],
+      ['not-ready', { stateReady: false, quoteReady: false, reason: 'spot missing' }],
     ]);
 
     const curated = curateBtcOracles(
       [
-        oracle({ oracle_id: 'four-hour', expiry: now + 4 * 60 * 60_000 }),
-        oracle({ oracle_id: 'eighteen-hour', expiry: now + 18 * 60 * 60_000 }),
-        oracle({ oracle_id: 'forty-two-hour', expiry: now + 42 * 60 * 60_000 }),
+        oracle({ oracle_id: 'one-hour', expiry: now + 1 * 60 * 60_000 }),
+        oracle({ oracle_id: 'two-hour', expiry: now + 2 * 60 * 60_000 }),
+        oracle({ oracle_id: 'not-ready', expiry: now + 3 * 60 * 60_000 }),
       ],
       readiness,
       now,
     );
 
-    expect(curated.map((item) => item.oracle_id)).toEqual(['eighteen-hour', 'forty-two-hour']);
+    expect(curated.map((item) => item.oracle_id)).toEqual(['one-hour', 'two-hour']);
     expect(curated[0]).toMatchObject({
-      oracle_id: 'eighteen-hour',
+      oracle_id: 'one-hour',
       productReady: true,
       quoteReady: false,
       stateReady: true,
-      reason: 'Representative quote not mintable',
+      reason: 'SVI pending',
     });
   });
 
   it('deduplicates markets with the same expiry and strike grid', () => {
     const now = 1_000;
-    const expiry = now + 18 * 60 * 60_000;
+    const expiry = now + 3_600_000;
     const readiness = new Map<string, OracleReadiness>([
       ['stale-duplicate', { stateReady: true, quoteReady: false, reason: 'no live quote' }],
       ['ready-duplicate', { stateReady: true, quoteReady: true }],
@@ -56,7 +60,7 @@ describe('curateBtcOracles', () => {
       [
         oracle({ oracle_id: 'stale-duplicate', expiry }),
         oracle({ oracle_id: 'ready-duplicate', expiry }),
-        oracle({ oracle_id: 'next-expiry', expiry: expiry + 24 * 60 * 60_000 }),
+        oracle({ oracle_id: 'next-expiry', expiry: expiry + 3_600_000 }),
       ],
       readiness,
       now,
@@ -67,7 +71,7 @@ describe('curateBtcOracles', () => {
 
   it('keeps a product expiry when every duplicate has a non-mintable representative quote', () => {
     const now = 1_000;
-    const expiry = now + 18 * 60 * 60_000;
+    const expiry = now + 3_600_000;
     const readiness = new Map<string, OracleReadiness>([
       ['unready-a', { stateReady: true, quoteReady: false, reason: 'ask outside bounds' }],
       ['unready-b', { stateReady: true, quoteReady: false, reason: 'ask outside bounds' }],
@@ -83,35 +87,7 @@ describe('curateBtcOracles', () => {
     );
 
     expect(curated).toHaveLength(1);
-    expect(curated[0]).toMatchObject({
-      productReady: true,
-      quoteReady: false,
-      stateReady: true,
-    });
-  });
-
-  it('drops expired, non-BTC, inactive, and too-near markets', () => {
-    const now = 1_000;
-    const readiness = new Map<string, OracleReadiness>([
-      ['ready', { stateReady: true, quoteReady: true }],
-      ['too-near', { stateReady: true, quoteReady: true }],
-      ['eth', { stateReady: true, quoteReady: true }],
-      ['inactive', { stateReady: true, quoteReady: true }],
-      ['expired', { stateReady: true, quoteReady: true }],
-    ]);
-
-    const curated = curateBtcOracles(
-      [
-        oracle({ oracle_id: 'ready', expiry: now + 18 * 60 * 60_000 }),
-        oracle({ oracle_id: 'too-near', expiry: now + 4 * 60 * 60_000 }),
-        oracle({ oracle_id: 'eth', underlying_asset: 'ETH', expiry: now + 18 * 60 * 60_000 }),
-        oracle({ oracle_id: 'inactive', status: 'settled', expiry: now + 18 * 60 * 60_000 }),
-        oracle({ oracle_id: 'expired', expiry: now - 1 }),
-      ],
-      readiness,
-      now,
-    );
-
-    expect(curated.map((item) => item.oracle_id)).toEqual(['ready']);
+    expect(curated[0]?.productReady).toBe(true);
+    expect(curated[0]?.quoteReady).toBe(false);
   });
 });

@@ -1,101 +1,90 @@
-// Demo dataset calibrated against a real pre-migration market snapshot
-// (BTC ≈ $61,297, ~19h expiry) so fixture-mode quotes look like live ones.
-import oracleStateFixture from '../test/fixtures/demoOracleState.json';
-import statusFixture from '../test/fixtures/status.json';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import type { CuratedOracleListItem, CuratedOracleMarketResponse } from './curatedOracles';
 
-const FIXTURE_EXPIRY_OFFSET_MS = (19 * 60 + 7) * 60_000;
+const HOUR_MS = 60 * 60_000;
 
 function fixtureNowMs() {
   return Date.now();
 }
 
-function fixtureExpiryMs(nowMs: number) {
-  return nowMs + FIXTURE_EXPIRY_OFFSET_MS;
-}
-
-function deterministicOracleId(index: number) {
-  if (index === 0) return oracleStateFixture.oracle.oracle_id;
-  return `0xb46fdd7aee8b5b729358a254a74ec4eb59c2a07ca8878cc77df09b843bae6c${index}`;
+function turboMarketId(index: number) {
+  return `0xb46fdd7aee8b5b729358a254a74ec4eb59c2a07ca8878cc77df09b843bae6c3${index}`;
 }
 
 function deterministicStatus(nowMs = fixtureNowMs()) {
   return {
-    ...statusFixture,
+    status: 'OK',
+    latest_onchain_checkpoint: 358_000_000,
     current_time_ms: nowMs,
+    earliest_checkpoint: 358_000_000,
+    max_lag_pipeline: '',
+    max_checkpoint_lag: 1,
+    max_time_lag_seconds: 1,
+    pipelines: [],
   };
 }
 
-function deterministicOracleState(nowMs = fixtureNowMs(), oracleId = oracleStateFixture.oracle.oracle_id) {
-  const expiry = fixtureExpiryMs(nowMs);
+function deterministicMarketRow(nowMs: number, index: number) {
+  const expiry = nowMs + (index + 1) * HOUR_MS;
   return {
-    ...oracleStateFixture,
-    oracle: {
-      ...oracleStateFixture.oracle,
-      oracle_id: oracleId,
-      expiry,
-      status: 'active',
-    },
-    latest_price: {
-      ...oracleStateFixture.latest_price,
-      onchain_timestamp: nowMs - 60_000,
-    },
-    latest_svi: {
-      ...oracleStateFixture.latest_svi,
-      onchain_timestamp: nowMs - 60_000,
-    },
+    expiry_market_id: turboMarketId(index),
+    expiry,
+    tick_size: DEEPBOOK_PREDICT.turboCadence.tickSize,
+    admission_tick_size: DEEPBOOK_PREDICT.turboCadence.admissionTickSize,
+    max_expiry_allocation: DEEPBOOK_PREDICT.turboCadence.maxExpiryAllocation,
+    initial_expiry_cash: DEEPBOOK_PREDICT.turboCadence.initialExpiryCash,
+    package: DEEPBOOK_PREDICT.packageId,
+    pool_vault_id: DEEPBOOK_PREDICT.poolVaultId,
+    propbook_underlying_id: DEEPBOOK_PREDICT.feeds.propbookUnderlyingId,
+    base_fee: '20000000',
+    min_fee: '5000000',
+    min_entry_probability: '10000000',
+    max_entry_probability: '990000000',
+    checkpoint_timestamp_ms: nowMs,
+    kind: 'market_created',
+  };
+}
+
+function deterministicMarketState(nowMs: number, expiryMarketId: string) {
+  const index = Math.max(
+    0,
+    [0, 1, 2].find((value) => turboMarketId(value) === expiryMarketId) ?? 0,
+  );
+  const market = deterministicMarketRow(nowMs, index);
+  return {
+    expiry_market_id: market.expiry_market_id,
+    market,
+    reference_tick: null,
+    mint_paused: null,
+    settlement: null,
   };
 }
 
 function deterministicOracleList(nowMs = fixtureNowMs()) {
-  return [0, 1].map((index) => {
-    const oracleState = deterministicOracleState(
-      nowMs + index * 24 * 60 * 60_000,
-      deterministicOracleId(index),
-    ).oracle;
+  return [0, 1, 2].map((index) => {
+    const market = deterministicMarketRow(nowMs, index);
     return {
-      predict_id: DEEPBOOK_PREDICT.predictObjectId,
-      oracle_id: oracleState.oracle_id,
-      underlying_asset: oracleState.underlying_asset,
-      expiry: oracleState.expiry,
-      min_strike: oracleState.min_strike,
-      tick_size: oracleState.tick_size,
-      status: oracleState.status,
+      predict_id: DEEPBOOK_PREDICT.poolVaultId,
+      oracle_id: market.expiry_market_id,
+      underlying_asset: 'BTC',
+      expiry: market.expiry,
+      min_strike: Number(DEEPBOOK_PREDICT.turboCadence.admissionTickSize) / 1_000_000_000,
+      tick_size: Number(DEEPBOOK_PREDICT.turboCadence.tickSize) / 1_000_000_000,
+      admission_tick_size: Number(DEEPBOOK_PREDICT.turboCadence.admissionTickSize) / 1_000_000_000,
+      status: 'active',
+      cadence: '1h' as const,
     };
   });
 }
 
-function deterministicVaultSummary() {
-  return {
-    predict_id: DEEPBOOK_PREDICT.predictObjectId,
-    quote_assets: [DEEPBOOK_PREDICT.quoteAssetType.replace(/^0x/, '')],
-    vault_balance: 1_000_000_000,
-    vault_value: 750_000_000,
-    total_mtm: 250_000_000,
-    total_max_payout: 300_000_000,
-    available_liquidity: 700_000_000,
-    available_withdrawal: 700_000_000,
-    plp_total_supply: 750_000_000,
-    plp_share_price: 1,
-    utilization: 0.25,
-    max_payout_utilization: 0.3,
-  };
-}
-
 export function deterministicPredictResponse(path: string, nowMs = fixtureNowMs()): unknown | null {
   if (path === 'status') return deterministicStatus(nowMs);
-  // Wallet users resolve to the empty-manager state instead of hitting the dead upstream.
-  if (path === 'managers') return [];
-  if (/^predicts\/0x[0-9a-fA-F]+\/oracles$/.test(path)) return deterministicOracleList(nowMs);
-  if (/^predicts\/0x[0-9a-fA-F]+\/vault\/summary$/.test(path)) return deterministicVaultSummary();
-  const oracleStateMatch = path.match(/^oracles\/(0x[0-9a-fA-F]+)\/state$/);
-  if (oracleStateMatch) return deterministicOracleState(nowMs, oracleStateMatch[1]);
+  if (path === 'markets') return [0, 1, 2].map((index) => deterministicMarketRow(nowMs, index));
+  const marketStateMatch = path.match(/^markets\/(0x[0-9a-fA-F]+)\/state$/);
+  if (marketStateMatch) return deterministicMarketState(nowMs, marketStateMatch[1]);
   return null;
 }
 
-// Benchmark column for the demo reference table — strikes on the same $500 grid as
-// the scan targets, APRs from the same pre-migration snapshot the SVI fixture mirrors.
 const DEMO_BINANCE_APR_BY_STRIKE: Array<[number, number]> = [
   [61_000, 1.8366],
   [60_500, 1.2336],
@@ -115,7 +104,7 @@ export function deterministicBinanceDualInvestmentProducts(nowMs = fixtureNowMs(
       investmentAsset: 'USDC',
       targetAsset: 'BTC',
       strikePrice,
-      settleTimeMs: fixtureExpiryMs(nowMs + dayIndex * 24 * 60 * 60_000),
+      settleTimeMs: nowMs + (dayIndex + 1) * 24 * HOUR_MS,
       apr: dayIndex === 0 ? apr : Number((apr * NEXT_DAY_APR_RATIO).toFixed(4)),
       durationDays: dayIndex + 1,
       canPurchase: true,
@@ -126,12 +115,15 @@ export function deterministicBinanceDualInvestmentProducts(nowMs = fixtureNowMs(
 export function deterministicCuratedBtcOracleResponse(nowMs = fixtureNowMs()): CuratedOracleMarketResponse {
   return {
     generatedAt: nowMs,
-    oracles: deterministicOracleList(nowMs).map((oracle) => ({
-        ...oracle,
-        stateReady: true,
-        quoteReady: true,
-        productReady: true,
-        timeToExpiryMs: oracle.expiry - nowMs,
-      }) as CuratedOracleListItem),
+    oracles: deterministicOracleList(nowMs).map(
+      (oracle) =>
+        ({
+          ...oracle,
+          stateReady: true,
+          quoteReady: true,
+          productReady: true,
+          timeToExpiryMs: oracle.expiry - nowMs,
+        }) as CuratedOracleListItem,
+    ),
   };
 }

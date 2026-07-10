@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PredictManagerSummary } from '../deepbook/predictManagers';
+import type { CustodyAccountRef } from './subscribeDualInvestment';
 import type { QuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
@@ -27,7 +27,7 @@ const config: AnkerProtocolConfig = {
   packageId: ANKER_PACKAGE_ID,
   registryId: ANKER_REGISTRY_ID,
   predictPackageId: PREDICT_PACKAGE_ID,
-  predictObjectId: PREDICT_OBJECT_ID,
+  poolVaultId: PREDICT_OBJECT_ID,
   quoteAssetType: DUSDC,
   quoteAssetDecimals: 6,
 };
@@ -104,13 +104,13 @@ const productInput: DualInvestmentInput = {
 
 describe('selectUnallocatedPredictManager', () => {
   it('selects the first manager not already referenced by an owned note', () => {
-    const managers: PredictManagerSummary[] = [{ managerId: USED_MANAGER_ID }, { managerId: MANAGER_ID }];
+    const managers: CustodyAccountRef[] = [{ managerId: USED_MANAGER_ID }, { managerId: MANAGER_ID }];
 
     expect(selectUnallocatedPredictManager(managers, [noteFixture()])).toEqual({ managerId: MANAGER_ID });
   });
 
   it('ignores unallocated managers that belong to another owner', () => {
-    const managers: PredictManagerSummary[] = [
+    const managers: CustodyAccountRef[] = [
       { managerId: USED_MANAGER_ID, owner: OWNER },
       { managerId: MANAGER_ID, owner: `0x${'9'.repeat(64)}` },
     ];

@@ -1,12 +1,14 @@
-import { DEEPBOOK_PREDICT, PREDICT_SERVER_URL } from '../config/deepbook';
+import { DEEPBOOK_PREDICT, PREDICT_SERVER_URL, PROPBOOK_SERVER_URL } from '../config/deepbook';
 import type { OracleMarket, PredictPricingState } from '../products/types';
 import { fromChainPrice } from '../products/units';
+import { predictAdapter, type ExpiryMarketSummary } from './predictAdapter';
 
 export interface PredictStatus {
   maxCheckpointLag: number;
   maxTimeLagSeconds: number;
 }
 
+/** List-row shape kept for curated API / UI compatibility during the 6-24 migration. */
 export interface PredictOracleListItem {
   predict_id: string;
   oracle_id: string;
@@ -14,12 +16,12 @@ export interface PredictOracleListItem {
   expiry: number;
   min_strike: number;
   tick_size: number;
+  admission_tick_size: number;
   status: string;
+  cadence: '1h';
 }
 
 const MIN_TRADABLE_TIME_MS = 5 * 60_000;
-const MIN_PRODUCT_EXPIRY_MS = 2 * 86_400_000;
-const SVI_SCALE = 1_000_000_000;
 const QUOTE_ASSET_SCALE = 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals;
 
 export function parseStatus(payload: unknown): PredictStatus {
@@ -30,78 +32,8 @@ export function parseStatus(payload: unknown): PredictStatus {
   };
 }
 
-export function parseOracleState(
-  payload: unknown,
-  input: { serverLagSeconds: number },
-): OracleMarket {
-  const data = payload as {
-    oracle: {
-      predict_id: string;
-      oracle_id: string;
-      underlying_asset: 'BTC';
-      expiry: number;
-      min_strike: number;
-      tick_size: number;
-      status: string;
-    };
-    latest_price: {
-      spot: number | string;
-      forward: number | string;
-      onchain_timestamp: number;
-    };
-    latest_svi: {
-      a?: number | string;
-      b?: number | string;
-      rho?: number | string;
-      rho_negative?: boolean;
-      m?: number | string;
-      m_negative?: boolean;
-      sigma?: number | string;
-      onchain_timestamp: number;
-    };
-  };
-
-  const svi = parseSvi(data.latest_svi);
-  return {
-    predictId: data.oracle.predict_id,
-    oracleId: data.oracle.oracle_id,
-    underlyingAsset: data.oracle.underlying_asset,
-    expiryMs: data.oracle.expiry,
-    minStrike: fromChainPrice(data.oracle.min_strike),
-    tickSize: fromChainPrice(data.oracle.tick_size),
-    status: data.oracle.status,
-    spot: fromChainPrice(data.latest_price.spot),
-    forward: fromChainPrice(data.latest_price.forward),
-    spotTimestampMs: data.latest_price.onchain_timestamp,
-    sviTimestampMs: data.latest_svi.onchain_timestamp,
-    serverLagSeconds: input.serverLagSeconds,
-    ...(svi ? { svi } : {}),
-  };
-}
-
-function scaledSviValue(value: number | string | undefined, negative = false) {
-  if (value === undefined) return null;
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return null;
-  return (negative ? -numeric : numeric) / SVI_SCALE;
-}
-
-function parseSvi(input: {
-  a?: number | string;
-  b?: number | string;
-  rho?: number | string;
-  rho_negative?: boolean;
-  m?: number | string;
-  m_negative?: boolean;
-  sigma?: number | string;
-}) {
-  const a = scaledSviValue(input.a);
-  const b = scaledSviValue(input.b);
-  const rho = scaledSviValue(input.rho, input.rho_negative);
-  const m = scaledSviValue(input.m, input.m_negative);
-  const sigma = scaledSviValue(input.sigma);
-  if (a === null || b === null || rho === null || m === null || sigma === null) return null;
-  return { a, b, rho, m, sigma };
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function finiteNumber(value: unknown) {
@@ -109,8 +41,18 @@ function finiteNumber(value: unknown) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+export function expiryMarketToListItem(market: ExpiryMarketSummary): PredictOracleListItem {
+  return {
+    predict_id: market.poolVaultId,
+    oracle_id: market.expiryMarketId,
+    underlying_asset: DEEPBOOK_PREDICT.underlyingAsset,
+    expiry: market.expiryMs,
+    min_strike: market.admissionTickSize,
+    tick_size: market.tickSize,
+    admission_tick_size: market.admissionTickSize,
+    status: 'active',
+    cadence: '1h',
+  };
 }
 
 export function parsePredictPricingState(payload: unknown): PredictPricingState | null {
@@ -139,7 +81,7 @@ export function parsePredictPricingState(payload: unknown): PredictPricingState 
   };
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
+async function fetchPredictJson<T>(path: string): Promise<T> {
   const baseUrl = typeof window === 'undefined' ? PREDICT_SERVER_URL : '/api/predict';
   const response = await fetch(`${baseUrl}${path}`, { cache: 'no-store' });
   if (!response.ok) {
@@ -148,21 +90,22 @@ async function fetchJson<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function fetchPropbookJson<T>(path: string): Promise<T> {
+  const baseUrl = typeof window === 'undefined' ? PROPBOOK_SERVER_URL : '/api/propbook';
+  const response = await fetch(`${baseUrl}${path}`, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Propbook request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 export async function fetchPredictStatus(): Promise<PredictStatus> {
-  return parseStatus(await fetchJson('/status'));
+  return parseStatus(await fetchPredictJson('/status'));
 }
 
-export async function fetchPredictPricingState(
-  predictObjectId = DEEPBOOK_PREDICT.predictObjectId,
-): Promise<PredictPricingState> {
-  const parsed = parsePredictPricingState(await fetchJson(`/predicts/${predictObjectId}/vault/summary`));
-  if (!parsed) throw new Error('Predict vault summary is missing balance or MTM fields.');
-  return parsed;
-}
-
-export async function fetchActiveBtcOracles(predictId: string): Promise<PredictOracleListItem[]> {
-  const data = await fetchJson<PredictOracleListItem[]>(`/predicts/${predictId}/oracles`);
-  return data.filter((oracle) => oracle.underlying_asset === 'BTC' && oracle.status === 'active');
+export async function fetchActiveBtcOracles(): Promise<PredictOracleListItem[]> {
+  const markets = await predictAdapter.discoverMarkets();
+  return markets.map(expiryMarketToListItem);
 }
 
 export function selectNearestTradableOracle(
@@ -177,16 +120,102 @@ export function selectNearestTradableOracle(
 export function filterProductExpiryOracles(
   oracles: PredictOracleListItem[],
   nowMs = Date.now(),
-  minTimeToExpiryMs = MIN_PRODUCT_EXPIRY_MS,
+  minTimeToExpiryMs = 0,
 ) {
   return [...oracles]
     .filter((oracle) => oracle.expiry - nowMs >= minTimeToExpiryMs)
     .sort((a, b) => a.expiry - b.expiry);
 }
 
+function parsePythSpot(payload: unknown): { spot: number; timestampMs: number } | null {
+  if (!isRecord(payload)) return null;
+  const normalizedSpot = finiteNumber(payload.normalized_spot);
+  const timestampMs = finiteNumber(payload.update_timestamp_ms ?? payload.source_timestamp_ms);
+  if (normalizedSpot === null || timestampMs === null) return null;
+  return { spot: fromChainPrice(normalizedSpot), timestampMs };
+}
+
+function parseMarketStateRow(payload: unknown): {
+  expiryMarketId: string;
+  expiryMs: number;
+  tickSize: number;
+  admissionTickSize: number;
+  poolVaultId: string;
+} | null {
+  if (!isRecord(payload)) return null;
+  const market = isRecord(payload.market) ? payload.market : payload;
+  const expiryMarketId = typeof market.expiry_market_id === 'string' ? market.expiry_market_id : null;
+  const expiryMs = finiteNumber(market.expiry);
+  const tickSizeRaw = finiteNumber(market.tick_size);
+  const admissionTickSizeRaw = finiteNumber(market.admission_tick_size);
+  const poolVaultId =
+    (typeof market.pool_vault_id === 'string' && market.pool_vault_id) || DEEPBOOK_PREDICT.poolVaultId;
+  if (!expiryMarketId || expiryMs === null || tickSizeRaw === null || admissionTickSizeRaw === null) {
+    return null;
+  }
+  return {
+    expiryMarketId,
+    expiryMs,
+    tickSize: fromChainPrice(tickSizeRaw),
+    admissionTickSize: fromChainPrice(admissionTickSizeRaw),
+    poolVaultId,
+  };
+}
+
 export async function fetchOracleMarket(
-  oracleId: string,
+  expiryMarketId: string,
   input: { serverLagSeconds: number },
 ): Promise<OracleMarket> {
-  return parseOracleState(await fetchJson(`/oracles/${oracleId}/state`), input);
+  const [statePayload, pythPayload] = await Promise.all([
+    fetchPredictJson<unknown>(`/markets/${expiryMarketId}/state`),
+    fetchPropbookJson<unknown>(`/oracles/${DEEPBOOK_PREDICT.feeds.pyth}/pyth/latest`),
+  ]);
+
+  const market = parseMarketStateRow(statePayload);
+  if (!market) {
+    throw new Error(`Expiry market state is incomplete for ${expiryMarketId}`);
+  }
+  const pyth = parsePythSpot(pythPayload);
+  if (!pyth) {
+    throw new Error('Propbook pyth spot is unavailable.');
+  }
+
+  return {
+    predictId: market.poolVaultId,
+    oracleId: market.expiryMarketId,
+    underlyingAsset: 'BTC',
+    expiryMs: market.expiryMs,
+    minStrike: market.admissionTickSize,
+    tickSize: market.tickSize,
+    status: 'active',
+    spot: pyth.spot,
+    forward: pyth.spot,
+    spotTimestampMs: pyth.timestampMs,
+    sviTimestampMs: pyth.timestampMs,
+    serverLagSeconds: input.serverLagSeconds,
+    predictPricing: {
+      baseSpread: DEEPBOOK_PREDICT.baseSpread,
+      minSpread: DEEPBOOK_PREDICT.minSpread,
+      utilizationMultiplier: DEEPBOOK_PREDICT.utilizationMultiplier,
+      minAskPrice: DEEPBOOK_PREDICT.minAskPrice,
+      maxAskPrice: DEEPBOOK_PREDICT.maxAskPrice,
+      vaultBalance: 0,
+      vaultTotalMtm: 0,
+      vaultUtilization: 0,
+    },
+  };
+}
+
+/** Vault summary endpoint was removed in 6-24; keep a no-op for callers until PLP wiring lands. */
+export async function fetchPredictPricingState(): Promise<PredictPricingState> {
+  return {
+    baseSpread: DEEPBOOK_PREDICT.baseSpread,
+    minSpread: DEEPBOOK_PREDICT.minSpread,
+    utilizationMultiplier: DEEPBOOK_PREDICT.utilizationMultiplier,
+    minAskPrice: DEEPBOOK_PREDICT.minAskPrice,
+    maxAskPrice: DEEPBOOK_PREDICT.maxAskPrice,
+    vaultBalance: 0,
+    vaultTotalMtm: 0,
+    vaultUtilization: 0,
+  };
 }

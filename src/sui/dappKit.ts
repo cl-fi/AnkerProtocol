@@ -1,9 +1,9 @@
 import { createDAppKit } from '@mysten/dapp-kit-react';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
-import { SUI_NETWORK, TESTNET_GRPC_URL } from '../config/deepbook';
+import { SUI_GRPC_URL, SUI_NETWORK } from '../config/deepbook';
 
 const GRPC_URLS = {
-  testnet: TESTNET_GRPC_URL,
+  testnet: SUI_GRPC_URL,
 } as const;
 
 export const dAppKit = createDAppKit({

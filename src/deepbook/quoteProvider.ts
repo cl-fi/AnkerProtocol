@@ -1,12 +1,7 @@
-import { SuiJsonRpcClient, getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
-import { Transaction } from '@mysten/sui/transactions';
-import { DEEPBOOK_PREDICT, SUI_NETWORK } from '../config/deepbook';
+import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import { isFixtureDataMode } from '../config/runtimeModes';
 import type { LegIntent, LegQuote } from '../products/types';
-import { toChainPrice } from '../products/units';
 
-const DEV_INSPECT_SENDER =
-  '0x0000000000000000000000000000000000000000000000000000000000000001';
 const QUOTE_ASSET_SCALE = 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals;
 
 export interface QuoteProvider {
@@ -71,10 +66,6 @@ export function toPreviewQuantityBaseUnits(value: number): bigint {
   return BigInt(rounded);
 }
 
-function fromQuoteBaseUnits(value: bigint): number {
-  return Number(value) / QUOTE_ASSET_SCALE;
-}
-
 function readU64Le(bytes: number[]): bigint {
   const view = new DataView(Uint8Array.from(bytes).buffer);
   return view.getBigUint64(0, true);
@@ -106,56 +97,6 @@ export function parseDevInspectLegAmounts(
   return amounts;
 }
 
-function parseDevInspectAmounts(result: unknown): { mintCost: bigint; redeemPayout: bigint } {
-  return parseDevInspectLegAmounts(result, 1)[0];
-}
-
-function buildKey(tx: Transaction, leg: LegIntent) {
-  if (leg.instrumentType === 'range') {
-    if (leg.lowerStrike === undefined || leg.higherStrike === undefined) {
-      throw new Error('Range leg requires lower and higher strikes.');
-    }
-    return tx.moveCall({
-      target: `${DEEPBOOK_PREDICT.packageId}::range_key::new`,
-      arguments: [
-        tx.pure.id(leg.oracleId),
-        tx.pure.u64(leg.expiryMs),
-        tx.pure.u64(toChainPrice(leg.lowerStrike)),
-        tx.pure.u64(toChainPrice(leg.higherStrike)),
-      ],
-    });
-  }
-  if (leg.strike === undefined) {
-    throw new Error('Binary leg requires strike.');
-  }
-  return tx.moveCall({
-    target: `${DEEPBOOK_PREDICT.packageId}::market_key::new`,
-    arguments: [
-      tx.pure.id(leg.oracleId),
-      tx.pure.u64(leg.expiryMs),
-      tx.pure.u64(toChainPrice(leg.strike)),
-      tx.pure.bool(leg.isUp ?? true),
-    ],
-  });
-}
-
-function addPreviewCall(tx: Transaction, leg: LegIntent) {
-  const key = buildKey(tx, leg);
-  tx.moveCall({
-    target:
-      leg.instrumentType === 'range'
-        ? `${DEEPBOOK_PREDICT.packageId}::predict::get_range_trade_amounts`
-        : `${DEEPBOOK_PREDICT.packageId}::predict::get_trade_amounts`,
-    arguments: [
-      tx.object(DEEPBOOK_PREDICT.predictObjectId),
-      tx.object(leg.oracleId),
-      key,
-      tx.pure.u64(toPreviewQuantityBaseUnits(leg.quantity)),
-      tx.object.clock(),
-    ],
-  });
-}
-
 export class SnapshotQuoteProvider implements QuoteProvider {
   async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
     const now = Date.now();
@@ -182,70 +123,23 @@ export class SnapshotQuoteProvider implements QuoteProvider {
   }
 }
 
+/**
+ * 4-16 JSON-RPC /devInspect quote path removed (D7). Live 6-24 quoting lands in #3
+ * (SVI display + gRPC simulateTransaction). Until then, fall back to snapshot quotes.
+ */
 export class LivePreviewQuoteProvider implements QuoteProvider {
-  private readonly client = new SuiJsonRpcClient({
-    network: SUI_NETWORK,
-    url: getJsonRpcFullnodeUrl(SUI_NETWORK),
-  });
-
   constructor(private readonly fallback: QuoteProvider = new SnapshotQuoteProvider()) {}
 
   async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
-    return Promise.all(
-      legs.map(async (leg) => {
-        try {
-          return await this.previewLeg(leg);
-        } catch (error) {
-          const [fallback] = await this.fallback.quoteLegs([leg]);
-          return {
-            ...fallback,
-            error: error instanceof Error ? error.message : fallback.error,
-          };
-        }
-      }),
-    );
-  }
-
-  private async previewLeg(leg: LegIntent): Promise<LegQuote> {
-    const tx = new Transaction();
-    addPreviewCall(tx, leg);
-
-    const result = await this.client.devInspectTransactionBlock({
-      sender: DEV_INSPECT_SENDER,
-      transactionBlock: tx,
-    });
-    const rawAmounts = parseDevInspectAmounts(result);
-    const amounts = normalizePreviewResult({
-      mintCost: fromQuoteBaseUnits(rawAmounts.mintCost),
-      redeemPayout: fromQuoteBaseUnits(rawAmounts.redeemPayout),
-    });
-    return applyPredictMintBounds(leg, amounts);
+    return this.fallback.quoteLegs(legs);
   }
 }
 
 export class BatchedLivePreviewQuoteProvider implements QuoteProvider {
-  private readonly client = new SuiJsonRpcClient({
-    network: SUI_NETWORK,
-    url: getJsonRpcFullnodeUrl(SUI_NETWORK),
-  });
+  constructor(private readonly fallback: QuoteProvider = new SnapshotQuoteProvider()) {}
 
   async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
-    if (legs.length === 0) return [];
-    const tx = new Transaction();
-    legs.forEach((leg) => addPreviewCall(tx, leg));
-
-    const result = await this.client.devInspectTransactionBlock({
-      sender: DEV_INSPECT_SENDER,
-      transactionBlock: tx,
-    });
-    const amounts = parseDevInspectLegAmounts(result, legs.length);
-    return legs.map((leg, index) => {
-      const normalized = normalizePreviewResult({
-        mintCost: fromQuoteBaseUnits(amounts[index].mintCost),
-        redeemPayout: fromQuoteBaseUnits(amounts[index].redeemPayout),
-      });
-      return applyPredictMintBounds(leg, normalized);
-    });
+    return this.fallback.quoteLegs(legs);
   }
 }
 

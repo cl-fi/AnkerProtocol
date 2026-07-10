@@ -1,16 +1,13 @@
-'use client';
-
-import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchPredictManagers } from '../deepbook/predictManagers';
-
+/**
+ * PredictManager indexer lookups were removed with the 6-24 migration.
+ * AccountWrapper discovery lands in #4; callers should treat this as empty.
+ */
 export function usePredictManagers() {
-  const account = useCurrentAccount();
-
-  return useQuery({
-    queryKey: ['predict-managers', account?.address],
-    enabled: Boolean(account?.address),
-    queryFn: () => fetchPredictManagers(account!.address),
-    refetchInterval: 15_000,
-  });
+  return {
+    data: [] as Array<{ managerId: string; owner?: string }>,
+    isPending: false,
+    isError: false,
+    error: null,
+    refetch: async () => ({ data: [] as Array<{ managerId: string; owner?: string }> }),
+  };
 }

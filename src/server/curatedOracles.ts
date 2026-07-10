@@ -1,8 +1,6 @@
 import type { PredictOracleListItem } from '../deepbook/predictServer';
 import { fetchActiveBtcOracles, fetchOracleMarket, fetchPredictStatus } from '../deepbook/predictServer';
-import { DEEPBOOK_PREDICT } from '../config/deepbook';
 
-const MIN_PRODUCT_READY_EXPIRY_MS = 12 * 60 * 60_000;
 const CURATED_ORACLE_CACHE_MS = 15_000;
 
 let cachedCuratedResponse: CuratedOracleMarketResponse | null = null;
@@ -36,7 +34,6 @@ export function curateBtcOracles(
   oracles: PredictOracleListItem[],
   readinessByOracleId: Map<string, OracleReadiness>,
   nowMs = Date.now(),
-  minProductReadyExpiryMs = MIN_PRODUCT_READY_EXPIRY_MS,
 ): CuratedOracleListItem[] {
   const bestByKey = new Map<string, CuratedOracleListItem>();
 
@@ -47,11 +44,14 @@ export function curateBtcOracles(
     .forEach((oracle) => {
       const readiness = readinessByOracleId.get(oracle.oracle_id);
       const timeToExpiryMs = oracle.expiry - nowMs;
-      const productReady = Boolean(readiness?.stateReady && timeToExpiryMs >= minProductReadyExpiryMs);
+      const stateReady = Boolean(readiness?.stateReady);
+      const quoteReady = Boolean(readiness?.quoteReady);
+      // Turbo 1h markets are product-ready once discovered and state-readable (ADR-0002).
+      const productReady = stateReady;
       const item: CuratedOracleListItem = {
         ...oracle,
-        stateReady: Boolean(readiness?.stateReady),
-        quoteReady: Boolean(readiness?.quoteReady),
+        stateReady,
+        quoteReady,
         productReady,
         timeToExpiryMs,
         reason: readiness?.reason,
@@ -82,13 +82,13 @@ async function getOracleReadiness(input: {
       market.spot > 0 &&
       Number.isFinite(market.forward) &&
       market.forward > 0 &&
-      Boolean(market.spotTimestampMs) &&
-      Boolean(market.sviTimestampMs);
+      Boolean(market.spotTimestampMs);
 
     if (!stateReady) {
-      return { stateReady: false, quoteReady: false, reason: 'Oracle state is incomplete.' };
+      return { stateReady: false, quoteReady: false, reason: 'Expiry market state is incomplete.' };
     }
 
+    // Full SVI quote path lands in #3; discovery treats a live spot as quote-ready enough to list.
     return { stateReady: true, quoteReady: true };
   } catch (error) {
     return {
@@ -100,19 +100,18 @@ async function getOracleReadiness(input: {
 }
 
 async function computeCuratedBtcOracleResponse(nowMs: number): Promise<CuratedOracleMarketResponse> {
-  const [status, rawOracles] = await Promise.all([
-    fetchPredictStatus(),
-    fetchActiveBtcOracles(DEEPBOOK_PREDICT.predictObjectId),
-  ]);
-  const candidateOracles = rawOracles.filter((oracle) => oracle.expiry - nowMs >= MIN_PRODUCT_READY_EXPIRY_MS);
+  const [status, candidateOracles] = await Promise.all([fetchPredictStatus(), fetchActiveBtcOracles()]);
   const readinessEntries = await Promise.all(
-    candidateOracles.map(async (oracle) => [
-      oracle.oracle_id,
-      await getOracleReadiness({
-        oracle,
-        serverLagSeconds: status.maxTimeLagSeconds,
-      }),
-    ] as const),
+    candidateOracles.map(
+      async (oracle) =>
+        [
+          oracle.oracle_id,
+          await getOracleReadiness({
+            oracle,
+            serverLagSeconds: status.maxTimeLagSeconds,
+          }),
+        ] as const,
+    ),
   );
 
   cachedCuratedAt = nowMs;

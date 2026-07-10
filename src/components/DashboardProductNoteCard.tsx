@@ -5,7 +5,6 @@ import { ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { settlementNoteForProductNote } from '../application/settleProductNote';
 import { fetchOracleMarket } from '../deepbook/predictServer';
-import type { PredictManagerSummary } from '../deepbook/predictManagers';
 import { usePredictManagerState } from '../hooks/usePredictManagerState';
 import { copyForLocale, DEFAULT_LOCALE, formatTimeToExpiry, type Locale } from '../i18n';
 import { netAprAfterCouponFee } from '../products/feePolicy';
@@ -45,7 +44,7 @@ function ProofLink({ href, children }: { href: string; children: React.ReactNode
 
 export function managerValidationForNote(
   note: AnkerProductNoteRecord,
-  managers: Pick<PredictManagerSummary, 'managerId'>[] | undefined,
+  managers: Array<{ managerId: string }> | undefined,
   locale: Locale = DEFAULT_LOCALE,
 ) {
   const copy = copyForLocale(locale);

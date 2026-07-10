@@ -8,7 +8,7 @@ import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
 const OWNER = `0x${'a'.repeat(64)}`;
 const MANAGER_ID = `0x${'b'.repeat(64)}`;
 const ORACLE_ID = `0x${'c'.repeat(64)}`;
-const PREDICT_OBJECT_ID = DEEPBOOK_PREDICT.predictObjectId;
+const PREDICT_OBJECT_ID = DEEPBOOK_PREDICT.poolVaultId;
 
 const mocks = vi.hoisted(() => ({
   quoteLegs: vi.fn(),

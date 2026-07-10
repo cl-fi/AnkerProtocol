@@ -28,7 +28,8 @@ export interface AnkerProtocolConfig {
   packageId: string;
   registryId: string;
   predictPackageId: string;
-  predictObjectId: string;
+  /** 6-24 PoolVault shared object (replaces the 4-16 Predict object id). */
+  poolVaultId: string;
   quoteAssetType: string;
   quoteAssetDecimals: number;
 }
@@ -66,7 +67,7 @@ export const DEFAULT_ANKER_CONFIG: AnkerProtocolConfig = {
   packageId: ANKER_PROTOCOL.packageId,
   registryId: ANKER_PROTOCOL.registryId,
   predictPackageId: DEEPBOOK_PREDICT.packageId,
-  predictObjectId: DEEPBOOK_PREDICT.predictObjectId,
+  poolVaultId: DEEPBOOK_PREDICT.poolVaultId,
   quoteAssetType: DEEPBOOK_PREDICT.quoteAssetType,
   quoteAssetDecimals: DEEPBOOK_PREDICT.quoteAssetDecimals,
 };
@@ -124,7 +125,7 @@ export function buildSubscribeDualInvestmentTransaction(input: {
   const floorPrice = toChainPriceU64(input.productInput.floorPrice, 'Floor price');
   const idBytes = productIdBytes(input.quoteEnvelope.productHash);
   const manager = tx.object(input.managerId);
-  const predict = tx.object(config.predictObjectId);
+  const predict = tx.object(config.poolVaultId);
   const oracle = tx.object(input.quote.oracle.oracleId);
 
   const depositTarget = predictTarget(config, 'predict_manager', 'deposit');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PredictManagerSummary } from '../deepbook/predictManagers';
+import type { CustodyAccountRef } from './subscribeDualInvestment';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { AnkerProtocolConfig } from '../sui/ankerTransactions';
 import type { DualInvestmentClaimState } from '../sui/predictManagerState';
@@ -23,7 +23,7 @@ const config: AnkerProtocolConfig = {
   packageId: ANKER_PACKAGE_ID,
   registryId: ANKER_REGISTRY_ID,
   predictPackageId: PREDICT_PACKAGE_ID,
-  predictObjectId: PREDICT_OBJECT_ID,
+  poolVaultId: PREDICT_OBJECT_ID,
   quoteAssetType: DUSDC,
   quoteAssetDecimals: 6,
 };
@@ -128,7 +128,7 @@ function noteFromQuote(quote: StructuredProductQuote): AnkerProductNoteRecord {
 describe('Dual Investment subscribe-to-settle lifecycle', () => {
   it('builds a deterministic isolated-manager subscribe, redeem, and withdraw path', () => {
     const quote = quoteFixture();
-    const managers: PredictManagerSummary[] = [
+    const managers: CustodyAccountRef[] = [
       { managerId: USED_MANAGER_ID, owner: OWNER },
       { managerId: MANAGER_ID, owner: OWNER },
     ];

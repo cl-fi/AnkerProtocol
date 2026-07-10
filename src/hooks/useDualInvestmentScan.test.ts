@@ -9,8 +9,11 @@ import { buildDualInvestmentScan, buildVerifiedDualInvestmentQuote } from './use
 function futureMarket(): OracleMarket {
   return {
     ...lastKnownMarketSnapshot,
+    spot: 73_500,
+    forward: 73_500,
     expiryMs: Date.now() + 14 * 24 * 60 * 60 * 1000,
     tickSize: 500,
+    minStrike: 50_000,
   };
 }
 

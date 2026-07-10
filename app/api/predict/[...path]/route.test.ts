@@ -8,11 +8,17 @@ describe('/api/predict proxy allowlist', () => {
     vi.unstubAllEnvs();
   });
 
-  it('allows only the Predict endpoints used by the app', () => {
+  it('allows only the Predict 6-24 endpoints used by the app', () => {
     expect(isAllowedPredictProxyPath('status')).toBe(true);
-    expect(isAllowedPredictProxyPath('managers')).toBe(true);
-    expect(isAllowedPredictProxyPath('predicts/0x123/oracles')).toBe(true);
-    expect(isAllowedPredictProxyPath('oracles/0x456/state')).toBe(true);
+    expect(isAllowedPredictProxyPath('markets')).toBe(true);
+    expect(
+      isAllowedPredictProxyPath(
+        'markets/0xd92bc50a867db16486dafb4bec5baeca9770a689dea4df062394cb678a3a3e01/state',
+      ),
+    ).toBe(true);
+    expect(isAllowedPredictProxyPath('managers')).toBe(false);
+    expect(isAllowedPredictProxyPath('predicts/0x123/oracles')).toBe(false);
+    expect(isAllowedPredictProxyPath('oracles/0x456/state')).toBe(false);
     expect(isAllowedPredictProxyPath('admin/debug')).toBe(false);
   });
 
@@ -98,30 +104,26 @@ describe('/api/predict proxy allowlist', () => {
     const status = await GET(new Request('http://localhost/api/predict/status'), {
       params: { path: ['status'] },
     });
-    const state = await GET(
-      new Request(
-        'http://localhost/api/predict/oracles/0xb46fdd7aee8b5b729358a254a74ec4eb59c2a07ca8878cc77df09b843bae6c38/state',
-      ),
-      {
-        params: {
-          path: ['oracles', '0xb46fdd7aee8b5b729358a254a74ec4eb59c2a07ca8878cc77df09b843bae6c38', 'state'],
-        },
-      },
-    );
+    const markets = await GET(new Request('http://localhost/api/predict/markets'), {
+      params: { path: ['markets'] },
+    });
 
     expect(status.status).toBe(200);
-    expect(state.status).toBe(200);
+    expect(markets.status).toBe(200);
     await expect(status.json()).resolves.toMatchObject({ status: 'OK' });
-    await expect(state.json()).resolves.toMatchObject({
-      oracle: expect.objectContaining({
-        underlying_asset: 'BTC',
-        status: 'active',
-      }),
-    });
+    await expect(markets.json()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          expiry_market_id: expect.stringMatching(/^0x/),
+          tick_size: expect.any(String),
+          admission_tick_size: expect.any(String),
+        }),
+      ]),
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('serves fixtures and an empty manager list in demo mode without fetching upstream', async () => {
+  it('serves fixtures in demo mode without fetching upstream', async () => {
     const fetchMock = vi.fn();
     vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'true');
     vi.stubGlobal('fetch', fetchMock);
@@ -129,14 +131,14 @@ describe('/api/predict proxy allowlist', () => {
     const status = await GET(new Request('http://localhost/api/predict/status'), {
       params: { path: ['status'] },
     });
-    const managers = await GET(new Request(`http://localhost/api/predict/managers?owner=0x${'a'.repeat(64)}`), {
-      params: { path: ['managers'] },
+    const markets = await GET(new Request('http://localhost/api/predict/markets'), {
+      params: { path: ['markets'] },
     });
 
     expect(status.status).toBe(200);
     await expect(status.json()).resolves.toMatchObject({ status: 'OK' });
-    expect(managers.status).toBe(200);
-    await expect(managers.json()).resolves.toEqual([]);
+    expect(markets.status).toBe(200);
+    await expect(markets.json()).resolves.toEqual(expect.any(Array));
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

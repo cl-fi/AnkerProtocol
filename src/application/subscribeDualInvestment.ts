@@ -1,4 +1,3 @@
-import type { PredictManagerSummary } from '../deepbook/predictManagers';
 import type { QuoteProvider } from '../deepbook/quoteProvider';
 import {
   DEFAULT_QUOTE_ENVELOPE_SLIPPAGE_BPS,
@@ -20,6 +19,12 @@ import {
 export const SUBSCRIBE_QUOTE_TTL_MS = DEFAULT_QUOTE_ENVELOPE_TTL_MS;
 export const SUBSCRIBE_QUOTE_SLIPPAGE_BPS = DEFAULT_QUOTE_ENVELOPE_SLIPPAGE_BPS;
 
+/** Temporary custody handle until AccountWrapper wiring (#4) replaces manager ids. */
+export interface CustodyAccountRef {
+  managerId: string;
+  owner?: string;
+}
+
 export interface SubscribeDualInvestmentApplicationPlan {
   managerId: string;
   quoteEnvelope: QuoteEnvelope;
@@ -27,7 +32,7 @@ export interface SubscribeDualInvestmentApplicationPlan {
 }
 
 export function selectUnallocatedPredictManager(
-  managers: readonly PredictManagerSummary[] | undefined,
+  managers: readonly CustodyAccountRef[] | undefined,
   notes: readonly Pick<AnkerProductNoteRecord, 'managerId'>[] | undefined,
   ownerAddress?: string,
 ) {
@@ -86,7 +91,7 @@ export async function refreshDualInvestmentQuoteForSigning(input: {
 
 export function buildSubscribeDualInvestmentApplicationPlan(input: {
   accountAddress: string;
-  managers: readonly PredictManagerSummary[] | undefined;
+  managers: readonly CustodyAccountRef[] | undefined;
   notes: readonly Pick<AnkerProductNoteRecord, 'managerId'>[] | undefined;
   productInput: DualInvestmentInput;
   quote: StructuredProductQuote;

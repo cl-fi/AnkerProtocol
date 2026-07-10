@@ -14,7 +14,7 @@ describe('/api/markets/btc-oracles', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('s-maxage=15, stale-while-revalidate=30');
     const payload = await response.json();
-    expect(payload.oracles).toHaveLength(2);
+    expect(payload.oracles).toHaveLength(3);
     expect(payload.oracles).toEqual([
       expect.objectContaining({
         underlying_asset: 'BTC',
@@ -22,6 +22,7 @@ describe('/api/markets/btc-oracles', () => {
         productReady: true,
         quoteReady: true,
         stateReady: true,
+        cadence: '1h',
       }),
       expect.objectContaining({
         underlying_asset: 'BTC',
@@ -29,6 +30,15 @@ describe('/api/markets/btc-oracles', () => {
         productReady: true,
         quoteReady: true,
         stateReady: true,
+        cadence: '1h',
+      }),
+      expect.objectContaining({
+        underlying_asset: 'BTC',
+        status: 'active',
+        productReady: true,
+        quoteReady: true,
+        stateReady: true,
+        cadence: '1h',
       }),
     ]);
   });

@@ -26,7 +26,7 @@ const config: AnkerProtocolConfig = {
   packageId: ANKER_PACKAGE_ID,
   registryId: ANKER_REGISTRY_ID,
   predictPackageId: PREDICT_PACKAGE_ID,
-  predictObjectId: PREDICT_OBJECT_ID,
+  poolVaultId: PREDICT_OBJECT_ID,
   quoteAssetType: DUSDC,
   quoteAssetDecimals: 6,
 };

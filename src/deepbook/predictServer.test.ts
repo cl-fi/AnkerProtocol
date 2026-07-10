@@ -1,36 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import statusFixture from '../test/fixtures/status.json';
-import oracleFixture from '../test/fixtures/oracleState.json';
 import {
   filterProductExpiryOracles,
-  parseOracleState,
   parsePredictPricingState,
   parseStatus,
   selectNearestTradableOracle,
+  type PredictOracleListItem,
 } from './predictServer';
+
+function listItem(
+  input: Partial<PredictOracleListItem> & { oracle_id: string; expiry: number },
+): PredictOracleListItem {
+  return {
+    predict_id: 'pool-vault',
+    oracle_id: input.oracle_id,
+    underlying_asset: 'BTC',
+    expiry: input.expiry,
+    min_strike: 1,
+    tick_size: 0.01,
+    admission_tick_size: 1,
+    status: 'active',
+    cadence: '1h',
+  };
+}
 
 describe('predictServer parsers', () => {
   it('parses server status freshness', () => {
     expect(parseStatus(statusFixture).maxCheckpointLag).toBe(5);
     expect(parseStatus(statusFixture).maxTimeLagSeconds).toBe(1);
-  });
-
-  it('parses oracle state into normalized market data', () => {
-    const parsed = parseOracleState(oracleFixture, { serverLagSeconds: 1 });
-    expect(parsed.oracleId).toBe('0xb46fdd7aee8b5b729358a254a74ec4eb59c2a07ca8878cc77df09b843bae6c38');
-    expect(parsed.underlyingAsset).toBe('BTC');
-    expect(parsed.spot).toBeCloseTo(73264.292161574);
-    expect(parsed.forward).toBeCloseTo(73264.782323624);
-    expect(parsed.minStrike).toBe(50000);
-    expect(parsed.tickSize).toBe(1);
-    expect(parsed.status).toBe('active');
-    expect(parsed.svi).toEqual({
-      a: 0.000018652,
-      b: 0.001284769,
-      rho: -0.709081279,
-      m: -0.00188903,
-      sigma: 0.001665076,
-    });
   });
 
   it('parses Predict vault utilization pricing state', () => {
@@ -52,28 +49,12 @@ describe('predictServer parsers', () => {
     });
   });
 
-  it('skips active oracles that are too close to expiry', () => {
+  it('skips active markets that are too close to expiry', () => {
     const now = 1_000;
     const selected = selectNearestTradableOracle(
       [
-        {
-          predict_id: 'p',
-          oracle_id: 'near',
-          underlying_asset: 'BTC',
-          expiry: now + 60_000,
-          min_strike: 0,
-          tick_size: 1,
-          status: 'active',
-        },
-        {
-          predict_id: 'p',
-          oracle_id: 'tradable',
-          underlying_asset: 'BTC',
-          expiry: now + 10 * 60_000,
-          min_strike: 0,
-          tick_size: 1,
-          status: 'active',
-        },
+        listItem({ oracle_id: 'near', expiry: now + 60_000 }),
+        listItem({ oracle_id: 'tradable', expiry: now + 10 * 60_000 }),
       ],
       now,
     );
@@ -81,71 +62,18 @@ describe('predictServer parsers', () => {
     expect(selected?.oracle_id).toBe('tradable');
   });
 
-  it('can prefer day-level product expiries over short rolling markets', () => {
-    const now = 1_000;
-    const selected = selectNearestTradableOracle(
-      [
-        {
-          predict_id: 'p',
-          oracle_id: 'hourly',
-          underlying_asset: 'BTC',
-          expiry: now + 4 * 60 * 60_000,
-          min_strike: 0,
-          tick_size: 1,
-          status: 'active',
-        },
-        {
-          predict_id: 'p',
-          oracle_id: 'ten-day',
-          underlying_asset: 'BTC',
-          expiry: now + 10 * 86_400_000,
-          min_strike: 0,
-          tick_size: 1,
-          status: 'active',
-        },
-      ],
-      now,
-      7 * 86_400_000,
-    );
-
-    expect(selected?.oracle_id).toBe('ten-day');
-  });
-
-  it('filters selector options to day-level product expiries', () => {
+  it('filters selector options by remaining time to expiry', () => {
     const now = 1_000;
     const options = filterProductExpiryOracles(
       [
-        {
-          predict_id: 'p',
-          oracle_id: 'hourly',
-          underlying_asset: 'BTC',
-          expiry: now + 4 * 60 * 60_000,
-          min_strike: 0,
-          tick_size: 1,
-          status: 'active',
-        },
-        {
-          predict_id: 'p',
-          oracle_id: 'three-day',
-          underlying_asset: 'BTC',
-          expiry: now + 3 * 86_400_000,
-          min_strike: 0,
-          tick_size: 1,
-          status: 'active',
-        },
-        {
-          predict_id: 'p',
-          oracle_id: 'ten-day',
-          underlying_asset: 'BTC',
-          expiry: now + 10 * 86_400_000,
-          min_strike: 0,
-          tick_size: 1,
-          status: 'active',
-        },
+        listItem({ oracle_id: 'one-hour', expiry: now + 1 * 60 * 60_000 }),
+        listItem({ oracle_id: 'two-hour', expiry: now + 2 * 60 * 60_000 }),
+        listItem({ oracle_id: 'three-hour', expiry: now + 3 * 60 * 60_000 }),
       ],
       now,
+      90 * 60_000,
     );
 
-    expect(options.map((oracle) => oracle.oracle_id)).toEqual(['three-day', 'ten-day']);
+    expect(options.map((oracle) => oracle.oracle_id)).toEqual(['two-hour', 'three-hour']);
   });
 });
