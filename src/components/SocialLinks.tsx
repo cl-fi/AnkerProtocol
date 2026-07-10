@@ -1,4 +1,4 @@
-import { Github, Send } from 'lucide-react';
+import { Github } from 'lucide-react';
 import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 
 const SOCIAL_LINKS = [
@@ -13,12 +13,6 @@ const SOCIAL_LINKS = [
     label: 'GitHub',
     href: 'https://github.com/cl-fi/AnkerProtocol',
     icon: <Github size={17} aria-hidden="true" />,
-  },
-  {
-    key: 'telegram',
-    label: 'Telegram',
-    href: 'https://t.me/+vCpWOfrt2I9jZWRl',
-    icon: <Send size={17} aria-hidden="true" />,
   },
 ] as const;
 

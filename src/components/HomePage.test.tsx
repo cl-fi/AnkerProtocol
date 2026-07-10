@@ -12,7 +12,7 @@ describe('HomePage', () => {
     );
   });
 
-  it('renders X, GitHub, and Telegram social links in the landing footer', () => {
+  it('renders X and GitHub social links in the landing footer', () => {
     render(<HomePage />);
 
     expect(screen.getByRole('link', { name: 'X' })).toHaveAttribute('href', 'https://x.com/ankerprotocol');
@@ -20,7 +20,7 @@ describe('HomePage', () => {
       'href',
       'https://github.com/cl-fi/AnkerProtocol',
     );
-    expect(screen.getByRole('link', { name: 'Telegram' })).toHaveAttribute('href', 'https://t.me/+vCpWOfrt2I9jZWRl');
+    expect(screen.queryByRole('link', { name: 'Telegram' })).toBeNull();
   });
 
   it('renders Chinese landing copy with localized app links', () => {
