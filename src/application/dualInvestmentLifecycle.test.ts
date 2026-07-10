@@ -127,16 +127,13 @@ function noteFromQuote(quote: StructuredProductQuote): AnkerProductNoteRecord {
 }
 
 describe('Dual Investment subscribe-to-settle lifecycle', () => {
-  it('builds a deterministic isolated-manager subscribe, redeem, and withdraw path', () => {
+  it('builds a deterministic AccountWrapper subscribe, redeem, and withdraw path', () => {
     const quote = quoteFixture();
-    const managers: CustodyAccountRef[] = [
-      { managerId: USED_MANAGER_ID, owner: OWNER },
-      { managerId: MANAGER_ID, owner: OWNER },
-    ];
+    const managers: CustodyAccountRef[] = [{ managerId: MANAGER_ID, owner: OWNER }];
     const subscribePlan = buildSubscribeDualInvestmentApplicationPlan({
       accountAddress: OWNER,
       managers,
-      notes: [{ wrapperId: USED_MANAGER_ID }],
+      notes: [{ wrapperId: MANAGER_ID }],
       productInput,
       quote,
       config,

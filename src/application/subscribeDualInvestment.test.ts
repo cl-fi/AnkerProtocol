@@ -103,42 +103,41 @@ const productInput: DualInvestmentInput = {
 };
 
 describe('selectUnallocatedPredictManager', () => {
-  it('selects the first manager not already referenced by an owned note', () => {
-    const managers: CustodyAccountRef[] = [{ managerId: USED_MANAGER_ID }, { managerId: MANAGER_ID }];
+  it('selects the owner AccountWrapper even when notes already reference it', () => {
+    const managers: CustodyAccountRef[] = [{ managerId: USED_MANAGER_ID, owner: OWNER }];
 
-    expect(selectUnallocatedPredictManager(managers, [noteFixture()])).toEqual({ managerId: MANAGER_ID });
+    expect(selectUnallocatedPredictManager(managers, [noteFixture()], OWNER)).toEqual({
+      managerId: USED_MANAGER_ID,
+      owner: OWNER,
+    });
   });
 
-  it('ignores unallocated managers that belong to another owner', () => {
-    const managers: CustodyAccountRef[] = [
-      { managerId: USED_MANAGER_ID, owner: OWNER },
-      { managerId: MANAGER_ID, owner: `0x${'9'.repeat(64)}` },
-    ];
+  it('ignores wrappers that belong to another owner', () => {
+    const managers: CustodyAccountRef[] = [{ managerId: MANAGER_ID, owner: `0x${'9'.repeat(64)}` }];
 
     expect(selectUnallocatedPredictManager(managers, [noteFixture()], OWNER)).toBeUndefined();
   });
 
-  it('fails closed when manager ownership is missing for an owner-scoped subscription', () => {
+  it('fails closed when wrapper ownership is missing for an owner-scoped lookup', () => {
     expect(selectUnallocatedPredictManager([{ managerId: MANAGER_ID }], [], OWNER)).toBeUndefined();
   });
 
-  it('fails closed until owned notes are loaded for manager allocation checks', () => {
-    expect(selectUnallocatedPredictManager([{ managerId: MANAGER_ID, owner: OWNER }], undefined, OWNER)).toBeUndefined();
+  it('returns the first wrapper when no owner scope is provided', () => {
+    expect(selectUnallocatedPredictManager([{ managerId: MANAGER_ID }], undefined)).toEqual({
+      managerId: MANAGER_ID,
+    });
   });
 
-  it('returns undefined when every manager is already allocated', () => {
-    expect(selectUnallocatedPredictManager([{ managerId: USED_MANAGER_ID }], [noteFixture()])).toBeUndefined();
+  it('returns undefined when no wrappers are available', () => {
+    expect(selectUnallocatedPredictManager([], [noteFixture()], OWNER)).toBeUndefined();
   });
 });
 
 describe('buildSubscribeDualInvestmentApplicationPlan', () => {
-  it('selects an unallocated manager and builds a guarded subscribe PTB', () => {
+  it('uses the owner AccountWrapper and builds a guarded subscribe PTB', () => {
     const plan = buildSubscribeDualInvestmentApplicationPlan({
       accountAddress: OWNER,
-      managers: [
-        { managerId: USED_MANAGER_ID, owner: OWNER },
-        { managerId: MANAGER_ID, owner: OWNER },
-      ],
+      managers: [{ managerId: MANAGER_ID, owner: OWNER }],
       notes: [noteFixture()],
       productInput,
       quote: quoteFixture(),
@@ -151,21 +150,20 @@ describe('buildSubscribeDualInvestmentApplicationPlan', () => {
     expect(plan.quoteEnvelope.maxTotalCostBaseUnits).toBe(2_121_000n);
   });
 
-  it('fails before signing when no isolated manager is available', () => {
+  it('fails before signing when no AccountWrapper is available', () => {
     expect(() =>
       buildSubscribeDualInvestmentApplicationPlan({
         accountAddress: OWNER,
-        managers: [{ managerId: USED_MANAGER_ID, owner: OWNER }],
+        managers: [],
         notes: [noteFixture()],
         productInput,
         quote: quoteFixture(),
         config,
         nowMs: 1,
       }),
-    ).toThrow('Create a product container before subscribing.');
+    ).toThrow('Open your Predict account before subscribing.');
   });
 });
-
 describe('refreshDualInvestmentQuoteForSigning', () => {
   it('re-quotes the exact Target Buy legs and keeps the original max-cost envelope', async () => {
     const quote = compiledQuoteFixture();

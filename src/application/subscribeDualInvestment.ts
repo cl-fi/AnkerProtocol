@@ -19,7 +19,7 @@ import {
 export const SUBSCRIBE_QUOTE_TTL_MS = DEFAULT_QUOTE_ENVELOPE_TTL_MS;
 export const SUBSCRIBE_QUOTE_SLIPPAGE_BPS = DEFAULT_QUOTE_ENVELOPE_SLIPPAGE_BPS;
 
-/** Temporary custody handle until AccountWrapper wiring (#4) replaces manager ids. */
+/** Custody handle for the wallet's AccountWrapper (one per owner under AccountRegistry). */
 export interface CustodyAccountRef {
   managerId: string;
   owner?: string;
@@ -31,20 +31,24 @@ export interface SubscribeDualInvestmentApplicationPlan {
   transactionPlan: SubscribeDualInvestmentTransactionPlan;
 }
 
+/**
+ * Select the wallet's AccountWrapper. 6-24 custody is one wrapper per owner — notes may
+ * share it. `notes` is accepted for call-site compatibility but no longer gates selection.
+ */
 export function selectUnallocatedPredictManager(
   managers: readonly CustodyAccountRef[] | undefined,
-  notes: readonly Pick<AnkerProductNoteRecord, 'wrapperId'>[] | undefined,
+  _notes: readonly Pick<AnkerProductNoteRecord, 'wrapperId'>[] | undefined,
   ownerAddress?: string,
 ) {
-  if (!managers || !notes) return undefined;
+  if (!managers?.length) return undefined;
 
-  const allocatedWrapperIds = new Set(notes.map((note) => note.wrapperId.toLowerCase()));
-  return managers.find((manager) => {
-    const isAllocated = allocatedWrapperIds.has(manager.managerId.toLowerCase());
-    const belongsToOwner =
-      !ownerAddress || (Boolean(manager.owner) && manager.owner?.toLowerCase() === ownerAddress.toLowerCase());
-    return !isAllocated && belongsToOwner;
-  });
+  if (!ownerAddress) {
+    return managers[0];
+  }
+
+  return managers.find(
+    (manager) => Boolean(manager.owner) && manager.owner?.toLowerCase() === ownerAddress.toLowerCase(),
+  );
 }
 
 export function createSubscribeQuoteEnvelope(quote: StructuredProductQuote, config: AnkerProtocolConfig = DEFAULT_ANKER_CONFIG) {
@@ -102,7 +106,7 @@ export function buildSubscribeDualInvestmentApplicationPlan(input: {
   const config = input.config ?? DEFAULT_ANKER_CONFIG;
   const manager = selectUnallocatedPredictManager(input.managers, input.notes, input.accountAddress);
   if (!manager) {
-    throw new Error('Create a product container before subscribing.');
+    throw new Error('Open your Predict account before subscribing.');
   }
 
   const quoteEnvelope = input.quoteEnvelope ?? createSubscribeQuoteEnvelope(input.quote, config);

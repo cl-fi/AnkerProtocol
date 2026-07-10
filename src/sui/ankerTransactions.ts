@@ -34,11 +34,6 @@ export interface AnkerProtocolConfig {
   quoteAssetDecimals: number;
 }
 
-export interface CreateManagerTransactionPlan {
-  tx: Transaction;
-  calls: string[];
-}
-
 export interface SubscribeDualInvestmentTransactionPlan {
   tx: Transaction;
   calls: string[];
@@ -78,19 +73,6 @@ function assertTransactionsEnabled() {
   if (isDemoMode()) {
     throw new Error('Demo mode: on-chain transactions are temporarily disabled.');
   }
-}
-
-export function buildCreatePredictManagerTransaction(input: {
-  config?: AnkerProtocolConfig;
-} = {}): CreateManagerTransactionPlan {
-  assertTransactionsEnabled();
-  const config = input.config ?? DEFAULT_ANKER_CONFIG;
-  const tx = new Transaction();
-  const calls: string[] = [];
-  const callTarget = predictTarget(config, 'predict', 'create_manager');
-  calls.push(callTarget);
-  tx.moveCall({ target: callTarget, arguments: [] });
-  return { tx, calls };
 }
 
 export function buildSubscribeDualInvestmentTransaction(input: {

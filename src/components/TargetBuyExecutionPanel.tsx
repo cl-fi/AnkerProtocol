@@ -15,7 +15,7 @@ import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
 import { usePredictManagers } from '../hooks/usePredictManagers';
 import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
-import { buildCreatePredictManagerTransaction } from '../sui/ankerTransactions';
+import { buildCreateAccountWrapperTransaction } from '../sui/accountTransactions';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
 import { preflightTransaction } from '../sui/transactionPreflight';
 import { Button, Card } from '../ui';
@@ -225,7 +225,8 @@ export function TargetBuyExecutionPanel({
     try {
       const nextDigest = await action();
       setDigest(nextDigest);
-      await queryClient.invalidateQueries({ queryKey: ['predict-managers', account?.address] });
+      await queryClient.invalidateQueries({ queryKey: ['account-wrapper', account?.address] });
+      await queryClient.invalidateQueries({ queryKey: ['account-wrapper-balance'] });
       await queryClient.invalidateQueries({ queryKey: ['anker-portfolio', account?.address] });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : copy.execution.errors.transactionFailed);
@@ -237,7 +238,7 @@ export function TargetBuyExecutionPanel({
   function handleCreateManager() {
     if (!account) return;
     void runTransaction(async () => {
-      const plan = buildCreatePredictManagerTransaction();
+      const plan = buildCreateAccountWrapperTransaction();
       const result = await dAppKit.signAndExecuteTransaction({ transaction: plan.tx });
       const nextDigest = transactionDigest(result);
       await client.waitForTransaction({ digest: nextDigest });

@@ -24,7 +24,7 @@ describe('TargetBuyExecutionPanelView', () => {
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
   });
 
-  it('asks the wallet to create a product container before subscription when none is available', () => {
+  it('asks the wallet to open a Predict account before subscription when none is available', () => {
     render(
       <TargetBuyExecutionPanelView
         hasAccount
@@ -37,8 +37,8 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('Start with step 1 — create your product container.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Create Product Container' })).toBeEnabled();
+    expect(screen.getByText('Start with step 1 — open your Predict account.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open Predict account' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
   });
 
@@ -56,7 +56,7 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('Product container 0xabc is ready. Subscribe to finish.')).toBeVisible();
+    expect(screen.getByText('Account 0xabc is ready. Subscribe to finish.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeEnabled();
   });
 

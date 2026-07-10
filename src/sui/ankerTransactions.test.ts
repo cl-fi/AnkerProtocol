@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildClaimDualInvestmentNoteTransaction,
-  buildCreatePredictManagerTransaction,
   buildRedeemDualInvestmentNoteTransaction,
   buildRedeemDualInvestmentPositionsTransaction,
   buildSubscribeDualInvestmentTransaction,
@@ -158,12 +157,6 @@ function settlementFixture(overrides: Partial<SettlementResult> = {}): Settlemen
 }
 
 describe('Anker transaction builders', () => {
-  it('builds a Predict manager creation transaction', () => {
-    const plan = buildCreatePredictManagerTransaction({ config });
-
-    expect(plan.calls).toEqual([`${PREDICT_PACKAGE_ID}::predict::create_manager`]);
-  });
-
   it('builds a Target Buy subscribe PTB plan with deposit, Predict mints, and Anker note creation', () => {
     const quote = quoteFixture();
     const quoteEnvelope = quoteEnvelopeFixture(quote);
@@ -335,7 +328,6 @@ describe('Anker transaction builders', () => {
     it('refuses to build any transaction plan while demo mode is enabled', () => {
       vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'true');
 
-      expect(() => buildCreatePredictManagerTransaction({ config })).toThrow(/demo mode/i);
       expect(() =>
         buildRedeemDualInvestmentPositionsTransaction({
           accountAddress: OWNER,
