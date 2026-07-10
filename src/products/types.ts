@@ -11,6 +11,8 @@ export interface OracleMarket {
   expiryMs: number;
   minStrike: number;
   tickSize: number;
+  /** Admission grid step for Turbo target selection (typically $1). */
+  admissionTickSize?: number;
   status: 'created' | 'active' | 'settled' | string;
   spot: number;
   forward: number;
@@ -30,7 +32,9 @@ export interface SviParameters {
 }
 
 export interface PredictPricingState {
+  /** @deprecated Prefer baseFee — legacy 4-16 spread name. */
   baseSpread: number;
+  /** @deprecated Prefer minFee — legacy 4-16 spread name. */
   minSpread: number;
   utilizationMultiplier: number;
   minAskPrice: number;
@@ -38,6 +42,14 @@ export interface PredictPricingState {
   vaultBalance: number;
   vaultTotalMtm: number;
   vaultUtilization: number;
+  /** 6-24 StrikeExposureConfig base trading fee (probability units). */
+  baseFee?: number;
+  /** 6-24 minimum trading fee floor. */
+  minFee?: number;
+  /** Congestion surcharge per unit; browse quotes default to 0 (EWMA disabled / not outlier). */
+  ewmaPenaltyRate?: number;
+  expiryFeeWindowMs?: number;
+  expiryFeeMaxMultiplier?: number;
 }
 
 export interface LegIntent {

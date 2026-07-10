@@ -4,7 +4,7 @@ import {
   DEFAULT_MIN_PREDICT_ASK,
   estimateBinaryUpAskPrice,
   estimateBinaryUpFairPrice,
-  estimatePredictSpreadFromFairPrice,
+  estimatePredictTradingFeeFromFairPrice,
   estimateTargetBuyFloorPrice,
 } from './predictPricing';
 import type { OracleMarket } from './types';
@@ -33,32 +33,52 @@ describe('estimateBinaryUpAskPrice', () => {
     expect(askPrice as number).toBeGreaterThan(fairPrice as number);
   });
 
-  it('uses the chain minimum spread around low fair prices', () => {
-    expect(estimatePredictSpreadFromFairPrice({ fairPrice: 0.02 })).toBe(0.005);
+  it('uses the chain minimum fee around low fair prices (Bernoulli floor)', () => {
+    // max(0.02 * sqrt(0.02*0.98), 0.005) = max(0.02*√0.0196, 0.005) ≈ max(0.0028, 0.005) = 0.005
+    expect(estimatePredictTradingFeeFromFairPrice({ fairPrice: 0.02, baseFee: 0.02, minFee: 0.005 })).toBe(0.005);
   });
 
-  it('adds the vault utilization spread from market pricing state', () => {
-    const baseMarket = marketFixture();
-    const marketWithUtilization: OracleMarket = {
-      ...baseMarket,
-      predictPricing: {
-        baseSpread: 0.02,
-        minSpread: 0.005,
-        utilizationMultiplier: 2,
-        minAskPrice: 0.01,
-        maxAskPrice: 0.99,
-        vaultBalance: 1000,
-        vaultTotalMtm: 500,
-        vaultUtilization: 0.5,
-      },
+  it('uses base_fee * sqrt(p*(1-p)) in the interior', () => {
+    // p=0.5 → sqrt(0.25)=0.5 → 0.02*0.5=0.01 > min_fee 0.005
+    expect(estimatePredictTradingFeeFromFairPrice({ fairPrice: 0.5, baseFee: 0.02, minFee: 0.005 })).toBeCloseTo(0.01);
+  });
+
+  it('adds EWMA congestion penalty when provided (browse default is zero)', () => {
+    const fee = estimatePredictTradingFeeFromFairPrice({
+      fairPrice: 0.5,
+      baseFee: 0.02,
+      minFee: 0.005,
+      ewmaPenaltyRate: 0.001,
+    });
+    expect(fee).toBeCloseTo(0.011);
+  });
+
+  it('applies the expiry fee ramp inside the window', () => {
+    const fee = estimatePredictTradingFeeFromFairPrice({
+      fairPrice: 0.5,
+      baseFee: 0.02,
+      minFee: 0.005,
+      timeToExpiryMs: 0,
+      expiryFeeWindowMs: 86_400_000,
+      expiryFeeMaxMultiplier: 2,
+    });
+    // at expiry: multiplier = 2 → 0.01 * 2 = 0.02
+    expect(fee).toBeCloseTo(0.02);
+  });
+
+  it('returns null fair/ask at SVI boundary when total variance is invalid', () => {
+    const market = marketFixture();
+    const broken: OracleMarket = {
+      ...market,
+      svi: { ...market.svi!, a: -1, b: 0, rho: 0, m: 0, sigma: 0 },
     };
+    expect(estimateBinaryUpFairPrice({ market: broken, strike: 72_500 })).toBeNull();
+    expect(estimateBinaryUpAskPrice({ market: broken, strike: 72_500 })).toBeNull();
+  });
 
-    const withoutUtilization = estimateBinaryUpAskPrice({ market: baseMarket, strike: 72_500 });
-    const withUtilization = estimateBinaryUpAskPrice({ market: marketWithUtilization, strike: 72_500 });
-
-    expect(withoutUtilization).not.toBeNull();
-    expect(withUtilization).not.toBeNull();
-    expect(withUtilization as number).toBeGreaterThan(withoutUtilization as number);
+  it('saturates deep-ITM binary UP fair price near 1', () => {
+    const market = marketFixture();
+    expect(estimateBinaryUpFairPrice({ market, strike: market.minStrike })).toBeGreaterThan(0.99);
   });
 });
 

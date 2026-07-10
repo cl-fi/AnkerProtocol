@@ -88,8 +88,8 @@ async function getOracleReadiness(input: {
       return { stateReady: false, quoteReady: false, reason: 'Expiry market state is incomplete.' };
     }
 
-    // Full SVI quote path lands in #3; discovery treats a live spot as quote-ready enough to list.
-    return { stateReady: true, quoteReady: true };
+    // Full SVI quote path: quote-ready when SVI params are present for browse pricing.
+    return { stateReady: true, quoteReady: Boolean(market.svi) };
   } catch (error) {
     return {
       stateReady: false,

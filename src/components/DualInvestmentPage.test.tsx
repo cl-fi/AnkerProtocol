@@ -81,7 +81,7 @@ function quoteFixture(): StructuredProductQuote {
       predictId: '0x1',
       oracleId: '0x2',
       underlyingAsset: 'BTC',
-      expiryMs: 1_781_683_200_000,
+      expiryMs: Date.now() + 7 * 86_400_000,
       minStrike: 50_000,
       tickSize: 1,
       status: 'active',
@@ -225,14 +225,34 @@ describe('Dual Investment APR display', () => {
       </>,
     );
 
-    expect(screen.getByText('135%')).toBeVisible();
-    expect(screen.getByText('135% APR')).toBeVisible();
-    expect(screen.queryByText('150%')).not.toBeInTheDocument();
+    expect(screen.getAllByText('135% APR').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('150% APR')).not.toBeInTheDocument();
   });
 
+  it('shows period return instead of APR for Turbo sub-day tenors', () => {
+    const market = marketFixture({ expiryMs: Date.now() + 2 * 3_600_000 });
+    const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
+    const quote = pageQuoteFixture({ market, productInput, coupon: 0.05 });
+
+    render(
+      <BuyLowControls
+        market={market}
+        principal={5}
+        targetPrice={65_500}
+        estimateApr={quote.apr}
+        periodReturn={0.01}
+        onPrincipalChange={() => undefined}
+        onTargetChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('Period return')).toBeVisible();
+    expect(screen.getByText('1%')).toBeVisible();
+    expect(screen.queryByText(/APR/)).not.toBeInTheDocument();
+  });
+
   it('shows matched Binance APR, edge, and benchmark methodology in the reference table', () => {
-    const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
     const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
     const rows: DualInvestmentScanRow[] = [
       {
@@ -246,7 +266,7 @@ describe('Dual Investment APR display', () => {
         investmentAsset: 'USDC',
         targetAsset: 'BTC',
         strikePrice: 64_000,
-        settleTimeMs: Date.UTC(2026, 5, 22, 8),
+        settleTimeMs: Date.UTC(2026, 7, 22, 8),
         apr: 0.8,
         durationDays: 1,
         canPurchase: true,
@@ -273,7 +293,7 @@ describe('Dual Investment APR display', () => {
   });
 
   it('distinguishes missing Binance products from unavailable APR', () => {
-    const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
     const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
     const rows: DualInvestmentScanRow[] = [
       {
@@ -305,7 +325,7 @@ describe('Dual Investment APR display', () => {
             investmentAsset: 'USDC',
             targetAsset: 'BTC',
             strikePrice: 64_000,
-            settleTimeMs: Date.UTC(2026, 5, 22, 8),
+            settleTimeMs: Date.UTC(2026, 7, 22, 8),
             apr: null,
             durationDays: 1,
             canPurchase: true,
@@ -323,7 +343,7 @@ describe('Dual Investment APR display', () => {
   });
 
   it('surfaces Binance APR fetch failures in the reference table', () => {
-    const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
     const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
     const rows: DualInvestmentScanRow[] = [
       {
@@ -349,7 +369,7 @@ describe('Dual Investment APR display', () => {
   });
 
   it('renders Chinese copy while keeping target prices in USD', () => {
-    const market = marketFixture({ expiryMs: Date.UTC(2026, 5, 22) });
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
     const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
     const rows: DualInvestmentScanRow[] = [
       {

@@ -145,6 +145,10 @@ export function DualInvestmentPage({
   const subscribeQuote = matchedVerified && matchedVerified.executable ? matchedVerified : null;
   const isEstimate = !matchedVerified;
   const estimateApr = estimateQuote && estimateQuote.coupon > 0 ? estimateQuote.apr : null;
+  const periodReturn =
+    estimateQuote && estimateQuote.coupon > 0 && estimateQuote.principal > 0
+      ? estimateQuote.coupon / estimateQuote.principal
+      : null;
 
   const handleSelectPreset = useCallback((input: DualInvestmentInput) => {
     setTargetPrice(input.targetPrice);
@@ -215,6 +219,7 @@ export function DualInvestmentPage({
             principal={principal}
             targetPrice={targetPrice}
             estimateApr={estimateApr}
+            periodReturn={periodReturn}
             onPrincipalChange={setPrincipal}
             onTargetChange={setTargetPrice}
             locale={locale}

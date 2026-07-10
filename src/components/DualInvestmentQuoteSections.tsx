@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import { findBinanceDualInvestmentMatch, type BinanceDualInvestmentProduct } from '../deepbook/binanceDualInvestment';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
-import { scanQuoteDisplayMetrics, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
+import { scanQuoteDisplayMetrics, isSubDayTenor, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
 import { netAprAfterCouponFee } from '../products/feePolicy';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
@@ -36,7 +36,9 @@ function formatBelowSpot(targetPrice: number, spot: number, locale: Locale) {
 
 function formatExpiryOption(oracle: CuratedOracleListItem, locale: Locale) {
   const format = formattersForLocale(locale);
-  return `${format.time(oracle.expiry)} · ${format.timeToExpiry(oracle.expiry)}`;
+  const hours = Math.max(1, Math.round(oracle.timeToExpiryMs / 3_600_000));
+  const tenor = hours <= 3 ? `${hours}h` : format.timeToExpiry(oracle.expiry);
+  return `${tenor} · ${format.time(oracle.expiry)}`;
 }
 
 export function DirectionPairBar({
@@ -87,10 +89,10 @@ export function DirectionPairBar({
       </div>
 
       <div className="di-select-group di-select-grow">
-        <span className="di-select-label">{copy.dualInvestment.settlementDate}</span>
+        <span className="di-select-label">{copy.dualInvestment.tenor}</span>
         <label className="expiry-select">
           <select
-            aria-label={copy.dualInvestment.settlementDate}
+            aria-label={copy.dualInvestment.tenor}
             value={market?.oracleId ?? ''}
             onChange={(event) => onSelectOracle(event.currentTarget.value)}
           >
@@ -111,6 +113,7 @@ export function BuyLowControls({
   principal,
   targetPrice,
   estimateApr,
+  periodReturn = null,
   onPrincipalChange,
   onTargetChange,
   locale = DEFAULT_LOCALE,
@@ -119,6 +122,7 @@ export function BuyLowControls({
   principal: number;
   targetPrice: number;
   estimateApr: number | null;
+  periodReturn?: number | null;
   onPrincipalChange: (value: number) => void;
   onTargetChange: (value: number) => void;
   locale?: Locale;
@@ -129,6 +133,15 @@ export function BuyLowControls({
     handler(Number(event.currentTarget.value));
   };
   const belowSpot = market ? formatBelowSpot(targetPrice, market.spot, locale) : '--';
+  const subDay = market ? isSubDayTenor(market.expiryMs) : false;
+  const rewardLabel = subDay
+    ? periodReturn !== null
+      ? format.percent(periodReturn)
+      : '--'
+    : estimateApr !== null
+      ? `${format.apr(netAprAfterCouponFee(estimateApr))} APR`
+      : '--';
+  const targetStep = market?.admissionTickSize ?? 100;
 
   return (
     <section className="di-controls" aria-label={copy.dualInvestment.setBuyLowLabel}>
@@ -146,15 +159,15 @@ export function BuyLowControls({
           label={copy.dualInvestment.buyLowPrice}
           suffix={belowSpot !== '--' ? `${belowSpot} ${copy.dualInvestment.below}` : 'BTC'}
           min="1"
-          step="100"
+          step={String(targetStep)}
           type="number"
           value={targetPrice}
           onChange={updateNumber(onTargetChange)}
         />
       </div>
       <div className="di-controls-apr">
-        <span>{copy.dualInvestment.estimatedReward}</span>
-        <strong>{estimateApr !== null ? `${format.apr(netAprAfterCouponFee(estimateApr))} APR` : '--'}</strong>
+        <span>{subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.estimatedReward}</span>
+        <strong>{rewardLabel}</strong>
       </div>
     </section>
   );
@@ -183,6 +196,8 @@ export function ReferenceTable({
 }) {
   const copy = copyForLocale(locale);
   const format = formattersForLocale(locale);
+  const subDay = market ? isSubDayTenor(market.expiryMs) : false;
+  const yieldHeader = subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.estApr;
   const handleKey = (input: DualInvestmentInput) => (event: KeyboardEvent<HTMLTableRowElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -230,7 +245,7 @@ export function ReferenceTable({
           <thead>
             <tr>
               <th>{copy.common.buyLow}</th>
-              <th>{copy.dualInvestment.estApr}</th>
+              <th>{yieldHeader}</th>
               <th>{copy.dualInvestment.binanceApr}</th>
               <th>{copy.dualInvestment.edge}</th>
             </tr>
@@ -251,6 +266,13 @@ export function ReferenceTable({
               const binanceApr = binanceAprDisplay(binanceMatch);
               const edge = edgeDisplay({ displayApr: displayMetrics.apr, match: binanceMatch });
               const isActive = row.input.targetPrice === activeTargetPrice;
+              const yieldLabel = displayMetrics.showApr
+                ? displayMetrics.apr !== null
+                  ? format.referenceApr(displayMetrics.apr)
+                  : '--'
+                : displayMetrics.periodReturn !== null
+                  ? format.percent(displayMetrics.periodReturn)
+                  : '--';
               return (
                 <tr
                   className={isActive ? 'selected' : ''}
@@ -265,8 +287,11 @@ export function ReferenceTable({
                     <strong>{format.usd(row.input.targetPrice)}</strong>
                     <span>{belowSpot}</span>
                   </td>
-                  <td className={displayMetrics.apr !== null ? 'apr-cell' : ''} data-label={copy.dualInvestment.estApr}>
-                    {displayMetrics.apr !== null ? format.referenceApr(displayMetrics.apr) : '--'}
+                  <td
+                    className={displayMetrics.showApr && displayMetrics.apr !== null ? 'apr-cell' : ''}
+                    data-label={yieldHeader}
+                  >
+                    {yieldLabel}
                   </td>
                   <td className={binanceApr.className} data-label={copy.dualInvestment.binanceApr}>
                     {binanceApr.label}

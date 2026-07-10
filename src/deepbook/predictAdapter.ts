@@ -22,7 +22,7 @@ export interface ExpiryMarketSummary {
 
 export interface PredictAdapter {
   discoverMarkets(input?: { nowMs?: number }): Promise<ExpiryMarketSummary[]>;
-  /** Display quote — implemented in #3. */
+  /** D6 layer-1 browse quotes — SVI + fee stack via SviBrowseQuoteProvider / useDualInvestmentScan. */
   quoteLegs?(legs: unknown[]): Promise<unknown[]>;
   /** Mint legs in a PTB — implemented in #5. */
   mintLegs?(input: unknown): Promise<unknown>;

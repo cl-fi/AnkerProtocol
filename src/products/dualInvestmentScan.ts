@@ -44,7 +44,8 @@ export function buildDualInvestmentScanInputs(input: {
   floorDistance?: number;
 }): DualInvestmentInput[] {
   const targetRows = input.targetRows ?? 8;
-  const targetStep = input.targetStep ?? 500;
+  // Turbo admission grid (~$1); legacy Dual Investment used $500 steps.
+  const targetStep = input.targetStep ?? input.market.admissionTickSize ?? 500;
   const floorDistance = input.floorDistance ?? 5_000;
   const targetLegCount = input.targetLegCount ?? 6;
   const roundedDownTarget = Math.floor(input.market.spot / targetStep) * targetStep;
@@ -64,20 +65,33 @@ export function buildDualInvestmentScanInputs(input: {
     );
 }
 
+/** ADR-0002: tenor < 1 day shows period return only — never annualized APR. */
+export function isSubDayTenor(expiryMs: number, nowMs = Date.now()) {
+  return expiryMs - nowMs < 86_400_000;
+}
+
 export function scanQuoteDisplayMetrics(input: {
-  quote: Pick<StructuredProductQuote, 'coupon' | 'apr' | 'totalLegCost'> | null;
+  quote: Pick<StructuredProductQuote, 'coupon' | 'apr' | 'totalLegCost' | 'principal' | 'oracle'> | null;
+  nowMs?: number;
 }) {
   if (!input.quote || input.quote.coupon <= 0) {
     return {
       coupon: 0,
-      apr: null,
-      totalLegCost: null,
+      apr: null as number | null,
+      periodReturn: null as number | null,
+      totalLegCost: null as number | null,
+      showApr: false,
     };
   }
 
+  const periodReturn = input.quote.principal > 0 ? input.quote.coupon / input.quote.principal : 0;
+  const showApr = !isSubDayTenor(input.quote.oracle.expiryMs, input.nowMs);
+
   return {
     coupon: input.quote.coupon,
-    apr: netAprAfterCouponFee(input.quote.apr),
+    apr: showApr ? netAprAfterCouponFee(input.quote.apr) : null,
+    periodReturn,
     totalLegCost: input.quote.totalLegCost,
+    showApr,
   };
 }

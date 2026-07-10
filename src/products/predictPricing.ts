@@ -50,37 +50,88 @@ export function estimateBinaryUpFairPrice(input: { market: OracleMarket; strike:
   return clamp(normalCdf(d2), 0, 1);
 }
 
+/**
+ * 6-24 trading fee on top of fair probability p (fees-and-rebates.md):
+ *   base_fee_rate = max(base_fee * sqrt(p*(1-p)), min_fee)
+ *   ramped       = base_fee_rate * expiry_fee_multiplier(tte)
+ *   + EWMA congestion penalty (0 unless gas is a high outlier; browse default 0)
+ */
+export function estimatePredictTradingFeeFromFairPrice(input: {
+  fairPrice: number;
+  baseFee?: number;
+  minFee?: number;
+  ewmaPenaltyRate?: number;
+  timeToExpiryMs?: number;
+  expiryFeeWindowMs?: number;
+  expiryFeeMaxMultiplier?: number;
+}) {
+  const fairPrice = clamp(input.fairPrice, 0, 1);
+  if (fairPrice <= 0 || fairPrice >= 1) return 0;
+
+  const baseFee = input.baseFee ?? DEFAULT_PREDICT_BASE_SPREAD;
+  const minFee = input.minFee ?? DEFAULT_PREDICT_MIN_SPREAD;
+  const bernoulli = baseFee * Math.sqrt(fairPrice * (1 - fairPrice));
+  const baseFeeRate = Math.max(bernoulli, minFee);
+
+  const windowMs = input.expiryFeeWindowMs ?? 0;
+  const maxMultiplier = input.expiryFeeMaxMultiplier ?? 1;
+  const timeToExpiryMs = input.timeToExpiryMs;
+  let multiplier = 1;
+  if (windowMs > 0 && maxMultiplier > 1 && timeToExpiryMs !== undefined) {
+    if (timeToExpiryMs <= 0) {
+      multiplier = maxMultiplier;
+    } else if (timeToExpiryMs < windowMs) {
+      const phase = (windowMs - timeToExpiryMs) / windowMs;
+      multiplier = 1 + (maxMultiplier - 1) * phase;
+    }
+  }
+
+  const ewmaPenalty = Math.max(0, input.ewmaPenaltyRate ?? 0);
+  return baseFeeRate * multiplier + ewmaPenalty;
+}
+
+/** @deprecated Prefer estimatePredictTradingFeeFromFairPrice — kept for call-site compatibility during migration. */
 export function estimatePredictSpreadFromFairPrice(input: {
   fairPrice: number;
   baseSpread?: number;
   minSpread?: number;
   utilization?: number;
   utilizationMultiplier?: number;
+  ewmaPenaltyRate?: number;
+  timeToExpiryMs?: number;
+  expiryFeeWindowMs?: number;
+  expiryFeeMaxMultiplier?: number;
 }) {
-  const fairPrice = clamp(input.fairPrice, 0, 1);
-  if (fairPrice <= 0 || fairPrice >= 1) return 0;
-
-  const baseSpread = input.baseSpread ?? DEFAULT_PREDICT_BASE_SPREAD;
-  const minSpread = input.minSpread ?? DEFAULT_PREDICT_MIN_SPREAD;
-  const utilization = clamp(input.utilization ?? 0, 0, 1);
-  const utilizationMultiplier = input.utilizationMultiplier ?? DEFAULT_PREDICT_UTILIZATION_MULTIPLIER;
-  const bernoulliSpread = baseSpread * Math.sqrt(fairPrice * (1 - fairPrice));
-  const utilizationSpread = baseSpread * utilizationMultiplier * utilization * utilization;
-  return Math.max(bernoulliSpread, minSpread) + utilizationSpread;
+  return estimatePredictTradingFeeFromFairPrice({
+    fairPrice: input.fairPrice,
+    baseFee: input.baseSpread,
+    minFee: input.minSpread,
+    ewmaPenaltyRate: input.ewmaPenaltyRate,
+    timeToExpiryMs: input.timeToExpiryMs,
+    expiryFeeWindowMs: input.expiryFeeWindowMs,
+    expiryFeeMaxMultiplier: input.expiryFeeMaxMultiplier,
+  });
 }
 
-export function estimateBinaryUpAskPrice(input: { market: OracleMarket; strike: number; utilization?: number }) {
+export function estimateBinaryUpAskPrice(input: {
+  market: OracleMarket;
+  strike: number;
+  nowMs?: number;
+}) {
   const fairPrice = estimateBinaryUpFairPrice(input);
   if (fairPrice === null) return null;
   const pricing = input.market.predictPricing;
-  const spread = estimatePredictSpreadFromFairPrice({
+  const nowMs = input.nowMs ?? Date.now();
+  const fee = estimatePredictTradingFeeFromFairPrice({
     fairPrice,
-    baseSpread: pricing?.baseSpread,
-    minSpread: pricing?.minSpread,
-    utilization: input.utilization ?? pricing?.vaultUtilization,
-    utilizationMultiplier: pricing?.utilizationMultiplier,
+    baseFee: pricing?.baseFee ?? pricing?.baseSpread,
+    minFee: pricing?.minFee ?? pricing?.minSpread,
+    ewmaPenaltyRate: pricing?.ewmaPenaltyRate ?? 0,
+    timeToExpiryMs: input.market.expiryMs - nowMs,
+    expiryFeeWindowMs: pricing?.expiryFeeWindowMs,
+    expiryFeeMaxMultiplier: pricing?.expiryFeeMaxMultiplier,
   });
-  return clamp(fairPrice + spread, 0, 1);
+  return clamp(fairPrice + fee, 0, 1);
 }
 
 export function estimateTargetBuyFloorPrice(input: {

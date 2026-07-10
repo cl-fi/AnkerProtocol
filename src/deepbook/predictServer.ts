@@ -1,7 +1,13 @@
 import { DEEPBOOK_PREDICT, PREDICT_SERVER_URL, PROPBOOK_SERVER_URL } from '../config/deepbook';
 import type { OracleMarket, PredictPricingState } from '../products/types';
 import { fromChainPrice } from '../products/units';
+import { fetchBlockScholesForward, fetchBlockScholesSpot, fetchBlockScholesSvi } from './blockScholesFeeds';
 import { predictAdapter, type ExpiryMarketSummary } from './predictAdapter';
+import {
+  isOracleTimestampFresh,
+  parsePythSpotObservation,
+  resolveLiveForward,
+} from './propbookOracle';
 
 export interface PredictStatus {
   maxCheckpointLag: number;
@@ -23,6 +29,9 @@ export interface PredictOracleListItem {
 
 const MIN_TRADABLE_TIME_MS = 5 * 60_000;
 const QUOTE_ASSET_SCALE = 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals;
+/** Pyth freshness window for re-anchoring forward (matches typical Predict defaults). */
+const PYTH_SPOT_FRESHNESS_MS = 60_000;
+const FLOAT_SCALE = 1_000_000_000;
 
 export function parseStatus(payload: unknown): PredictStatus {
   const data = payload as { max_checkpoint_lag?: number; max_time_lag_seconds?: number };
@@ -39,6 +48,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function finiteNumber(value: unknown) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
+}
+
+function scaledProbability(value: unknown): number | null {
+  const raw = finiteNumber(value);
+  if (raw === null) return null;
+  return raw / FLOAT_SCALE;
 }
 
 export function expiryMarketToListItem(market: ExpiryMarketSummary): PredictOracleListItem {
@@ -69,15 +84,23 @@ export function parsePredictPricingState(payload: unknown): PredictPricingState 
         : Math.min(1, vaultTotalMtmBaseUnits / vaultBalanceBaseUnits)
       : Math.min(1, Math.max(0, utilization));
 
+  const baseFee = scaledProbability(payload.base_fee) ?? DEEPBOOK_PREDICT.baseSpread;
+  const minFee = scaledProbability(payload.min_fee) ?? DEEPBOOK_PREDICT.minSpread;
+
   return {
-    baseSpread: DEEPBOOK_PREDICT.baseSpread,
-    minSpread: DEEPBOOK_PREDICT.minSpread,
+    baseSpread: baseFee,
+    minSpread: minFee,
+    baseFee,
+    minFee,
     utilizationMultiplier: DEEPBOOK_PREDICT.utilizationMultiplier,
     minAskPrice: DEEPBOOK_PREDICT.minAskPrice,
     maxAskPrice: DEEPBOOK_PREDICT.maxAskPrice,
     vaultBalance: vaultBalanceBaseUnits / QUOTE_ASSET_SCALE,
     vaultTotalMtm: vaultTotalMtmBaseUnits / QUOTE_ASSET_SCALE,
     vaultUtilization,
+    ewmaPenaltyRate: 0,
+    expiryFeeWindowMs: finiteNumber(payload.expiry_fee_window_ms) ?? undefined,
+    expiryFeeMaxMultiplier: scaledProbability(payload.expiry_fee_max_multiplier) ?? undefined,
   };
 }
 
@@ -127,20 +150,16 @@ export function filterProductExpiryOracles(
     .sort((a, b) => a.expiry - b.expiry);
 }
 
-function parsePythSpot(payload: unknown): { spot: number; timestampMs: number } | null {
-  if (!isRecord(payload)) return null;
-  const normalizedSpot = finiteNumber(payload.normalized_spot);
-  const timestampMs = finiteNumber(payload.update_timestamp_ms ?? payload.source_timestamp_ms);
-  if (normalizedSpot === null || timestampMs === null) return null;
-  return { spot: fromChainPrice(normalizedSpot), timestampMs };
-}
-
 function parseMarketStateRow(payload: unknown): {
   expiryMarketId: string;
   expiryMs: number;
   tickSize: number;
   admissionTickSize: number;
   poolVaultId: string;
+  baseFee: number;
+  minFee: number;
+  expiryFeeWindowMs: number;
+  expiryFeeMaxMultiplier: number;
 } | null {
   if (!isRecord(payload)) return null;
   const market = isRecord(payload.market) ? payload.market : payload;
@@ -150,6 +169,10 @@ function parseMarketStateRow(payload: unknown): {
   const admissionTickSizeRaw = finiteNumber(market.admission_tick_size);
   const poolVaultId =
     (typeof market.pool_vault_id === 'string' && market.pool_vault_id) || DEEPBOOK_PREDICT.poolVaultId;
+  const baseFee = scaledProbability(market.base_fee) ?? DEEPBOOK_PREDICT.baseSpread;
+  const minFee = scaledProbability(market.min_fee) ?? DEEPBOOK_PREDICT.minSpread;
+  const expiryFeeWindowMs = finiteNumber(market.expiry_fee_window_ms) ?? 0;
+  const expiryFeeMaxMultiplier = scaledProbability(market.expiry_fee_max_multiplier) ?? 1;
   if (!expiryMarketId || expiryMs === null || tickSizeRaw === null || admissionTickSizeRaw === null) {
     return null;
   }
@@ -159,13 +182,42 @@ function parseMarketStateRow(payload: unknown): {
     tickSize: fromChainPrice(tickSizeRaw),
     admissionTickSize: fromChainPrice(admissionTickSizeRaw),
     poolVaultId,
+    baseFee,
+    minFee,
+    expiryFeeWindowMs,
+    expiryFeeMaxMultiplier,
   };
 }
 
-export async function fetchOracleMarket(
+function defaultPredictPricing(fees: {
+  baseFee: number;
+  minFee: number;
+  expiryFeeWindowMs: number;
+  expiryFeeMaxMultiplier: number;
+}): PredictPricingState {
+  return {
+    baseSpread: fees.baseFee,
+    minSpread: fees.minFee,
+    baseFee: fees.baseFee,
+    minFee: fees.minFee,
+    utilizationMultiplier: DEEPBOOK_PREDICT.utilizationMultiplier,
+    minAskPrice: DEEPBOOK_PREDICT.minAskPrice,
+    maxAskPrice: DEEPBOOK_PREDICT.maxAskPrice,
+    vaultBalance: 0,
+    vaultTotalMtm: 0,
+    vaultUtilization: 0,
+    ewmaPenaltyRate: 0,
+    expiryFeeWindowMs: fees.expiryFeeWindowMs,
+    expiryFeeMaxMultiplier: fees.expiryFeeMaxMultiplier,
+  };
+}
+
+/** Server-side assembly: propbook pyth + on-chain Block Scholes spot/forward/SVI. */
+export async function fetchOracleMarketServer(
   expiryMarketId: string,
-  input: { serverLagSeconds: number },
+  input: { serverLagSeconds: number; nowMs?: number },
 ): Promise<OracleMarket> {
+  const nowMs = input.nowMs ?? Date.now();
   const [statePayload, pythPayload] = await Promise.all([
     fetchPredictJson<unknown>(`/markets/${expiryMarketId}/state`),
     fetchPropbookJson<unknown>(`/oracles/${DEEPBOOK_PREDICT.feeds.pyth}/pyth/latest`),
@@ -175,10 +227,32 @@ export async function fetchOracleMarket(
   if (!market) {
     throw new Error(`Expiry market state is incomplete for ${expiryMarketId}`);
   }
-  const pyth = parsePythSpot(pythPayload);
+  const pyth = parsePythSpotObservation(pythPayload);
   if (!pyth) {
     throw new Error('Propbook pyth spot is unavailable.');
   }
+
+  const [bsSpot, bsForward, bsSvi] = await Promise.all([
+    fetchBlockScholesSpot().catch(() => null),
+    fetchBlockScholesForward(market.expiryMs).catch(() => null),
+    fetchBlockScholesSvi(market.expiryMs).catch(() => null),
+  ]);
+
+  const pythFresh = isOracleTimestampFresh({
+    sourceTimestampMs: pyth.sourceTimestampMs,
+    nowMs,
+    freshnessMs: PYTH_SPOT_FRESHNESS_MS,
+  });
+
+  const forward =
+    bsSpot && bsForward
+      ? resolveLiveForward({
+          pythSpot: pyth.spot,
+          pythFresh,
+          bsSpot: bsSpot.spot,
+          bsForward: bsForward.forward,
+        })
+      : (bsForward?.forward ?? pyth.spot);
 
   return {
     predictId: market.poolVaultId,
@@ -187,23 +261,33 @@ export async function fetchOracleMarket(
     expiryMs: market.expiryMs,
     minStrike: market.admissionTickSize,
     tickSize: market.tickSize,
+    admissionTickSize: market.admissionTickSize,
     status: 'active',
     spot: pyth.spot,
-    forward: pyth.spot,
-    spotTimestampMs: pyth.timestampMs,
-    sviTimestampMs: pyth.timestampMs,
+    forward,
+    spotTimestampMs: pyth.sourceTimestampMs,
+    sviTimestampMs: bsSvi?.sourceTimestampMs ?? pyth.sourceTimestampMs,
     serverLagSeconds: input.serverLagSeconds,
-    predictPricing: {
-      baseSpread: DEEPBOOK_PREDICT.baseSpread,
-      minSpread: DEEPBOOK_PREDICT.minSpread,
-      utilizationMultiplier: DEEPBOOK_PREDICT.utilizationMultiplier,
-      minAskPrice: DEEPBOOK_PREDICT.minAskPrice,
-      maxAskPrice: DEEPBOOK_PREDICT.maxAskPrice,
-      vaultBalance: 0,
-      vaultTotalMtm: 0,
-      vaultUtilization: 0,
-    },
+    svi: bsSvi?.svi,
+    predictPricing: defaultPredictPricing(market),
   };
+}
+
+export async function fetchOracleMarket(
+  expiryMarketId: string,
+  input: { serverLagSeconds: number },
+): Promise<OracleMarket> {
+  if (typeof window !== 'undefined') {
+    const response = await fetch(
+      `/api/oracles/${expiryMarketId}/market?lag=${encodeURIComponent(String(input.serverLagSeconds))}`,
+      { cache: 'no-store' },
+    );
+    if (!response.ok) {
+      throw new Error(`Oracle market request failed: ${response.status} ${response.statusText}`);
+    }
+    return response.json() as Promise<OracleMarket>;
+  }
+  return fetchOracleMarketServer(expiryMarketId, input);
 }
 
 /** Vault summary endpoint was removed in 6-24; keep a no-op for callers until PLP wiring lands. */
@@ -211,11 +295,14 @@ export async function fetchPredictPricingState(): Promise<PredictPricingState> {
   return {
     baseSpread: DEEPBOOK_PREDICT.baseSpread,
     minSpread: DEEPBOOK_PREDICT.minSpread,
+    baseFee: DEEPBOOK_PREDICT.baseSpread,
+    minFee: DEEPBOOK_PREDICT.minSpread,
     utilizationMultiplier: DEEPBOOK_PREDICT.utilizationMultiplier,
     minAskPrice: DEEPBOOK_PREDICT.minAskPrice,
     maxAskPrice: DEEPBOOK_PREDICT.maxAskPrice,
     vaultBalance: 0,
     vaultTotalMtm: 0,
     vaultUtilization: 0,
+    ewmaPenaltyRate: 0,
   };
 }

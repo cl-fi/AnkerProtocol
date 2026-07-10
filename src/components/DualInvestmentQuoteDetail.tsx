@@ -3,6 +3,7 @@
 import { ChevronDown, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
+import { isSubDayTenor } from '../products/dualInvestmentScan';
 import { netAprAfterCouponFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
@@ -83,6 +84,9 @@ export function ReturnOverview({
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
   const total = quote.principal + quote.coupon;
   const netApr = netAprAfterCouponFee(quote.apr);
+  const periodReturn = quote.principal > 0 ? quote.coupon / quote.principal : 0;
+  const subDay = isSubDayTenor(quote.oracle.expiryMs);
+  const rewardMeta = subDay ? format.percent(periodReturn) : `${format.apr(netApr)} APR`;
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
   const isAbove = scenario === 'above';
   const receiveAmount = isAbove ? format.fixedTokenAmount(total, 6) : format.fixedTokenAmount(btcEquivalent, 8);
@@ -168,7 +172,7 @@ export function ReturnOverview({
         </div>
         <div>
           <span>
-            {copy.dualInvestment.rewards} (<b>{format.apr(netApr)}</b> APR)
+            {copy.dualInvestment.rewards} (<b>{rewardMeta}</b>)
           </span>
           <strong>+{format.amount(quote.coupon)} dUSDC</strong>
         </div>
@@ -210,6 +214,9 @@ export function DualInvestmentConfirm({
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
   const total = quote.principal + quote.coupon;
   const netApr = netAprAfterCouponFee(quote.apr);
+  const periodReturn = quote.principal > 0 ? quote.coupon / quote.principal : 0;
+  const subDay = isSubDayTenor(quote.oracle.expiryMs);
+  const rewardMeta = subDay ? format.percent(periodReturn) : `${format.apr(netApr)} APR`;
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
 
   return (
@@ -225,7 +232,7 @@ export function DualInvestmentConfirm({
         <div>
           <span>{copy.dualInvestment.receiveAtSettlement}</span>
           <strong>{format.amount(total)} dUSDC</strong>
-          <em>{format.apr(netApr)} APR</em>
+          <em>{rewardMeta}</em>
         </div>
         <div>
           <span>{copy.dualInvestment.settles}</span>

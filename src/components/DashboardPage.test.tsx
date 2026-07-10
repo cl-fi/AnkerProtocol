@@ -447,22 +447,20 @@ describe('OracleLastUpdateValue', () => {
       'fetch',
       vi.fn(async (url: string | URL | Request) => {
         const href = String(url);
-        if (href === '/api/predict/markets/0xoracle/state') {
+        if (href.startsWith('/api/oracles/0xoracle/market')) {
           return rpcResponse({
-            expiry_market_id: '0xoracle',
-            market: {
-              expiry_market_id: '0xoracle',
-              expiry: 1_781_683_200_000,
-              tick_size: '10000000',
-              admission_tick_size: '1000000000',
-              pool_vault_id: '0xvault',
-            },
-          });
-        }
-        if (href.includes('/api/propbook/oracles/') && href.endsWith('/pyth/latest')) {
-          return rpcResponse({
-            normalized_spot: '65000000000000',
-            update_timestamp_ms: Date.UTC(2026, 5, 1, 1, 2, 0),
+            predictId: '0xvault',
+            oracleId: '0xoracle',
+            underlyingAsset: 'BTC',
+            expiryMs: Date.now() + 3_600_000,
+            minStrike: 1,
+            tickSize: 0.01,
+            status: 'active',
+            spot: 65_000,
+            forward: 65_000,
+            spotTimestampMs: Date.UTC(2026, 5, 1, 1, 2, 0),
+            sviTimestampMs: Date.UTC(2026, 5, 1, 1, 2, 0),
+            serverLagSeconds: 0,
           });
         }
         throw new Error(`Unexpected fetch: ${href}`);

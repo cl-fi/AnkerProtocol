@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
 import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
-import { buildDualInvestmentScanInputs, scanQuoteDisplayMetrics } from './dualInvestmentScan';
+import { buildDualInvestmentScanInputs, isSubDayTenor, scanQuoteDisplayMetrics } from './dualInvestmentScan';
 
 describe('buildDualInvestmentScanInputs', () => {
   it('builds descending 500-dollar target-buy rows from spot with six legs by default', () => {
@@ -15,6 +15,22 @@ describe('buildDualInvestmentScanInputs', () => {
     ]);
     expect(rows.every((row) => row.targetLegCount === 6)).toBe(true);
     expect(rows[0].floorPrice).toBe(66_500);
+  });
+
+  it('uses admission tick size for Turbo target steps when present', () => {
+    const rows = buildDualInvestmentScanInputs({
+      market: {
+        ...lastKnownMarketSnapshot,
+        spot: 64_050.4,
+        minStrike: 1,
+        tickSize: 0.01,
+        admissionTickSize: 1,
+      },
+      principal: 100,
+      targetRows: 3,
+    });
+
+    expect(rows.map((row) => row.targetPrice)).toEqual([64_050, 64_049, 64_048]);
   });
 
   it('only builds target-buy rows that are strictly below spot', () => {
@@ -54,15 +70,16 @@ describe('buildDualInvestmentScanInputs', () => {
 });
 
 describe('scanQuoteDisplayMetrics', () => {
+  const multiDayOracle = { ...lastKnownMarketSnapshot, expiryMs: Date.now() + 3 * 86_400_000 };
+  const turboOracle = { ...lastKnownMarketSnapshot, expiryMs: Date.now() + 2 * 3_600_000 };
+
   it('zeros coupon and hides protocol economics when a scan quote is missing', () => {
-    expect(
-      scanQuoteDisplayMetrics({
-        quote: null,
-      }),
-    ).toEqual({
+    expect(scanQuoteDisplayMetrics({ quote: null })).toEqual({
       coupon: 0,
       apr: null,
+      periodReturn: null,
       totalLegCost: null,
+      showApr: false,
     });
   });
 
@@ -73,28 +90,57 @@ describe('scanQuoteDisplayMetrics', () => {
           coupon: -0.01,
           apr: -0.5937,
           totalLegCost: 0.38,
+          principal: 100,
+          oracle: multiDayOracle,
         },
       }),
     ).toEqual({
       coupon: 0,
       apr: null,
+      periodReturn: null,
       totalLegCost: null,
+      showApr: false,
     });
   });
 
-  it('shows net APR after the protocol coupon fee for positive indicative quotes', () => {
+  it('shows net APR after the protocol coupon fee for multi-day quotes', () => {
     expect(
       scanQuoteDisplayMetrics({
         quote: {
           coupon: 0.04,
           apr: 1.8861,
           totalLegCost: 0.34,
+          principal: 1,
+          oracle: multiDayOracle,
         },
       }),
     ).toEqual({
       coupon: 0.04,
       apr: 1.69749,
+      periodReturn: 0.04,
       totalLegCost: 0.34,
+      showApr: true,
+    });
+  });
+
+  it('hides APR and keeps period return for Turbo sub-day tenors (ADR-0002)', () => {
+    expect(isSubDayTenor(turboOracle.expiryMs)).toBe(true);
+    expect(
+      scanQuoteDisplayMetrics({
+        quote: {
+          coupon: 0.04,
+          apr: 175.2,
+          totalLegCost: 0.34,
+          principal: 1,
+          oracle: turboOracle,
+        },
+      }),
+    ).toEqual({
+      coupon: 0.04,
+      apr: null,
+      periodReturn: 0.04,
+      totalLegCost: 0.34,
+      showApr: false,
     });
   });
 });

@@ -1,6 +1,7 @@
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import { isFixtureDataMode } from '../config/runtimeModes';
-import type { LegIntent, LegQuote } from '../products/types';
+import { estimateBinaryUpAskPrice, DEFAULT_MAX_PREDICT_ASK, DEFAULT_MIN_PREDICT_ASK } from '../products/predictPricing';
+import type { LegIntent, LegQuote, OracleMarket } from '../products/types';
 
 const QUOTE_ASSET_SCALE = 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals;
 
@@ -66,35 +67,54 @@ export function toPreviewQuantityBaseUnits(value: number): bigint {
   return BigInt(rounded);
 }
 
-function readU64Le(bytes: number[]): bigint {
-  const view = new DataView(Uint8Array.from(bytes).buffer);
-  return view.getBigUint64(0, true);
+function clampAsk(market: OracleMarket, value: number) {
+  const minAskPrice = Math.max(DEFAULT_MIN_PREDICT_ASK, market.predictPricing?.minAskPrice ?? DEFAULT_MIN_PREDICT_ASK);
+  const maxAskPrice = market.predictPricing?.maxAskPrice ?? DEFAULT_MAX_PREDICT_ASK;
+  return Math.min(maxAskPrice, Math.max(minAskPrice, value));
 }
 
-export function parseDevInspectLegAmounts(
-  result: unknown,
-  expectedLegCount: number,
-): Array<{ mintCost: bigint; redeemPayout: bigint }> {
-  const data = result as {
-    error?: string | null;
-    results?: Array<{ returnValues?: [number[], string][] }>;
-  };
-  if (data.error) {
-    throw new Error(data.error);
-  }
-  const amounts =
-    data.results
-      ?.map((entry) => entry.returnValues)
-      .filter((returnValues): returnValues is [number[], string][] => Boolean(returnValues && returnValues.length >= 2))
-      .map((returnValues) => ({
-        mintCost: readU64Le(returnValues[0][0]),
-        redeemPayout: readU64Le(returnValues[1][0]),
-      })) ?? [];
+function fallbackAskPrice(market: OracleMarket, leg: LegIntent) {
+  if (leg.strike === undefined || market.forward <= 0) return 0.5;
+  const distance = Math.abs(leg.strike - market.forward) / market.forward;
+  return leg.instrumentType === 'binary-down'
+    ? 0.5 + distance * 4
+    : 0.5 - ((leg.strike - market.forward) / market.forward) * 4;
+}
 
-  if (amounts.length !== expectedLegCount) {
-    throw new Error(`DevInspect returned ${amounts.length} leg quotes, expected ${expectedLegCount}.`);
+/** D6 layer-1 browse quotes: local SVI fair + base_fee/min_fee/EWMA stack. */
+export class SviBrowseQuoteProvider implements QuoteProvider {
+  constructor(private readonly market: OracleMarket) {}
+
+  async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
+    const now = Date.now();
+    return legs.map((leg) => {
+      const sviAsk =
+        leg.instrumentType === 'binary-up' && leg.strike !== undefined
+          ? estimateBinaryUpAskPrice({ market: this.market, strike: leg.strike, nowMs: now })
+          : null;
+      const askPrice = clampAsk(this.market, sviAsk ?? fallbackAskPrice(this.market, leg));
+      const askCost = askPrice * leg.quantity;
+      const mintable =
+        Boolean(this.market.svi) &&
+        sviAsk !== null &&
+        askPrice >= (this.market.predictPricing?.minAskPrice ?? DEFAULT_MIN_PREDICT_ASK) &&
+        askPrice <= (this.market.predictPricing?.maxAskPrice ?? DEFAULT_MAX_PREDICT_ASK);
+
+      return {
+        ...leg,
+        askPrice,
+        askCost,
+        redeemPreview: askCost,
+        quoteTimestampMs: now,
+        executable: mintable,
+        error: mintable
+          ? undefined
+          : this.market.svi
+            ? 'Ask outside Predict mint bounds.'
+            : 'SVI surface unavailable for browse quote.',
+      };
+    });
   }
-  return amounts;
 }
 
 export class SnapshotQuoteProvider implements QuoteProvider {
@@ -124,25 +144,34 @@ export class SnapshotQuoteProvider implements QuoteProvider {
 }
 
 /**
- * 4-16 JSON-RPC /devInspect quote path removed (D7). Live 6-24 quoting lands in #3
- * (SVI display + gRPC simulateTransaction). Until then, fall back to snapshot quotes.
+ * Browse quotes use off-chain SVI + fee stack (D6 layer 1).
+ * Pre-sign simulateTransaction (D6 layer 2) lands in #5.
  */
 export class LivePreviewQuoteProvider implements QuoteProvider {
-  constructor(private readonly fallback: QuoteProvider = new SnapshotQuoteProvider()) {}
+  constructor(
+    private readonly market?: OracleMarket,
+    private readonly fallback: QuoteProvider = new SnapshotQuoteProvider(),
+  ) {}
 
   async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
+    if (this.market?.svi) {
+      return new SviBrowseQuoteProvider(this.market).quoteLegs(legs);
+    }
     return this.fallback.quoteLegs(legs);
   }
 }
 
 export class BatchedLivePreviewQuoteProvider implements QuoteProvider {
-  constructor(private readonly fallback: QuoteProvider = new SnapshotQuoteProvider()) {}
+  constructor(
+    private readonly market?: OracleMarket,
+    private readonly fallback: QuoteProvider = new SnapshotQuoteProvider(),
+  ) {}
 
   async quoteLegs(legs: LegIntent[]): Promise<LegQuote[]> {
-    return this.fallback.quoteLegs(legs);
+    return new LivePreviewQuoteProvider(this.market, this.fallback).quoteLegs(legs);
   }
 }
 
-export function createDefaultQuoteProvider(): QuoteProvider {
-  return isFixtureDataMode() ? new SnapshotQuoteProvider() : new BatchedLivePreviewQuoteProvider();
+export function createDefaultQuoteProvider(market?: OracleMarket): QuoteProvider {
+  return isFixtureDataMode() ? new SnapshotQuoteProvider() : new BatchedLivePreviewQuoteProvider(market);
 }

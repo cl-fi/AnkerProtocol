@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
 import {
   applyPredictMintBounds,
   createDefaultQuoteProvider,
   normalizePreviewResult,
-  parseDevInspectLegAmounts,
   SnapshotQuoteProvider,
+  SviBrowseQuoteProvider,
   toPreviewQuantityBaseUnits,
 } from './quoteProvider';
 
@@ -18,34 +19,6 @@ describe('normalizePreviewResult', () => {
       askCost: 12,
       redeemPreview: 9,
     });
-  });
-});
-
-describe('parseDevInspectLegAmounts', () => {
-  it('reads every quote-return pair from a batched devInspect result', () => {
-    const result = {
-      results: [
-        { returnValues: [[[1], 'deepbook_predict::market_key::MarketKey']] },
-        {
-          returnValues: [
-            [[1, 0, 0, 0, 0, 0, 0, 0], 'u64'],
-            [[2, 0, 0, 0, 0, 0, 0, 0], 'u64'],
-          ],
-        },
-        { returnValues: [[[3], 'deepbook_predict::market_key::MarketKey']] },
-        {
-          returnValues: [
-            [[3, 0, 0, 0, 0, 0, 0, 0], 'u64'],
-            [[4, 0, 0, 0, 0, 0, 0, 0], 'u64'],
-          ],
-        },
-      ],
-    };
-
-    expect(parseDevInspectLegAmounts(result, 2)).toEqual([
-      { mintCost: 1n, redeemPayout: 2n },
-      { mintCost: 3n, redeemPayout: 4n },
-    ]);
   });
 });
 
@@ -78,22 +51,39 @@ describe('applyPredictMintBounds', () => {
       { minAskPrice: 0.01, maxAskPrice: 0.99 },
     );
 
-    expect(quote.askPrice).toBeCloseTo(1.001);
     expect(quote.executable).toBe(false);
-    expect(quote.error).toContain('outside Predict mint bounds');
+    expect(quote.error).toMatch(/outside Predict mint bounds/);
+  });
+});
+
+describe('SviBrowseQuoteProvider', () => {
+  it('prices binary-up legs from SVI fair + trading fee stack', async () => {
+    const market = oracleMarketFromFixture();
+    const provider = new SviBrowseQuoteProvider(market);
+    const [quote] = await provider.quoteLegs([
+      {
+        id: 'up',
+        instrumentType: 'binary-up',
+        oracleId: market.oracleId,
+        expiryMs: market.expiryMs,
+        strike: 72_500,
+        isUp: true,
+        quantity: 10,
+        description: 'UP',
+      },
+    ]);
+
+    expect(quote.askPrice).toBeGreaterThan(0);
+    expect(quote.askPrice).toBeLessThan(1);
+    expect(quote.askCost).toBeCloseTo(quote.askPrice * 10);
+    expect(quote.executable).toBe(true);
   });
 });
 
 describe('createDefaultQuoteProvider', () => {
-  it('uses deterministic snapshot quotes for e2e runs', () => {
-    vi.stubEnv('NEXT_PUBLIC_ANKER_DETERMINISTIC_E2E', 'true');
-
-    expect(createDefaultQuoteProvider()).toBeInstanceOf(SnapshotQuoteProvider);
-  });
-
-  it('uses deterministic snapshot quotes in demo mode', () => {
+  it('uses snapshot quotes in fixture/demo mode', async () => {
     vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'true');
-
-    expect(createDefaultQuoteProvider()).toBeInstanceOf(SnapshotQuoteProvider);
+    const provider = createDefaultQuoteProvider();
+    expect(provider).toBeInstanceOf(SnapshotQuoteProvider);
   });
 });

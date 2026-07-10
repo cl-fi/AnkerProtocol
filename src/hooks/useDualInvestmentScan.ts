@@ -5,8 +5,6 @@ import { buildDualInvestmentScanInputs, type DualInvestmentScanRow } from '../pr
 import { DEFAULT_MAX_PREDICT_ASK, DEFAULT_MIN_PREDICT_ASK, estimateBinaryUpAskPrice } from '../products/predictPricing';
 import type { DualInvestmentInput, LegIntent, LegQuote, OracleMarket } from '../products/types';
 
-const liveQuoteProvider = createDefaultQuoteProvider();
-
 function errorMessage(error: unknown, fallback = 'Quote preview failed.') {
   return error instanceof Error ? error.message : fallback;
 }
@@ -16,7 +14,7 @@ export async function buildVerifiedDualInvestmentQuote(input: {
   productInput: DualInvestmentInput;
   quoteProvider?: QuoteProvider;
 }) {
-  const provider = input.quoteProvider ?? liveQuoteProvider;
+  const provider = input.quoteProvider ?? createDefaultQuoteProvider(input.oracle);
   const intents = buildDualInvestmentLegIntents(input.productInput, input.oracle);
   const quotedLegs = await provider.quoteLegs(intents);
   return compileDualInvestment({
@@ -53,7 +51,7 @@ function buildIndicativeLegQuote(market: OracleMarket, leg: LegIntent): LegQuote
     askCost,
     redeemPreview: askCost,
     quoteTimestampMs: Date.now(),
-    executable: true,
+    executable: Boolean(market.svi) && sviAskPrice !== null,
   };
 }
 
@@ -131,10 +129,11 @@ export function useDualInvestmentScan(input: { market?: OracleMarket; principal:
       input.market?.oracleId,
       input.market?.spotTimestampMs,
       input.market?.sviTimestampMs,
+      input.market?.predictPricing?.baseFee,
+      input.market?.predictPricing?.minFee,
       input.market?.predictPricing?.baseSpread,
       input.market?.predictPricing?.minSpread,
-      input.market?.predictPricing?.utilizationMultiplier,
-      input.market?.predictPricing?.vaultUtilization,
+      input.market?.predictPricing?.ewmaPenaltyRate,
       input.principal,
     ],
     enabled: Boolean(input.market) && (input.enabled ?? true),

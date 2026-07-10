@@ -40,12 +40,17 @@ describe('predictServer parsers', () => {
     ).toEqual({
       baseSpread: 0.02,
       minSpread: 0.005,
+      baseFee: 0.02,
+      minFee: 0.005,
       utilizationMultiplier: 2,
       minAskPrice: 0.01,
       maxAskPrice: 0.99,
       vaultBalance: 1000,
       vaultTotalMtm: 250,
       vaultUtilization: 0.25,
+      ewmaPenaltyRate: 0,
+      expiryFeeWindowMs: undefined,
+      expiryFeeMaxMultiplier: undefined,
     });
   });
 
