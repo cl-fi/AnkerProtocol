@@ -49,7 +49,7 @@ export function managerValidationForNote(
 ) {
   const copy = copyForLocale(locale);
   if (!managers) return { label: copy.dashboard.manager.checking, tone: 'neutral' as const };
-  const verified = managers.some((manager) => manager.managerId.toLowerCase() === note.managerId.toLowerCase());
+  const verified = managers.some((manager) => manager.managerId.toLowerCase() === note.wrapperId.toLowerCase());
   return verified
     ? { label: copy.dashboard.manager.verified, tone: 'good' as const }
     : { label: copy.dashboard.manager.notFound, tone: 'warn' as const };
@@ -201,7 +201,7 @@ export function ProductNoteCard({
 }) {
   const copy = copyForLocale(locale);
   const isDual = note.productType === 'dual-investment';
-  const managerStateQuery = usePredictManagerState(note.managerId);
+  const managerStateQuery = usePredictManagerState(note.wrapperId);
   const claimState = claimStateForDualInvestmentNote(note, managerStateQuery.data);
   const lifecycle = lifecycleForProductNote(note, claimState, Date.now());
   const backingProof = backingProofForDualInvestmentNote(note, managerStateQuery.data, notes);
@@ -282,7 +282,7 @@ export function ProductNoteCard({
           ) : null}
           <KeyValue
             label={copy.dashboard.card.productContainer}
-            value={<ProofLink href={suiExplorerObjectUrl(note.managerId)}>{shortId(note.managerId)}</ProofLink>}
+            value={<ProofLink href={suiExplorerObjectUrl(note.wrapperId)}>{shortId(note.wrapperId)}</ProofLink>}
           />
           <KeyValue
             label={copy.dashboard.card.containerCheck}

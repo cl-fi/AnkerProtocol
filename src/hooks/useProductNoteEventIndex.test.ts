@@ -24,7 +24,7 @@ describe('fetchProductNoteEventIndex', () => {
             eventFixture('ProductSubscribed', '0xsubscribe', {
               note_id: NOTE_ID,
               owner: `0x${'a'.repeat(64)}`,
-              manager_id: `0x${'3'.repeat(64)}`,
+              wrapper_id: `0x${'3'.repeat(64)}`,
               oracle_id: `0x${'4'.repeat(64)}`,
             }),
           ]
@@ -65,7 +65,7 @@ describe('fetchProductNoteEventIndex', () => {
             eventFixture('ProductSubscribed', '0xsubscribe-page-2', {
               note_id: NOTE_ID,
               owner: OWNER,
-              manager_id: MANAGER_ID,
+              wrapper_id: MANAGER_ID,
               oracle_id: `0x${'4'.repeat(64)}`,
             }),
           ],
@@ -86,13 +86,13 @@ describe('fetchProductNoteEventIndex', () => {
       eventFixture('ProductSubscribed', '0xsubscribe', {
         note_id: NOTE_ID,
         owner: OWNER,
-        manager_id: MANAGER_ID,
+        wrapper_id: MANAGER_ID,
         oracle_id: `0x${'4'.repeat(64)}`,
       }),
       eventFixture('ProductSubscribed', '0xother', {
         note_id: OTHER_NOTE_ID,
         owner: OWNER,
-        manager_id: `0x${'6'.repeat(64)}`,
+        wrapper_id: `0x${'6'.repeat(64)}`,
         oracle_id: `0x${'7'.repeat(64)}`,
       }),
     ]);
@@ -101,6 +101,6 @@ describe('fetchProductNoteEventIndex', () => {
 
     expect(Object.keys(filtered.byNoteId)).toEqual([NOTE_ID]);
     expect(filtered.byOwner[OWNER]).toEqual([NOTE_ID]);
-    expect(filtered.byManagerId[MANAGER_ID]).toEqual([NOTE_ID]);
+    expect(filtered.byWrapperId[MANAGER_ID]).toEqual([NOTE_ID]);
   });
 });

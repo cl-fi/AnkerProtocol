@@ -14,7 +14,7 @@ export type ProductNoteAllocatedPosition = {
 export type ProductNoteEventIndexEntry = {
   noteId: string;
   owner?: string;
-  managerId?: string;
+  wrapperId?: string;
   oracleId?: string;
   subscriptionDigest?: string;
   settlementDigest?: string;
@@ -30,12 +30,13 @@ export type ProductNoteEventIndexEntry = {
   feePaidBaseUnits?: bigint;
   transactionDigests: string[];
   allocatedPositions: ProductNoteAllocatedPosition[];
+  orderIds?: bigint[];
 };
 
 export type ProductNoteEventIndex = {
   byNoteId: Record<string, ProductNoteEventIndexEntry>;
   byOwner: Record<string, string[]>;
-  byManagerId: Record<string, string[]>;
+  byWrapperId: Record<string, string[]>;
 };
 
 type ProductNoteSuiEvent = {
@@ -63,6 +64,13 @@ function bigintValue(value: unknown) {
   return undefined;
 }
 
+function orderIdsValue(value: unknown): bigint[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const parsed = value.map((entry) => bigintValue(entry));
+  if (parsed.some((entry) => entry === undefined)) return undefined;
+  return parsed as bigint[];
+}
+
 function eventName(eventType: unknown): ProductNoteEventName | undefined {
   if (typeof eventType !== 'string') return undefined;
   const name = eventType.split('::').at(-1);
@@ -87,13 +95,13 @@ function indexEntryRelations(index: ProductNoteEventIndex, entry: ProductNoteEve
     index.byOwner[entry.owner] ??= [];
     pushUnique(index.byOwner[entry.owner], entry.noteId);
   }
-  if (entry.managerId) {
-    index.byManagerId[entry.managerId] ??= [];
-    pushUnique(index.byManagerId[entry.managerId], entry.noteId);
+  if (entry.wrapperId) {
+    index.byWrapperId[entry.wrapperId] ??= [];
+    pushUnique(index.byWrapperId[entry.wrapperId], entry.noteId);
   }
 }
 
-function assignString(target: ProductNoteEventIndexEntry, key: 'owner' | 'managerId' | 'oracleId', value: unknown) {
+function assignString(target: ProductNoteEventIndexEntry, key: 'owner' | 'wrapperId' | 'oracleId', value: unknown) {
   const parsed = stringValue(value);
   if (parsed) target[key] = parsed;
 }
@@ -121,18 +129,20 @@ function applyProductSubscribed(entry: ProductNoteEventIndexEntry, event: Produc
   const digest = txDigest(event);
   if (digest) entry.subscriptionDigest = digest;
   assignString(entry, 'owner', parsed.owner);
-  assignString(entry, 'managerId', parsed.manager_id);
+  assignString(entry, 'wrapperId', parsed.wrapper_id);
   assignString(entry, 'oracleId', parsed.oracle_id);
   assignBigint(entry, 'expiryMs', parsed.expiry_ms);
   assignBigint(entry, 'principalBaseUnits', parsed.principal_amount);
   assignBigint(entry, 'feeBps', parsed.fee_bps);
+  const orderIds = orderIdsValue(parsed.order_ids);
+  if (orderIds) entry.orderIds = orderIds;
 }
 
 function applyProductRedeemed(entry: ProductNoteEventIndexEntry, event: ProductNoteSuiEvent, parsed: Record<string, unknown>) {
   const digest = txDigest(event);
   if (digest) entry.settlementDigest = digest;
   assignString(entry, 'owner', parsed.owner);
-  assignString(entry, 'managerId', parsed.manager_id);
+  assignString(entry, 'wrapperId', parsed.wrapper_id);
   assignString(entry, 'oracleId', parsed.oracle_id);
   assignBigint(entry, 'payoutBaseUnits', parsed.payout_amount);
   assignBigint(entry, 'feeBaseUnits', parsed.fee_amount);
@@ -143,7 +153,7 @@ export function productNoteEventTypes(packageId: string) {
 }
 
 export function buildProductNoteEventIndex(events: readonly unknown[]): ProductNoteEventIndex {
-  const index: ProductNoteEventIndex = { byNoteId: {}, byOwner: {}, byManagerId: {} };
+  const index: ProductNoteEventIndex = { byNoteId: {}, byOwner: {}, byWrapperId: {} };
 
   for (const event of events) {
     if (!isRecord(event)) continue;

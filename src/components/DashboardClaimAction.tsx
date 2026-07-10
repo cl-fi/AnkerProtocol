@@ -241,7 +241,7 @@ export function ClaimAction({
       setDigest(nextDigest);
       await client.waitForTransaction({ digest: nextDigest });
       await queryClient.invalidateQueries({ queryKey: ['anker-portfolio', account.address] });
-      await queryClient.invalidateQueries({ queryKey: ['predict-manager-state', note.managerId] });
+      await queryClient.invalidateQueries({ queryKey: ['predict-manager-state', note.wrapperId] });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : copy.dashboard.claim.transactionFailed);
     } finally {

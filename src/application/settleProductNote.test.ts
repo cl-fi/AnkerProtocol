@@ -29,7 +29,7 @@ function noteFixture(): AnkerProductNoteRecord {
     productType: 'dual-investment',
     productId: 'dual-demo',
     owner: OWNER,
-    managerId: MANAGER_ID,
+    wrapperId: MANAGER_ID,
     oracleId: ORACLE_ID,
     expiryMs: 1_781_683_200_000,
     principal: 1_000,
@@ -49,6 +49,7 @@ function noteFixture(): AnkerProductNoteRecord {
     legs: [
       { strike: 61_000, quantity: 10, quantityBaseUnits: 10_000_000n, cost: 2.1, costBaseUnits: 2_100_000n },
     ],
+    orderIds: [11n],
     status: 'open',
     redeemedPayout: 0,
     redeemedPayoutBaseUnits: 0n,

@@ -117,7 +117,7 @@ function noteFixture(): AnkerProductNoteRecord {
     productType: 'dual-investment',
     productId: 'dual-demo',
     owner: OWNER,
-    managerId: MANAGER_ID,
+    wrapperId: MANAGER_ID,
     oracleId: ORACLE_ID,
     expiryMs: 1_781_683_200_000,
     principal: 1_000,
@@ -138,6 +138,7 @@ function noteFixture(): AnkerProductNoteRecord {
       { strike: 61_000, quantity: 10, quantityBaseUnits: 10_000_000n, cost: 2.1, costBaseUnits: 2_100_000n },
       { strike: 62_000, quantity: 12.5, quantityBaseUnits: 12_500_000n, cost: 3.125, costBaseUnits: 3_125_000n },
     ],
+    orderIds: [11n, 22n],
     status: 'open',
     redeemedPayout: 0,
     redeemedPayoutBaseUnits: 0n,
@@ -168,7 +169,7 @@ describe('Anker transaction builders', () => {
     const quoteEnvelope = quoteEnvelopeFixture(quote);
     const plan = buildSubscribeDualInvestmentTransaction({
       accountAddress: OWNER,
-      managerId: MANAGER_ID,
+      wrapperId: MANAGER_ID,
       productInput: dualInputFixture(),
       quote,
       quoteEnvelope,
@@ -198,11 +199,11 @@ describe('Anker transaction builders', () => {
     expect(() =>
       buildSubscribeDualInvestmentTransaction({
         accountAddress: OWNER,
-        managerId: MANAGER_ID,
+        wrapperId: MANAGER_ID,
         productInput: dualInputFixture(),
         quote: quoteFixture(),
         quoteEnvelope: quoteEnvelopeFixture(quoteFixture(), 1),
-        nowMs: 1_000,
+      nowMs: 1_000,
         config,
       }),
     ).toThrow('Quote expired');
@@ -217,11 +218,11 @@ describe('Anker transaction builders', () => {
     expect(() =>
       buildSubscribeDualInvestmentTransaction({
         accountAddress: OWNER,
-        managerId: MANAGER_ID,
+        wrapperId: MANAGER_ID,
         productInput: dualInputFixture(),
         quote,
         quoteEnvelope: quoteEnvelopeFixture(quote),
-        nowMs: 1,
+      nowMs: 1,
         config,
       }),
     ).toThrow('Quote principal exceeds safe integer range');
@@ -236,11 +237,11 @@ describe('Anker transaction builders', () => {
     expect(() =>
       buildSubscribeDualInvestmentTransaction({
         accountAddress: OWNER,
-        managerId: MANAGER_ID,
+        wrapperId: MANAGER_ID,
         productInput: dualInputFixture(),
         quote,
         quoteEnvelope: quoteEnvelopeFixture(quote),
-        nowMs: 1,
+      nowMs: 1,
         config,
       }),
     ).toThrow('Quote APR must be a non-negative finite number');
@@ -258,11 +259,11 @@ describe('Anker transaction builders', () => {
     expect(() =>
       buildSubscribeDualInvestmentTransaction({
         accountAddress: OWNER,
-        managerId: MANAGER_ID,
+        wrapperId: MANAGER_ID,
         productInput: dualInputFixture(),
         quote,
         quoteEnvelope: quoteEnvelopeFixture(quote),
-        nowMs: 1,
+      nowMs: 1,
         config,
       }),
     ).toThrow('Quote Predict object does not match configured Predict object.');

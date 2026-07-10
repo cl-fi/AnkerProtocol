@@ -16,7 +16,7 @@ function dualNoteFields() {
     owner: OWNER,
     product_kind: '0',
     product_id: productIdBytes('dual-demo'),
-    manager_id: MANAGER_ID,
+    wrapper_id: MANAGER_ID,
     oracle_id: ORACLE_ID,
     expiry_ms: '1781683200000',
     principal_amount: '1000000000',
@@ -33,6 +33,7 @@ function dualNoteFields() {
     strikes: ['61000000000000', '62000000000000'],
     quantities: ['10000000', '12500000'],
     costs: ['2100000', '3125000'],
+    order_ids: ['11', '22'],
     status: '0',
     redeemed_payout_amount: '0',
     redeemed_fee_amount: '0',
@@ -67,7 +68,7 @@ describe('Anker portfolio parser', () => {
       productType: 'dual-investment',
       productId: 'dual-demo',
       owner: OWNER,
-      managerId: MANAGER_ID,
+      wrapperId: MANAGER_ID,
       oracleId: ORACLE_ID,
       status: 'open',
       principal: 1_000,
@@ -81,6 +82,7 @@ describe('Anker portfolio parser', () => {
       apr: 1.9264,
       feeBps: 1_000,
       usesMockCurrentDeposit: false,
+      orderIds: [11n, 22n],
     });
     expect(notes[0]?.legs).toEqual([
       { strike: 61_000, quantity: 10, quantityBaseUnits: 10_000_000n, cost: 2.1, costBaseUnits: 2_100_000n },

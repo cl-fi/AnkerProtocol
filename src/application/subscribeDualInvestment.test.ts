@@ -32,8 +32,8 @@ const config: AnkerProtocolConfig = {
   quoteAssetDecimals: 6,
 };
 
-function noteFixture(managerId = USED_MANAGER_ID): Pick<AnkerProductNoteRecord, 'managerId'> {
-  return { managerId };
+function noteFixture(wrapperId = USED_MANAGER_ID): Pick<AnkerProductNoteRecord, 'wrapperId'> {
+  return { wrapperId };
 }
 
 function quoteFixture(): StructuredProductQuote {

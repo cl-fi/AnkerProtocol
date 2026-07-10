@@ -27,18 +27,19 @@ describe('product note event index', () => {
         note_id: NOTE_ID,
         owner,
         product_kind: '0',
-        manager_id: MANAGER_ID,
+        wrapper_id: MANAGER_ID,
         oracle_id: ORACLE_ID,
         expiry_ms: '1781683200000',
         principal_amount: '1000000000',
         fee_bps: '1000',
         leg_count: '1',
+        order_ids: ['11'],
       }),
       eventFixture('ProductRedeemed', '0xsettle', {
         note_id: NOTE_ID,
         owner,
         product_kind: '0',
-        manager_id: MANAGER_ID,
+        wrapper_id: MANAGER_ID,
         oracle_id: ORACLE_ID,
         payout_amount: '1030000000',
         fee_amount: '3000000',
@@ -49,13 +50,13 @@ describe('product note event index', () => {
       noteId: NOTE_ID,
       subscriptionDigest: '0xsubscribe',
       settlementDigest: '0xsettle',
-      managerId: MANAGER_ID,
+      wrapperId: MANAGER_ID,
       oracleId: ORACLE_ID,
       payoutBaseUnits: 1_030_000_000n,
       feeBaseUnits: 3_000_000n,
     });
     expect(index.byOwner[owner]).toEqual([NOTE_ID]);
-    expect(index.byManagerId[MANAGER_ID]).toEqual([NOTE_ID]);
+    expect(index.byWrapperId[MANAGER_ID]).toEqual([NOTE_ID]);
     expect(index.byNoteId[NOTE_ID]?.transactionDigests).toEqual(['0xsubscribe', '0xsettle']);
     expect(index.byNoteId[NOTE_ID]?.allocatedPositions).toEqual([]);
   });
@@ -64,12 +65,12 @@ describe('product note event index', () => {
     const index = buildProductNoteEventIndex([
       eventFixture('ProductSubscribed', '0xsubscribe', {
         note_id: NOTE_ID,
-        manager_id: MANAGER_ID,
+        wrapper_id: MANAGER_ID,
         oracle_id: ORACLE_ID,
       }),
       eventFixture('ProductSubscribed', '0xsubscribe', {
         note_id: NOTE_ID,
-        manager_id: MANAGER_ID,
+        wrapper_id: MANAGER_ID,
         oracle_id: ORACLE_ID,
       }),
     ]);

@@ -40,7 +40,7 @@ public struct ProductNote has key, store {
     owner: address,
     product_kind: u8,
     product_id: vector<u8>,
-    manager_id: ID,
+    wrapper_id: ID,
     oracle_id: ID,
     expiry_ms: u64,
     principal_amount: u64,
@@ -57,6 +57,7 @@ public struct ProductNote has key, store {
     strikes: vector<u64>,
     quantities: vector<u64>,
     costs: vector<u64>,
+    order_ids: vector<u256>,
     status: u8,
     redeemed_payout_amount: u64,
     redeemed_fee_amount: u64,
@@ -75,12 +76,13 @@ public struct ProductSubscribed has copy, drop, store {
     note_id: ID,
     owner: address,
     product_kind: u8,
-    manager_id: ID,
+    wrapper_id: ID,
     oracle_id: ID,
     expiry_ms: u64,
     principal_amount: u64,
     fee_bps: u64,
     leg_count: u64,
+    order_ids: vector<u256>,
 }
 
 public struct ProductRedeemed has copy, drop, store {
@@ -88,7 +90,7 @@ public struct ProductRedeemed has copy, drop, store {
     note_id: ID,
     owner: address,
     product_kind: u8,
-    manager_id: ID,
+    wrapper_id: ID,
     oracle_id: ID,
     payout_amount: u64,
     fee_amount: u64,
@@ -125,7 +127,7 @@ public fun set_fee_policy(registry: &mut Registry, _: &AdminCap, fee_bps: u64, f
 public fun new_dual_investment_note(
     registry: &Registry,
     product_id: vector<u8>,
-    manager_id: ID,
+    wrapper_id: ID,
     oracle_id: ID,
     expiry_ms: u64,
     principal_amount: u64,
@@ -137,14 +139,15 @@ public fun new_dual_investment_note(
     strikes: vector<u64>,
     quantities: vector<u64>,
     costs: vector<u64>,
+    order_ids: vector<u256>,
     ctx: &mut TxContext,
 ): ProductNote {
-    assert_leg_vectors(&strikes, &quantities, &costs);
+    assert_leg_vectors(&strikes, &quantities, &costs, &order_ids);
     new_note(
         registry,
         product_id,
         PRODUCT_DUAL_INVESTMENT,
-        manager_id,
+        wrapper_id,
         oracle_id,
         expiry_ms,
         principal_amount,
@@ -160,6 +163,7 @@ public fun new_dual_investment_note(
         strikes,
         quantities,
         costs,
+        order_ids,
         ctx,
     )
 }
@@ -167,7 +171,7 @@ public fun new_dual_investment_note(
 public fun new_shark_fin_note_with_mock_current_deposit(
     registry: &Registry,
     product_id: vector<u8>,
-    manager_id: ID,
+    wrapper_id: ID,
     oracle_id: ID,
     expiry_ms: u64,
     principal_amount: u64,
@@ -179,14 +183,15 @@ public fun new_shark_fin_note_with_mock_current_deposit(
     strikes: vector<u64>,
     quantities: vector<u64>,
     costs: vector<u64>,
+    order_ids: vector<u256>,
     ctx: &mut TxContext,
 ): ProductNote {
-    assert_leg_vectors(&strikes, &quantities, &costs);
+    assert_leg_vectors(&strikes, &quantities, &costs, &order_ids);
     new_note(
         registry,
         product_id,
         PRODUCT_SHARK_FIN,
-        manager_id,
+        wrapper_id,
         oracle_id,
         expiry_ms,
         principal_amount,
@@ -202,6 +207,7 @@ public fun new_shark_fin_note_with_mock_current_deposit(
         strikes,
         quantities,
         costs,
+        order_ids,
         ctx,
     )
 }
@@ -226,7 +232,7 @@ public fun record_redeem_with_fee<FeeCoin>(
         note_id: object::id(note),
         owner: note.owner,
         product_kind: note.product_kind,
-        manager_id: note.manager_id,
+        wrapper_id: note.wrapper_id,
         oracle_id: note.oracle_id,
         payout_amount,
         fee_amount,
@@ -259,8 +265,8 @@ public fun product_kind(note: &ProductNote): u8 {
     note.product_kind
 }
 
-public fun manager_id(note: &ProductNote): ID {
-    note.manager_id
+public fun wrapper_id(note: &ProductNote): ID {
+    note.wrapper_id
 }
 
 public fun oracle_id(note: &ProductNote): ID {
@@ -307,6 +313,10 @@ public fun leg_count(note: &ProductNote): u64 {
     note.strikes.length()
 }
 
+public fun order_ids(note: &ProductNote): &vector<u256> {
+    &note.order_ids
+}
+
 public fun is_redeemed(note: &ProductNote): bool {
     note.status == STATUS_REDEEMED
 }
@@ -344,7 +354,7 @@ fun new_note(
     registry: &Registry,
     product_id: vector<u8>,
     product_kind: u8,
-    manager_id: ID,
+    wrapper_id: ID,
     oracle_id: ID,
     expiry_ms: u64,
     principal_amount: u64,
@@ -360,6 +370,7 @@ fun new_note(
     strikes: vector<u64>,
     quantities: vector<u64>,
     costs: vector<u64>,
+    order_ids: vector<u256>,
     ctx: &mut TxContext,
 ): ProductNote {
     let note = ProductNote {
@@ -367,7 +378,7 @@ fun new_note(
         owner: ctx.sender(),
         product_kind,
         product_id,
-        manager_id,
+        wrapper_id,
         oracle_id,
         expiry_ms,
         principal_amount,
@@ -384,6 +395,7 @@ fun new_note(
         strikes,
         quantities,
         costs,
+        order_ids,
         status: STATUS_OPEN,
         redeemed_payout_amount: 0,
         redeemed_fee_amount: 0,
@@ -396,20 +408,27 @@ fun new_note(
         note_id,
         owner: note.owner,
         product_kind,
-        manager_id,
+        wrapper_id,
         oracle_id,
         expiry_ms,
         principal_amount,
         fee_bps: registry.fee_bps,
         leg_count,
+        order_ids: note.order_ids,
     });
 
     note
 }
 
-fun assert_leg_vectors(strikes: &vector<u64>, quantities: &vector<u64>, costs: &vector<u64>) {
+fun assert_leg_vectors(
+    strikes: &vector<u64>,
+    quantities: &vector<u64>,
+    costs: &vector<u64>,
+    order_ids: &vector<u256>,
+) {
     assert!(strikes.length() == quantities.length(), EInvalidLegVectors);
     assert!(strikes.length() == costs.length(), EInvalidLegVectors);
+    assert!(strikes.length() == order_ids.length(), EInvalidLegVectors);
 }
 
 fun apr_bps_from_coupon(coupon_amount: u64, principal_amount: u64): u64 {

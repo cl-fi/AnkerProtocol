@@ -194,18 +194,18 @@ export function lifecycleForProductNote(
 export function backingProofForDualInvestmentNote(
   note: AnkerProductNoteRecord,
   state: PredictManagerState | undefined,
-  notes: readonly Pick<AnkerProductNoteRecord, 'managerId'>[] | undefined,
+  notes: readonly Pick<AnkerProductNoteRecord, 'wrapperId'>[] | undefined,
 ): DualInvestmentBackingProof {
   const requiredPositionQuantity = note.legs.reduce((sum, leg) => sum + leg.quantity, 0);
   const notesUsingManager = notes
-    ? notes.filter((candidate) => sameAddress(candidate.managerId, note.managerId)).length
+    ? notes.filter((candidate) => sameAddress(candidate.wrapperId, note.wrapperId)).length
     : null;
   const managerIsolation =
     notesUsingManager === null ? 'unknown' : notesUsingManager <= 1 ? 'isolated' : 'shared';
 
   if (!state) {
     return {
-      managerId: note.managerId,
+      managerId: note.wrapperId,
       managerIsolation,
       notesUsingManager,
       requiredLegCount: note.legs.length,
@@ -225,7 +225,7 @@ export function backingProofForDualInvestmentNote(
   const claimState = claimStateForDualInvestmentNote(note, state);
 
   return {
-    managerId: note.managerId,
+    managerId: note.wrapperId,
     managerIsolation,
     notesUsingManager,
     requiredLegCount: note.legs.length,

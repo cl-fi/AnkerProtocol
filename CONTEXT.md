@@ -44,6 +44,10 @@ _Avoid_: redeem (reserved for the Predict-level leg operation), withdraw
 
 ### Upstream (DeepBook Predict)
 
+**AccountWrapper**:
+The DeepBook Predict custody object that holds a subscriber's deposited funds and minted legs. One wrapper per subscriber; Anker Notes record its object id.
+_Avoid_: Manager, PredictManager, product container
+
 **Cadence**:
 A DeepBook Predict schedule that continuously creates per-expiry markets (currently 1m / 5m / 1h on testnet). Anker's Turbo uses only the 1h cadence.
 

@@ -95,7 +95,7 @@ export function buildCreatePredictManagerTransaction(input: {
 
 export function buildSubscribeDualInvestmentTransaction(input: {
   accountAddress: string;
-  managerId: string;
+  wrapperId: string;
   productInput: DualInvestmentInput;
   quote: StructuredProductQuote;
   quoteEnvelope: QuoteEnvelope;
@@ -124,7 +124,7 @@ export function buildSubscribeDualInvestmentTransaction(input: {
   const targetPrice = toChainPriceU64(input.productInput.targetPrice, 'Target price');
   const floorPrice = toChainPriceU64(input.productInput.floorPrice, 'Floor price');
   const idBytes = productIdBytes(input.quoteEnvelope.productHash);
-  const manager = tx.object(input.managerId);
+  const wrapper = tx.object(input.wrapperId);
   const predict = tx.object(config.poolVaultId);
   const oracle = tx.object(input.quote.oracle.oracleId);
 
@@ -137,19 +137,19 @@ export function buildSubscribeDualInvestmentTransaction(input: {
   tx.moveCall({
     target: depositTarget,
     typeArguments: [config.quoteAssetType],
-    arguments: [manager, depositCoin],
+    arguments: [wrapper, depositCoin],
   });
 
-  input.quote.legs.forEach((leg, index) => {
+  const mintedOrderIds = input.quote.legs.map((leg, index) => {
     const key = addMarketKey(tx, leg, config, calls);
     const mintTarget = predictTarget(config, 'predict', 'mint');
     calls.push(mintTarget);
-    tx.moveCall({
+    return tx.moveCall({
       target: mintTarget,
       typeArguments: [config.quoteAssetType],
       arguments: [
         predict,
-        manager,
+        wrapper,
         oracle,
         key,
         tx.pure.u64(legQuantities[index]),
@@ -165,7 +165,7 @@ export function buildSubscribeDualInvestmentTransaction(input: {
     arguments: [
       tx.object(config.registryId),
       tx.pure.vector('u8', idBytes),
-      tx.pure.id(input.managerId),
+      tx.pure.id(input.wrapperId),
       tx.pure.id(input.quote.oracle.oracleId),
       tx.pure.u64(input.quote.oracle.expiryMs),
       tx.pure.u64(depositAmount),
@@ -177,6 +177,7 @@ export function buildSubscribeDualInvestmentTransaction(input: {
       tx.pure.vector('u64', legStrikes),
       tx.pure.vector('u64', legQuantities),
       tx.pure.vector('u64', legCosts),
+      tx.makeMoveVec({ type: 'u256', elements: mintedOrderIds }),
     ],
   });
   calls.push('transferObjects');
@@ -235,7 +236,7 @@ export function buildRedeemDualInvestmentPositionsTransaction(input: {
   addRedeemDualInvestmentPositionCommands({
     tx,
     calls,
-    managerId: input.note.managerId,
+    managerId: input.note.wrapperId,
     oracleId: input.note.oracleId,
     legs: dualInvestmentNoteLegs(input.note),
     legQuantitiesBaseUnits: input.note.legs.map((leg) => leg.quantityBaseUnits),
@@ -277,7 +278,7 @@ export function buildClaimDualInvestmentNoteTransaction(input: {
     tx,
     calls,
     accountAddress: input.accountAddress,
-    managerId: input.note.managerId,
+    managerId: input.note.wrapperId,
     noteId: input.note.noteId,
     feeAmount,
     payoutAmount,

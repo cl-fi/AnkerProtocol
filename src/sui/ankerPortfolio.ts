@@ -16,7 +16,7 @@ export interface AnkerProductNoteRecord {
   productType: AnkerProductNoteType;
   productId: string;
   owner: string;
-  managerId: string;
+  wrapperId: string;
   oracleId: string;
   expiryMs: number;
   principal: number;
@@ -34,6 +34,7 @@ export interface AnkerProductNoteRecord {
   apr: number;
   feeBps: number;
   legs: AnkerProductNoteLeg[];
+  orderIds: bigint[];
   status: AnkerProductNoteStatus;
   redeemedPayout: number;
   redeemedPayoutBaseUnits: bigint;
@@ -74,6 +75,13 @@ function u64Bigint(value: unknown): bigint | null {
   if (text === null) return null;
   const parsed = BigInt(text);
   return parsed <= U64_MAX ? parsed : null;
+}
+
+function u256Bigint(value: unknown): bigint | null {
+  if (typeof value === 'bigint') return value >= 0n ? value : null;
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value >= 0 ? BigInt(value) : null;
+  if (typeof value !== 'string' || !/^(0|[1-9]\d*)$/.test(value)) return null;
+  return BigInt(value);
 }
 
 function u64Number(value: unknown): number | null {
@@ -184,7 +192,14 @@ export function parseOwnedProductNotes(
     const strikes = asVector(fields.strikes);
     const quantities = asVector(fields.quantities);
     const costs = asVector(fields.costs);
-    if (strikes.length !== quantities.length || strikes.length !== costs.length) return [];
+    const orderIdValues = asVector(fields.order_ids);
+    if (
+      strikes.length !== quantities.length ||
+      strikes.length !== costs.length ||
+      strikes.length !== orderIdValues.length
+    ) {
+      return [];
+    }
 
     const productKind = u64Number(fields.product_kind);
     const productType = productKind === null ? null : productTypeFromKind(productKind);
@@ -215,6 +230,7 @@ export function parseOwnedProductNotes(
         costBaseUnits,
       };
     });
+    const parsedOrderIds = orderIdValues.map((orderId) => u256Bigint(orderId));
 
     if (
       productType === null ||
@@ -231,12 +247,14 @@ export function parseOwnedProductNotes(
       upperBound === null ||
       aprBps === null ||
       feeBps === null ||
-      parsedLegs.some((leg) => leg === null)
+      parsedLegs.some((leg) => leg === null) ||
+      parsedOrderIds.some((orderId) => orderId === null)
     ) {
       return [];
     }
 
     const legs = parsedLegs as AnkerProductNoteLeg[];
+    const orderIds = parsedOrderIds as bigint[];
 
     return [
       {
@@ -244,7 +262,7 @@ export function parseOwnedProductNotes(
         productType,
         productId: decodeProductId(fields.product_id),
         owner: asString(fields.owner),
-        managerId: asString(fields.manager_id),
+        wrapperId: asString(fields.wrapper_id),
         oracleId: asString(fields.oracle_id),
         expiryMs,
         principal: quoteAmount(principalBaseUnits, config.quoteAssetDecimals),
@@ -262,6 +280,7 @@ export function parseOwnedProductNotes(
         apr: aprBps / 10_000,
         feeBps,
         legs,
+        orderIds,
         status,
         redeemedPayout: quoteAmount(redeemedPayoutBaseUnits, config.quoteAssetDecimals),
         redeemedPayoutBaseUnits,

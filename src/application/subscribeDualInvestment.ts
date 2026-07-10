@@ -33,14 +33,14 @@ export interface SubscribeDualInvestmentApplicationPlan {
 
 export function selectUnallocatedPredictManager(
   managers: readonly CustodyAccountRef[] | undefined,
-  notes: readonly Pick<AnkerProductNoteRecord, 'managerId'>[] | undefined,
+  notes: readonly Pick<AnkerProductNoteRecord, 'wrapperId'>[] | undefined,
   ownerAddress?: string,
 ) {
   if (!managers || !notes) return undefined;
 
-  const allocatedManagerIds = new Set(notes.map((note) => note.managerId.toLowerCase()));
+  const allocatedWrapperIds = new Set(notes.map((note) => note.wrapperId.toLowerCase()));
   return managers.find((manager) => {
-    const isAllocated = allocatedManagerIds.has(manager.managerId.toLowerCase());
+    const isAllocated = allocatedWrapperIds.has(manager.managerId.toLowerCase());
     const belongsToOwner =
       !ownerAddress || (Boolean(manager.owner) && manager.owner?.toLowerCase() === ownerAddress.toLowerCase());
     return !isAllocated && belongsToOwner;
@@ -92,7 +92,7 @@ export async function refreshDualInvestmentQuoteForSigning(input: {
 export function buildSubscribeDualInvestmentApplicationPlan(input: {
   accountAddress: string;
   managers: readonly CustodyAccountRef[] | undefined;
-  notes: readonly Pick<AnkerProductNoteRecord, 'managerId'>[] | undefined;
+  notes: readonly Pick<AnkerProductNoteRecord, 'wrapperId'>[] | undefined;
   productInput: DualInvestmentInput;
   quote: StructuredProductQuote;
   quoteEnvelope?: QuoteEnvelope;
@@ -108,7 +108,7 @@ export function buildSubscribeDualInvestmentApplicationPlan(input: {
   const quoteEnvelope = input.quoteEnvelope ?? createSubscribeQuoteEnvelope(input.quote, config);
   const transactionPlan = buildSubscribeDualInvestmentTransaction({
     accountAddress: input.accountAddress,
-    managerId: manager.managerId,
+    wrapperId: manager.managerId,
     productInput: input.productInput,
     quote: input.quote,
     quoteEnvelope,

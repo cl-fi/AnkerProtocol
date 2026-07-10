@@ -39,7 +39,7 @@ function noteFixture(overrides: Partial<AnkerProductNoteRecord> = {}): AnkerProd
     productType: 'dual-investment',
     productId: 'dual-demo',
     owner: `0x${'a'.repeat(64)}`,
-    managerId: `0x${'b'.repeat(64)}`,
+    wrapperId: `0x${'b'.repeat(64)}`,
     oracleId: `0x${'5'.repeat(64)}`,
     expiryMs: 1_000,
     principal: 5,
@@ -57,6 +57,7 @@ function noteFixture(overrides: Partial<AnkerProductNoteRecord> = {}): AnkerProd
     apr: 0.916,
     feeBps: 1_000,
     legs: [{ strike: 64_667, quantity: 0.063588, quantityBaseUnits: 63_588n, cost: 0.056135, costBaseUnits: 56_135n }],
+    orderIds: [11n],
     status: 'open',
     redeemedPayout: 0,
     redeemedPayoutBaseUnits: 0n,
@@ -82,7 +83,7 @@ function rpcResponse(result: unknown) {
 beforeEach(() => {
   mocks.usePredictManagerState.mockReturnValue({
     data: {
-      managerId: `0x${'b'.repeat(64)}`,
+      wrapperId: `0x${'b'.repeat(64)}`,
       dusdcBalance: 4.943865,
       positions: [],
       generatedAt: 1,

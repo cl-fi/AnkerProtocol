@@ -35,7 +35,7 @@ function pushUnique(values: string[], value: string) {
 export function filterProductNoteEventIndex(index: ProductNoteEventIndex, noteIds: readonly string[]) {
   const byNoteId: ProductNoteEventIndex['byNoteId'] = {};
   const byOwner: ProductNoteEventIndex['byOwner'] = {};
-  const byManagerId: ProductNoteEventIndex['byManagerId'] = {};
+  const byWrapperId: ProductNoteEventIndex['byWrapperId'] = {};
 
   for (const noteId of noteIds) {
     const entry = index.byNoteId[noteId];
@@ -45,13 +45,13 @@ export function filterProductNoteEventIndex(index: ProductNoteEventIndex, noteId
       byOwner[entry.owner] ??= [];
       pushUnique(byOwner[entry.owner], noteId);
     }
-    if (entry.managerId) {
-      byManagerId[entry.managerId] ??= [];
-      pushUnique(byManagerId[entry.managerId], noteId);
+    if (entry.wrapperId) {
+      byWrapperId[entry.wrapperId] ??= [];
+      pushUnique(byWrapperId[entry.wrapperId], noteId);
     }
   }
 
-  return { byNoteId, byOwner, byManagerId };
+  return { byNoteId, byOwner, byWrapperId };
 }
 
 export async function fetchProductNoteEventIndex(
