@@ -108,8 +108,9 @@ export const enCopy = {
     buyLowPrice: 'Buy Low price',
     below: 'below',
     estimatedReward: 'Estimated reward',
-    periodReturn: 'Period return',
+    periodReturn: 'Per-period yield',
     priceAprReference: 'Price & APR reference',
+    priceYieldReference: 'Price & yield reference',
     refresh: 'Refresh',
     updating: 'Updating',
     referenceHint: 'Tap a price to load it into your Buy Low.',
@@ -128,6 +129,8 @@ export const enCopy = {
     },
     referenceFootnote:
       'Binance benchmark uses BTCUSDC Dual Investment, matched by target price and nearest settlement date. Anker APR is net after protocol fee and based on live DeepBook Predict quote preview.',
+    turboReferenceFootnote:
+      'Turbo tenors are under one day, so this table shows per-period yield only (ADR-0002) — never annualized APR. Quotes include Predict base/min fee (EWMA congestion is 0 unless gas is an outlier).',
     estimate: 'Estimate',
     liveQuote: 'Live quote',
     scenarioLabel: 'Return scenario',
@@ -401,6 +404,7 @@ export const zhCnCopy: AppCopy = {
     estimatedReward: '预估收益',
     periodReturn: '单期收益',
     priceAprReference: '价格与 APR 参考',
+    priceYieldReference: '价格与收益参考',
     refresh: '刷新',
     updating: '更新中',
     referenceHint: '点击价格，将其载入你的低买设置。',
@@ -419,6 +423,8 @@ export const zhCnCopy: AppCopy = {
     },
     referenceFootnote:
       'Binance 基准使用 BTCUSDC 双币赢，按目标价格和最近结算日匹配。Anker APR 为扣除协议费后的净值，并基于实时 DeepBook Predict 报价预览。',
+    turboReferenceFootnote:
+      'Turbo 期限不足一天，本表只展示单期收益（ADR-0002），不展示年化 APR。报价已计入 Predict base/min 费用（EWMA 拥堵费默认 0，仅在 gas 异常时触发）。',
     estimate: '预估',
     liveQuote: '实时报价',
     scenarioLabel: '收益场景',

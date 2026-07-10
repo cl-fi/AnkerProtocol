@@ -246,7 +246,7 @@ describe('Dual Investment APR display', () => {
       />,
     );
 
-    expect(screen.getByText('Period return')).toBeVisible();
+    expect(screen.getByText('Per-period yield')).toBeVisible();
     expect(screen.getByText('1%')).toBeVisible();
     expect(screen.queryByText(/APR/)).not.toBeInTheDocument();
   });

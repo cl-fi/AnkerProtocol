@@ -65,7 +65,7 @@ export function buildDualInvestmentScanInputs(input: {
     );
 }
 
-/** ADR-0002: tenor < 1 day shows period return only — never annualized APR. */
+/** ADR-0002: tenor < 1 day shows per-period yield only — never annualized APR. */
 export function isSubDayTenor(expiryMs: number, nowMs = Date.now()) {
   return expiryMs - nowMs < 86_400_000;
 }

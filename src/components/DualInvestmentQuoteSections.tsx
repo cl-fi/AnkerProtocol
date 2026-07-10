@@ -231,9 +231,9 @@ export function ReferenceTable({
   }
 
   return (
-    <section className="di-reference" aria-label={copy.dualInvestment.aprReferenceLabel}>
+    <section className="di-reference" aria-label={subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.aprReferenceLabel}>
       <div className="di-reference-head">
-        <h3>{copy.dualInvestment.priceAprReference}</h3>
+        <h3>{subDay ? copy.dualInvestment.priceYieldReference : copy.dualInvestment.priceAprReference}</h3>
         <Button variant="secondary" onClick={onRefresh}>
           <RefreshCw size={15} />
           {isFetching ? copy.dualInvestment.updating : copy.dualInvestment.refresh}
@@ -246,8 +246,8 @@ export function ReferenceTable({
             <tr>
               <th>{copy.common.buyLow}</th>
               <th>{yieldHeader}</th>
-              <th>{copy.dualInvestment.binanceApr}</th>
-              <th>{copy.dualInvestment.edge}</th>
+              {!subDay ? <th>{copy.dualInvestment.binanceApr}</th> : null}
+              {!subDay ? <th>{copy.dualInvestment.edge}</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -293,21 +293,24 @@ export function ReferenceTable({
                   >
                     {yieldLabel}
                   </td>
-                  <td className={binanceApr.className} data-label={copy.dualInvestment.binanceApr}>
-                    {binanceApr.label}
-                  </td>
-                  <td
-                    className={edge.className}
-                    data-label={copy.dualInvestment.edge}
-                  >
-                    {edge.label}
-                  </td>
+                  {!subDay ? (
+                    <td className={binanceApr.className} data-label={copy.dualInvestment.binanceApr}>
+                      {binanceApr.label}
+                    </td>
+                  ) : null}
+                  {!subDay ? (
+                    <td className={edge.className} data-label={copy.dualInvestment.edge}>
+                      {edge.label}
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}
           </tbody>
         </table>
-        <p className="di-reference-footnote">{copy.dualInvestment.referenceFootnote}</p>
+        <p className="di-reference-footnote">
+          {subDay ? copy.dualInvestment.turboReferenceFootnote : copy.dualInvestment.referenceFootnote}
+        </p>
       </div>
     </section>
   );

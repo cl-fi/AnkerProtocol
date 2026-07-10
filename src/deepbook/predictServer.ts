@@ -212,7 +212,12 @@ function defaultPredictPricing(fees: {
   };
 }
 
-/** Server-side assembly: propbook pyth + on-chain Block Scholes spot/forward/SVI. */
+/**
+ * Server-side assembly for browse quotes.
+ * Propbook HTTP currently exposes pyth/latest; Block Scholes spot/forward/SVI
+ * are indexed but their REST routes 404, so we read the same feed objects
+ * on-chain via gRPC (same data the propbook indexer consumes).
+ */
 export async function fetchOracleMarketServer(
   expiryMarketId: string,
   input: { serverLagSeconds: number; nowMs?: number },
