@@ -7,7 +7,6 @@ export const enCopy = {
     dashboard: 'Dashboard',
     dualInvestment: 'Dual Investment',
     multiDayDualInvestment: 'Multi-day Dual Investment',
-    sharkFin: 'Shark Fin',
     buyLow: 'Buy Low',
     sellHigh: 'Sell High',
     live: 'Live',
@@ -200,16 +199,6 @@ export const enCopy = {
       unavailable: 'Unavailable',
     },
   },
-  sharkFin: {
-    title: 'Shark Fin',
-    subtitle: 'Principal-protected range yield — enhanced coupon inside the bound, base coupon outside.',
-    previewBody:
-      'Shark Fin uses the same day-scale Expiry Markets as multi-day Dual Investment. Until those markets return, this page shows labeled fixture data and keeps trading closed.',
-    boundsLabel: 'Range bounds (preview)',
-    lowerBound: 'Lower bound',
-    upperBound: 'Upper bound',
-    tradingClosed: 'Trading unavailable on fixture data',
-  },
   dashboard: {
     filters: {
       all: 'All',
@@ -364,7 +353,6 @@ export const zhCnCopy: AppCopy = {
     dashboard: '仪表盘',
     dualInvestment: '双币赢',
     multiDayDualInvestment: '多日双币投资',
-    sharkFin: '鲨鱼鳍',
     buyLow: '低买',
     sellHigh: '高卖',
     live: '实时',
@@ -536,16 +524,6 @@ export const zhCnCopy: AppCopy = {
       verified: '已验证',
       unavailable: '不可用',
     },
-  },
-  sharkFin: {
-    title: '鲨鱼鳍',
-    subtitle: '本金保护型区间收益：价格落在区间内拿增强票息，否则拿基础票息。',
-    previewBody:
-      '鲨鱼鳍与多日双币投资共用日级到期市场。市场恢复前本页展示带标注的样例数据，交易入口关闭。',
-    boundsLabel: '区间边界（预览）',
-    lowerBound: '下界',
-    upperBound: '上界',
-    tradingClosed: '样例数据下不可交易',
   },
   dashboard: {
     filters: {

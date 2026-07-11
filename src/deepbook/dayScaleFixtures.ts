@@ -6,7 +6,7 @@ import { DAY_MS } from '../products/productLineMarkets';
 const DAY_SCALE_ALLOC = '999000000000';
 const DAY_SCALE_CASH = '999000000000';
 
-/** Stable fixture ids so the multi-day / shark-fin pages can resolve without upstream. */
+/** Stable fixture ids so the multi-day Dual Investment page can resolve without upstream. */
 export const DAY_SCALE_FIXTURE_IDS = {
   d1: '0xday000000000000000000000000000000000000000000000000000000000001',
   d3: '0xday000000000000000000000000000000000000000000000000000000000003',

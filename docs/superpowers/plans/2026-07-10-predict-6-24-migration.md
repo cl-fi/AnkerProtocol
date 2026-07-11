@@ -19,7 +19,7 @@
 | D1 | 不依赖上游时间承诺 | 产品关键路径只建立在链上已存在的市场之上；multi-day 恢复视为上行选项 |
 | D2 | **Turbo 独立产品线** | 完整双币投资 payoff，一个字不简化；产品定位锚定结构化理财，不做简化的涨跌/区间玩法 |
 | D3 | **Turbo 只用小时级市场** | 1h cadence 的三个滚动到期 ≈ 1h/2h/3h 三档期限；刻意不做分钟级（理财产品按分钟结算反直觉）；期限 < 1 天展示单期收益，禁用年化 APR |
-| D4 | 产品页数据降级策略 | 有真实市场用真数据；缺失时用 fixture + 明确标注来源与恢复预期；multi-day 恢复后双币投资页切真数据（与 Turbo 共享同一链路，仅市场筛选条件不同） |
+| D4 | 产品页数据降级策略 | 有真实市场用真数据；缺失时用 fixture + 明确标注来源与恢复预期；multi-day 恢复后**多日双币投资页**切真数据（与 Turbo 共享同一链路，仅市场筛选条件不同）。不含 Shark Fin 前端。 |
 | D5 | **合约加 `order_ids` 并重发** | `ProductNote` 增加 `order_ids: vector<u256>`（mint 返回值同 PTB 传入）；领取自包含，不依赖 indexer 反查；旧部署 note 作废不迁移；字段语义按 CONTEXT.md 清理（Manager 概念已被 AccountWrapper 取代） |
 | D6 | **报价三层防线** | ① 浏览：链下 SVI 定价（复用 `predictPricing.ts`，数据源换 propbook indexer）② 签名前：真实 PTB 经 gRPC `simulateTransaction` 拿精确成本并提前暴露 abort ③ 链上：`max_cost` + `max_probability` 滑点上限 = 模拟成本 × 小容差（~1.5%） |
 | D7 | **传输层策略：JSON-RPC 清零** | 实时读 / 交易模拟 / 执行走 gRPC（dapp-kit 现状保持）；事件与索引类查询走 GraphQL；组合页 Note 列表优先用 gRPC `listOwnedObjects`（Note 为用户持有对象，自带全部状态）。迁移完成后代码库不得残留任何 JSON-RPC 客户端引用 |
@@ -57,7 +57,7 @@
 
 ### 3.7 产品层
 - Turbo 产品线：产品卡、订阅面板（目标价选择器 + 1h/2h/3h 期限）、单期收益展示（禁 APR）。
-- 多日双币投资页 + 鲨鱼鳍：按 D4 降级策略展示；multi-day 恢复则双币投资页切真数据（仅筛选条件切换 + 快速回归）。
+- 多日双币投资页：按 D4 降级策略展示；multi-day 恢复则双币投资页切真数据（仅筛选条件切换 + 快速回归）。**Shark Fin 不在本迁移产品范围**（合约侧保留 kind；前端路径已于 2026-06-19 移除，本次不恢复）。
 - 组合页：仓位状态机（倒计时中 / 已结算可领取 / 已领取），领取按钮走 3.5 领取 PTB；Note 列表经 gRPC `listOwnedObjects`，事件历史索引（现 JSON-RPC 实现已失效）迁 GraphQL 或降级为对象读取（D7）。
 
 ### 3.8 工具脚本

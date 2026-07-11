@@ -7,7 +7,7 @@ import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
-export type ActiveProduct = 'dual-investment' | 'multi-day' | 'shark-fin' | 'dashboard';
+export type ActiveProduct = 'dual-investment' | 'multi-day' | 'dashboard';
 
 const WalletConnectButton = dynamic(
   () => import('./WalletConnectButton').then((module) => module.WalletConnectButton),
@@ -20,7 +20,6 @@ function currentPathForActiveProduct(activeProduct: ActiveProduct | undefined) {
   if (activeProduct === 'dashboard') return '/app/dashboard';
   if (activeProduct === 'dual-investment') return '/app/dual-investment';
   if (activeProduct === 'multi-day') return '/app/multi-day';
-  if (activeProduct === 'shark-fin') return '/app/shark-fin';
   return '/app';
 }
 
@@ -65,12 +64,6 @@ export function AppHeader({
             href={localizedPath(locale, '/app/multi-day')}
           >
             {copy.common.multiDayDualInvestment}
-          </Link>
-          <Link
-            className={activeProduct === 'shark-fin' ? 'active' : ''}
-            href={localizedPath(locale, '/app/shark-fin')}
-          >
-            {copy.common.sharkFin}
           </Link>
           <Link className={activeProduct === 'dashboard' ? 'active' : ''} href={localizedPath(locale, '/app/dashboard')}>
             {copy.common.dashboard}

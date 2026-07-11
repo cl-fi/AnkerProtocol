@@ -130,7 +130,7 @@ export function deterministicCuratedBtcOracleResponse(nowMs = fixtureNowMs()): C
   };
 }
 
-/** E2E/demo fixture for multi-day Dual Investment / shark-fin (D4 labeled degradation). */
+/** E2E/demo fixture for multi-day Dual Investment (D4 labeled degradation). */
 export function deterministicMultiDayCuratedBtcOracleResponse(
   nowMs = fixtureNowMs(),
 ): CuratedOracleMarketResponse {
