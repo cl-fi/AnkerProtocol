@@ -43,7 +43,11 @@ export function QuoteRiskSummary({
       </div>
       <div>
         <span>{copy.dualInvestment.risk.holdReturn}</span>
-        <strong>{format.percent(risk.holdingPeriodReturn)}</strong>
+        <strong>
+          {isSubDayTenor(quote.oracle.expiryMs)
+            ? format.periodReturnBps(risk.holdingPeriodReturn)
+            : format.percent(risk.holdingPeriodReturn)}
+        </strong>
       </div>
       <div>
         <span>{copy.dualInvestment.risk.quoteValidity}</span>
@@ -86,7 +90,7 @@ export function ReturnOverview({
   const netApr = netAprAfterCouponFee(quote.apr);
   const periodReturn = quote.principal > 0 ? quote.coupon / quote.principal : 0;
   const subDay = isSubDayTenor(quote.oracle.expiryMs);
-  const rewardMeta = subDay ? format.percent(periodReturn) : `${format.apr(netApr)} APR`;
+  const rewardMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
   const isAbove = scenario === 'above';
   const receiveAmount = isAbove ? format.fixedTokenAmount(total, 6) : format.fixedTokenAmount(btcEquivalent, 8);
@@ -216,7 +220,7 @@ export function DualInvestmentConfirm({
   const netApr = netAprAfterCouponFee(quote.apr);
   const periodReturn = quote.principal > 0 ? quote.coupon / quote.principal : 0;
   const subDay = isSubDayTenor(quote.oracle.expiryMs);
-  const rewardMeta = subDay ? format.percent(periodReturn) : `${format.apr(netApr)} APR`;
+  const rewardMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
 
   return (

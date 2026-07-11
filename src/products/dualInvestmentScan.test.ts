@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
 import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
-import { buildDualInvestmentScanInputs, isSubDayTenor, scanQuoteDisplayMetrics } from './dualInvestmentScan';
+import {
+  buildDualInvestmentScanInputs,
+  filterMeaningfulScanRows,
+  isSubDayTenor,
+  scanQuoteDisplayMetrics,
+  TURBO_DISPLAY_TARGET_STEP,
+  TURBO_MIN_PERIOD_RETURN_BPS,
+} from './dualInvestmentScan';
 
 describe('buildDualInvestmentScanInputs', () => {
   it('builds descending 500-dollar target-buy rows from spot with six legs by default', () => {
@@ -17,7 +24,7 @@ describe('buildDualInvestmentScanInputs', () => {
     expect(rows[0].floorPrice).toBe(66_500);
   });
 
-  it('uses admission tick size for Turbo target steps when present', () => {
+  it('uses $50 Turbo display steps when admission tick is present (not $1 admission grid)', () => {
     const rows = buildDualInvestmentScanInputs({
       market: {
         ...lastKnownMarketSnapshot,
@@ -30,7 +37,8 @@ describe('buildDualInvestmentScanInputs', () => {
       targetRows: 3,
     });
 
-    expect(rows.map((row) => row.targetPrice)).toEqual([64_050, 64_049, 64_048]);
+    expect(TURBO_DISPLAY_TARGET_STEP).toBe(50);
+    expect(rows.map((row) => row.targetPrice)).toEqual([64_050, 64_000, 63_950]);
   });
 
   it('only builds target-buy rows that are strictly below spot', () => {
@@ -77,7 +85,9 @@ describe('scanQuoteDisplayMetrics', () => {
     expect(scanQuoteDisplayMetrics({ quote: null })).toEqual({
       coupon: 0,
       apr: null,
+      referenceApr: null,
       periodReturn: null,
+      periodReturnBps: null,
       totalLegCost: null,
       showApr: false,
     });
@@ -97,7 +107,9 @@ describe('scanQuoteDisplayMetrics', () => {
     ).toEqual({
       coupon: 0,
       apr: null,
+      referenceApr: null,
       periodReturn: null,
+      periodReturnBps: null,
       totalLegCost: null,
       showApr: false,
     });
@@ -117,13 +129,15 @@ describe('scanQuoteDisplayMetrics', () => {
     ).toEqual({
       coupon: 0.04,
       apr: 1.69749,
+      referenceApr: 1.69749,
       periodReturn: 0.04,
+      periodReturnBps: 400,
       totalLegCost: 0.34,
       showApr: true,
     });
   });
 
-  it('hides APR and keeps period return for Turbo sub-day tenors (ADR-0002)', () => {
+  it('keeps period return primary and exposes reference APR for Turbo sub-day tenors (ADR-0002)', () => {
     expect(isSubDayTenor(turboOracle.expiryMs)).toBe(true);
     expect(
       scanQuoteDisplayMetrics({
@@ -138,9 +152,62 @@ describe('scanQuoteDisplayMetrics', () => {
     ).toEqual({
       coupon: 0.04,
       apr: null,
+      referenceApr: 157.68,
       periodReturn: 0.04,
+      periodReturnBps: 400,
       totalLegCost: 0.34,
       showApr: false,
     });
+  });
+});
+
+describe('filterMeaningfulScanRows', () => {
+  const turboOracle = { ...lastKnownMarketSnapshot, expiryMs: Date.now() + 2 * 3_600_000 };
+  const multiDayOracle = { ...lastKnownMarketSnapshot, expiryMs: Date.now() + 3 * 86_400_000 };
+
+  it('drops Turbo rows below the minimum period-return bps threshold', () => {
+    const rows = filterMeaningfulScanRows([
+      {
+        input: { principal: 1, targetPrice: 64_000, floorPrice: 60_000, targetLegCount: 6 },
+        quote: {
+          coupon: 0.00005,
+          apr: 0.2,
+          totalLegCost: 0.1,
+          principal: 1,
+          oracle: turboOracle,
+        } as never,
+      },
+      {
+        input: { principal: 1, targetPrice: 63_500, floorPrice: 59_500, targetLegCount: 6 },
+        quote: {
+          coupon: 0.0002,
+          apr: 0.8,
+          totalLegCost: 0.1,
+          principal: 1,
+          oracle: turboOracle,
+        } as never,
+      },
+    ]);
+
+    expect(TURBO_MIN_PERIOD_RETURN_BPS).toBe(1);
+    // 0.5 bps dropped; 2 bps kept
+    expect(rows.map((row) => row.input.targetPrice)).toEqual([63_500]);
+  });
+
+  it('keeps multi-day rows regardless of thin period return', () => {
+    const rows = filterMeaningfulScanRows([
+      {
+        input: { principal: 1, targetPrice: 64_000, floorPrice: 60_000, targetLegCount: 6 },
+        quote: {
+          coupon: 0.0005,
+          apr: 0.2,
+          totalLegCost: 0.1,
+          principal: 1,
+          oracle: multiDayOracle,
+        } as never,
+      },
+    ]);
+
+    expect(rows).toHaveLength(1);
   });
 });

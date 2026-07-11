@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { createDefaultQuoteProvider, type QuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
-import { buildDualInvestmentScanInputs, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
+import {
+  buildDualInvestmentScanInputs,
+  filterMeaningfulScanRows,
+  type DualInvestmentScanRow,
+} from '../products/dualInvestmentScan';
 import { DEFAULT_MAX_PREDICT_ASK, DEFAULT_MIN_PREDICT_ASK, estimateBinaryUpAskPrice } from '../products/predictPricing';
 import type { DualInvestmentInput, LegIntent, LegQuote, OracleMarket } from '../products/types';
 
@@ -92,7 +96,7 @@ export async function buildDualInvestmentScan(input: {
     }
   });
 
-  return preparedRows.map((row) => {
+  const rows = preparedRows.map((row) => {
     if (!row.intents) {
       return {
         input: row.input,
@@ -120,6 +124,8 @@ export async function buildDualInvestmentScan(input: {
       };
     }
   });
+
+  return filterMeaningfulScanRows(rows);
 }
 
 export function useDualInvestmentScan(input: { market?: OracleMarket; principal: number; enabled?: boolean }) {

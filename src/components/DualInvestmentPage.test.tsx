@@ -229,7 +229,7 @@ describe('Dual Investment APR display', () => {
     expect(screen.queryByText('150% APR')).not.toBeInTheDocument();
   });
 
-  it('shows period return instead of APR for Turbo sub-day tenors', () => {
+  it('shows period return with muted reference APR for Turbo sub-day tenors', () => {
     const market = marketFixture({ expiryMs: Date.now() + 2 * 3_600_000 });
     const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
     const quote = pageQuoteFixture({ market, productInput, coupon: 0.05 });
@@ -247,8 +247,40 @@ describe('Dual Investment APR display', () => {
     );
 
     expect(screen.getByText('Per-period yield')).toBeVisible();
-    expect(screen.getByText('1%')).toBeVisible();
-    expect(screen.queryByText(/APR/)).not.toBeInTheDocument();
+    expect(screen.getByText('100 bps')).toBeVisible();
+    expect(screen.getByText('Ref. APR ≈ 135.00%')).toBeVisible();
+    expect(screen.queryByText('135% APR')).not.toBeInTheDocument();
+  });
+
+  it('shows period return and reference APR in the Turbo reference table', () => {
+    const market = marketFixture({
+      expiryMs: Date.now() + 2 * 3_600_000,
+      admissionTickSize: 1,
+      tickSize: 0.01,
+    });
+    const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
+    const rows: DualInvestmentScanRow[] = [
+      {
+        input: productInput,
+        quote: pageQuoteFixture({ market, productInput, coupon: 0.02 }),
+      },
+    ];
+
+    render(
+      <ReferenceTable
+        market={market}
+        rows={rows}
+        activeTargetPrice={64_000}
+        isFetching={false}
+        onSelect={() => undefined}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Per-period yield' })).toBeVisible();
+    expect(screen.getByText('40 bps')).toBeVisible();
+    expect(screen.getByText('Ref. APR ≈ 135.00%')).toBeVisible();
+    expect(screen.queryByRole('columnheader', { name: 'Binance APR' })).not.toBeInTheDocument();
   });
 
   it('shows matched Binance APR, edge, and benchmark methodology in the reference table', () => {

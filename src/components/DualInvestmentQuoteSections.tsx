@@ -5,7 +5,13 @@ import Link from 'next/link';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import { findBinanceDualInvestmentMatch, type BinanceDualInvestmentProduct } from '../deepbook/binanceDualInvestment';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
-import { scanQuoteDisplayMetrics, isSubDayTenor, type DualInvestmentScanRow } from '../products/dualInvestmentScan';
+import {
+  displayTargetStepForMarket,
+  TURBO_DISPLAY_TARGET_STEP,
+  scanQuoteDisplayMetrics,
+  isSubDayTenor,
+  type DualInvestmentScanRow,
+} from '../products/dualInvestmentScan';
 import { netAprAfterCouponFee } from '../products/feePolicy';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
@@ -16,6 +22,8 @@ export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 export const DEFAULT_PRINCIPAL = 5;
 export type DualInvestmentMode = 'buy-low';
 export type BinanceBenchmarkStatus = 'loading' | 'error' | 'ready';
+
+const EXPECTED_TURBO_TENORS = 3;
 
 function formatEdge(value: number, locale: Locale) {
   const sign = value > 0 ? '+' : '';
@@ -36,9 +44,7 @@ function formatBelowSpot(targetPrice: number, spot: number, locale: Locale) {
 
 function formatExpiryOption(oracle: CuratedOracleListItem, locale: Locale) {
   const format = formattersForLocale(locale);
-  const hours = Math.max(1, Math.round(oracle.timeToExpiryMs / 3_600_000));
-  const tenor = hours <= 3 ? `${hours}h` : format.timeToExpiry(oracle.expiry);
-  return `${tenor} · ${format.time(oracle.expiry)}`;
+  return `${format.timeToExpiry(oracle.expiry)} · ${format.time(oracle.expiry)}`;
 }
 
 export function DirectionPairBar({
@@ -55,6 +61,7 @@ export function DirectionPairBar({
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
+  const showSparseTenorsHint = productOracles.length > 0 && productOracles.length < EXPECTED_TURBO_TENORS;
   return (
     <section className="di-selection" aria-label={copy.dualInvestment.chooseMarketLabel}>
       <div className="di-select-group">
@@ -103,6 +110,7 @@ export function DirectionPairBar({
             ))}
           </select>
         </label>
+        {showSparseTenorsHint ? <p className="di-tenor-hint">{copy.dualInvestment.sparseTenorsHint}</p> : null}
       </div>
     </section>
   );
@@ -136,12 +144,13 @@ export function BuyLowControls({
   const subDay = market ? isSubDayTenor(market.expiryMs) : false;
   const rewardLabel = subDay
     ? periodReturn !== null
-      ? format.percent(periodReturn)
+      ? format.periodReturnBps(periodReturn)
       : '--'
     : estimateApr !== null
       ? `${format.apr(netAprAfterCouponFee(estimateApr))} APR`
       : '--';
-  const targetStep = market?.admissionTickSize ?? 100;
+  const referenceApr = subDay && estimateApr !== null ? netAprAfterCouponFee(estimateApr) : null;
+  const targetStep = market ? displayTargetStepForMarket(market) : TURBO_DISPLAY_TARGET_STEP;
 
   return (
     <section className="di-controls" aria-label={copy.dualInvestment.setBuyLowLabel}>
@@ -167,7 +176,12 @@ export function BuyLowControls({
       </div>
       <div className="di-controls-apr">
         <span>{subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.estimatedReward}</span>
-        <strong>{rewardLabel}</strong>
+        <div className="di-controls-apr-values">
+          <strong>{rewardLabel}</strong>
+          {referenceApr !== null ? (
+            <span className="di-ref-apr">{copy.dualInvestment.referenceApr(format.referenceApr(referenceApr))}</span>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -271,7 +285,7 @@ export function ReferenceTable({
                   ? format.referenceApr(displayMetrics.apr)
                   : '--'
                 : displayMetrics.periodReturn !== null
-                  ? format.percent(displayMetrics.periodReturn)
+                  ? format.periodReturnBps(displayMetrics.periodReturn)
                   : '--';
               return (
                 <tr
@@ -291,7 +305,12 @@ export function ReferenceTable({
                     className={displayMetrics.showApr && displayMetrics.apr !== null ? 'apr-cell' : ''}
                     data-label={yieldHeader}
                   >
-                    {yieldLabel}
+                    <strong className="di-yield-primary">{yieldLabel}</strong>
+                    {!displayMetrics.showApr && displayMetrics.referenceApr !== null ? (
+                      <span className="di-ref-apr">
+                        {copy.dualInvestment.referenceApr(format.referenceApr(displayMetrics.referenceApr))}
+                      </span>
+                    ) : null}
                   </td>
                   {!subDay ? (
                     <td className={binanceApr.className} data-label={copy.dualInvestment.binanceApr}>

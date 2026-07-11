@@ -40,6 +40,16 @@ export function formatPercent(value: number, locale: Locale, options?: Intl.Numb
   })}%`;
 }
 
+/** Format a fractional period return (e.g. 0.0013) as basis points (e.g. "13 bps"). */
+export function formatPeriodReturnBps(periodReturn: number, locale: Locale) {
+  const bps = periodReturn * 10_000;
+  const formatted = bps.toLocaleString(numberLocale(locale), {
+    maximumFractionDigits: bps >= 10 ? 0 : 1,
+    minimumFractionDigits: 0,
+  });
+  return locale === 'zh-CN' ? `${formatted} 基点` : `${formatted} bps`;
+}
+
 export function formatApr(value: number, locale: Locale) {
   return formatPercent(value, locale);
 }
@@ -108,6 +118,7 @@ export function formattersForLocale(locale: Locale) {
     btcAmount: (value: number) => formatBtcAmount(value, locale),
     fixedTokenAmount: (value: number, decimals: number) => formatFixedTokenAmount(value, decimals, locale),
     percent: (value: number, options?: Intl.NumberFormatOptions) => formatPercent(value, locale, options),
+    periodReturnBps: (value: number) => formatPeriodReturnBps(value, locale),
     apr: (value: number) => formatApr(value, locale),
     referenceApr: (value: number) => formatReferenceApr(value, locale),
     quoteBaseUnits: formatQuoteBaseUnits,

@@ -11,7 +11,7 @@ Anker's flagship structured product: deposit quote asset, pick a target price an
 _Avoid_: dual currency, DCI, 双币盈 (Binance brand name — use only when citing Binance)
 
 **Turbo Dual Investment (Turbo)**:
-A separate product line with the exact same payoff as Dual Investment, offered on hourly tenors (1h–3h) backed by DeepBook Predict's hourly cadence markets. Yields are shown as per-period yield, never annualized APR. Minute-level tenors are deliberately not offered.
+A separate product line with the exact same payoff as Dual Investment, offered on hourly tenors (1h–3h) backed by DeepBook Predict's hourly cadence markets. Primary yield is per-period; a muted reference APR may appear for magnitude only (ADR-0002). Minute-level tenors are deliberately not offered.
 _Avoid_: flash product, prediction, up/down bet
 
 **Shark Fin (鲨鱼鳍)**:
