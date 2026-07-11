@@ -1,8 +1,65 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { preflightTransaction } from './transactionPreflight';
+import {
+  mintSlippageFromSimulatedLegs,
+  parseOrderMintedLegs,
+  preflightTransaction,
+  readablePreflightError,
+} from './transactionPreflight';
 
 const SENDER = `0x${'a'.repeat(64)}`;
+
+describe('readablePreflightError', () => {
+  it('maps common Predict abort causes to readable copy', () => {
+    expect(readablePreflightError('MoveAbort: EInsufficientBalance')).toContain('Insufficient DUSDC');
+    expect(readablePreflightError('oracle feed stale')).toContain('Oracle feed is stale');
+    expect(readablePreflightError('EMintPaused')).toContain('Minting is paused');
+    expect(readablePreflightError('ETradingPaused')).toContain('Trading is paused');
+  });
+});
+
+describe('parseOrderMintedLegs', () => {
+  it('computes all-in mint cost from OrderMinted event fields', () => {
+    const legs = parseOrderMintedLegs({
+      $kind: 'Transaction',
+      Transaction: {
+        status: { success: true, error: null },
+        events: [
+          {
+            eventType: '0xpredict::order_events::OrderMinted',
+            json: {
+              net_premium: '2100000',
+              trading_fee: '100000',
+              fee_incentive_subsidy: '20000',
+              builder_fee: '10000',
+              penalty_fee: '5000',
+              entry_probability: '210000000',
+            },
+          },
+        ],
+      },
+    });
+
+    expect(legs).toEqual([
+      {
+        // 2_100_000 + (100_000 - 20_000) + 10_000 + 5_000
+        allInCost: 2_195_000n,
+        entryProbability: 210_000_000n,
+      },
+    ]);
+  });
+
+  it('builds mint slippage caps at 1.5% from simulated legs', () => {
+    expect(
+      mintSlippageFromSimulatedLegs([{ allInCost: 2_000_000n, entryProbability: 200_000_000n }]),
+    ).toEqual([
+      {
+        maxCost: 2_030_000n,
+        maxProbability: 203_000_000n,
+      },
+    ]);
+  });
+});
 
 describe('preflightTransaction', () => {
   afterEach(() => {
@@ -13,7 +70,22 @@ describe('preflightTransaction', () => {
     const tx = new Transaction();
     const simulateTransaction = vi.fn().mockResolvedValue({
       $kind: 'Transaction',
-      Transaction: { status: { success: true, error: null } },
+      Transaction: {
+        status: { success: true, error: null },
+        events: [
+          {
+            eventType: '0xpredict::order_events::OrderMinted',
+            json: {
+              net_premium: '1000',
+              trading_fee: '0',
+              fee_incentive_subsidy: '0',
+              builder_fee: '0',
+              penalty_fee: '0',
+              entry_probability: '100000000',
+            },
+          },
+        ],
+      },
     });
 
     const result = await preflightTransaction({
@@ -25,9 +97,13 @@ describe('preflightTransaction', () => {
     expect(simulateTransaction).toHaveBeenCalledWith({
       transaction: tx,
       checksEnabled: true,
-      include: { effects: true },
+      include: { effects: true, events: true },
     });
-    expect(result).toEqual({ status: 'success', engine: 'simulateTransaction' });
+    expect(result).toEqual({
+      status: 'success',
+      engine: 'simulateTransaction',
+      mintLegs: [{ allInCost: 1000n, entryProbability: 100_000_000n }],
+    });
   });
 
   it('throws a readable error when simulation returns a failed transaction', async () => {
@@ -51,6 +127,26 @@ describe('preflightTransaction', () => {
     ).rejects.toThrow('Preflight failed: MoveAbort in predict::mint: EPriceOutOfBounds');
   });
 
+  it('throws a mapped readable error for insufficient balance aborts', async () => {
+    const simulateTransaction = vi.fn().mockResolvedValue({
+      $kind: 'FailedTransaction',
+      FailedTransaction: {
+        status: {
+          success: false,
+          error: { message: 'MoveAbort: EInsufficientBalance in account::withdraw' },
+        },
+      },
+    });
+
+    await expect(
+      preflightTransaction({
+        client: { simulateTransaction },
+        sender: SENDER,
+        transaction: new Transaction(),
+      }),
+    ).rejects.toThrow(/Insufficient DUSDC/);
+  });
+
   it('falls back to JSON-RPC dev inspect clients used by scripts', async () => {
     const tx = new Transaction();
     const devInspectTransactionBlock = vi.fn().mockResolvedValue({
@@ -67,7 +163,7 @@ describe('preflightTransaction', () => {
       sender: SENDER,
       transactionBlock: tx,
     });
-    expect(result).toEqual({ status: 'success', engine: 'devInspectTransactionBlock' });
+    expect(result).toEqual({ status: 'success', engine: 'devInspectTransactionBlock', mintLegs: [] });
   });
 
   it('fails closed when the client does not expose a simulation API', async () => {

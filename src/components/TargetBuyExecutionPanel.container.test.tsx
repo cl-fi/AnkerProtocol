@@ -12,7 +12,7 @@ const PREDICT_OBJECT_ID = DEEPBOOK_PREDICT.poolVaultId;
 
 const mocks = vi.hoisted(() => ({
   quoteLegs: vi.fn(),
-  preflightTransaction: vi.fn(),
+  simulateTransaction: vi.fn(),
   signAndExecuteTransaction: vi.fn(),
   waitForTransaction: vi.fn(),
   invalidateQueries: vi.fn(),
@@ -30,6 +30,7 @@ vi.mock('@mysten/dapp-kit-react', () => ({
   useCurrentAccount: () => ({ address: OWNER }),
   useCurrentClient: () => ({
     waitForTransaction: mocks.waitForTransaction,
+    simulateTransaction: mocks.simulateTransaction,
   }),
   useDAppKit: () => ({
     signAndExecuteTransaction: mocks.signAndExecuteTransaction,
@@ -58,14 +59,17 @@ vi.mock('../hooks/useAnkerPortfolio', () => ({
   }),
 }));
 
+vi.mock('../hooks/useAccountWrapper', () => ({
+  useAccountWrapperBalance: () => ({
+    data: { dusdcBalanceBaseUnits: 0n, dusdcBalance: 0 },
+    isPending: false,
+  }),
+}));
+
 vi.mock('../deepbook/quoteProvider', () => ({
   createDefaultQuoteProvider: () => ({
     quoteLegs: mocks.quoteLegs,
   }),
-}));
-
-vi.mock('../sui/transactionPreflight', () => ({
-  preflightTransaction: mocks.preflightTransaction,
 }));
 
 function productInputFixture(): DualInvestmentInput {
@@ -85,7 +89,8 @@ function quoteFixture(productInput = productInputFixture()): StructuredProductQu
     underlyingAsset: 'BTC' as const,
     expiryMs: nowMs + 7 * 24 * 60 * 60_000,
     minStrike: 50_000,
-    tickSize: 1,
+    tickSize: 0.01,
+    admissionTickSize: 1,
     status: 'active',
     spot: 66_172,
     forward: 66_167,
@@ -104,10 +109,30 @@ function quoteFixture(productInput = productInputFixture()): StructuredProductQu
   return compileDualInvestment({ input: productInput, oracle, quotedLegs, nowMs });
 }
 
+function successfulSimulation(legCount: number) {
+  return {
+    $kind: 'Transaction' as const,
+    Transaction: {
+      status: { success: true, error: null },
+      events: Array.from({ length: legCount }, () => ({
+        eventType: `${DEEPBOOK_PREDICT.packageId}::order_events::OrderMinted`,
+        json: {
+          net_premium: '2100000',
+          trading_fee: '0',
+          fee_incentive_subsidy: '0',
+          builder_fee: '0',
+          penalty_fee: '0',
+          entry_probability: '30000000',
+        },
+      })),
+    },
+  };
+}
+
 describe('TargetBuyExecutionPanel subscription flow', () => {
   beforeEach(() => {
     mocks.quoteLegs.mockReset();
-    mocks.preflightTransaction.mockReset();
+    mocks.simulateTransaction.mockReset();
     mocks.signAndExecuteTransaction.mockReset();
     mocks.waitForTransaction.mockReset();
     mocks.invalidateQueries.mockReset();
@@ -117,7 +142,7 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
     mocks.portfolioData = [];
   });
 
-  it('refreshes the quote before preflight and wallet signing', async () => {
+  it('refreshes the quote, simulates, then opens the wallet only after preflight succeeds', async () => {
     const productInput = productInputFixture();
     const quote = quoteFixture(productInput);
     mocks.quoteLegs.mockResolvedValue(
@@ -130,7 +155,7 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
         executable: true,
       })),
     );
-    mocks.preflightTransaction.mockResolvedValue({ status: 'success', engine: 'devInspectTransactionBlock' });
+    mocks.simulateTransaction.mockResolvedValue(successfulSimulation(quote.legs.length));
     mocks.signAndExecuteTransaction.mockResolvedValue({ Transaction: { digest: '0xdigest' } });
     mocks.waitForTransaction.mockResolvedValue({});
 
@@ -139,8 +164,39 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Subscribe Buy Low' }));
 
     await waitFor(() => expect(mocks.quoteLegs).toHaveBeenCalledTimes(1));
-    expect(mocks.preflightTransaction).toHaveBeenCalledTimes(1);
+    expect(mocks.simulateTransaction).toHaveBeenCalledTimes(1);
     expect(mocks.signAndExecuteTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a readable error and does not open the wallet when simulation fails', async () => {
+    const productInput = productInputFixture();
+    const quote = quoteFixture(productInput);
+    mocks.quoteLegs.mockResolvedValue(
+      buildDualInvestmentLegIntents(productInput, quote.oracle).map((leg) => ({
+        ...leg,
+        askPrice: 0.031,
+        askCost: 2.11,
+        redeemPreview: 0,
+        quoteTimestampMs: Date.now(),
+        executable: true,
+      })),
+    );
+    mocks.simulateTransaction.mockResolvedValue({
+      $kind: 'FailedTransaction',
+      FailedTransaction: {
+        status: {
+          success: false,
+          error: { message: 'MoveAbort: EInsufficientBalance' },
+        },
+      },
+    });
+
+    render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Subscribe Buy Low' }));
+
+    await waitFor(() => expect(screen.getByText(/Insufficient DUSDC/i)).toBeVisible());
+    expect(mocks.signAndExecuteTransaction).not.toHaveBeenCalled();
   });
 
   it('opens a Predict account as a separate wallet transaction when none is available', async () => {
@@ -157,7 +213,6 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
         executable: true,
       })),
     );
-    mocks.preflightTransaction.mockResolvedValue({ status: 'success', engine: 'devInspectTransactionBlock' });
     mocks.signAndExecuteTransaction.mockResolvedValueOnce({ Transaction: { digest: '0xmanager' } });
     mocks.waitForTransaction.mockResolvedValue({});
 
@@ -170,6 +225,6 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
     expect(mocks.managersRefetch).toHaveBeenCalledTimes(1);
     expect(mocks.portfolioRefetch).not.toHaveBeenCalled();
     expect(mocks.quoteLegs).not.toHaveBeenCalled();
-    expect(mocks.preflightTransaction).not.toHaveBeenCalled();
+    expect(mocks.simulateTransaction).not.toHaveBeenCalled();
   });
 });

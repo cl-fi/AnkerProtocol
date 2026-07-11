@@ -13,8 +13,15 @@ import {
   buildSubscribeDualInvestmentTransaction,
   DEFAULT_ANKER_CONFIG,
   type AnkerProtocolConfig,
+  type MintLegSlippage,
   type SubscribeDualInvestmentTransactionPlan,
 } from '../sui/ankerTransactions';
+import { mintSlippageFromQuoteLegs } from '../sui/ankerTransactionPrimitives';
+import {
+  mintSlippageFromSimulatedLegs,
+  preflightTransaction,
+  type SimulatedMintLeg,
+} from '../sui/transactionPreflight';
 
 export const SUBSCRIBE_QUOTE_TTL_MS = DEFAULT_QUOTE_ENVELOPE_TTL_MS;
 export const SUBSCRIBE_QUOTE_SLIPPAGE_BPS = DEFAULT_QUOTE_ENVELOPE_SLIPPAGE_BPS;
@@ -29,6 +36,15 @@ export interface SubscribeDualInvestmentApplicationPlan {
   managerId: string;
   quoteEnvelope: QuoteEnvelope;
   transactionPlan: SubscribeDualInvestmentTransactionPlan;
+}
+
+export interface PreparedSubscribeDualInvestment {
+  managerId: string;
+  quoteEnvelope: QuoteEnvelope;
+  quote: StructuredProductQuote;
+  transactionPlan: SubscribeDualInvestmentTransactionPlan;
+  simulatedMintLegs: SimulatedMintLeg[];
+  simulatedTotalCostBaseUnits: bigint;
 }
 
 /**
@@ -100,6 +116,8 @@ export function buildSubscribeDualInvestmentApplicationPlan(input: {
   productInput: DualInvestmentInput;
   quote: StructuredProductQuote;
   quoteEnvelope?: QuoteEnvelope;
+  wrapperBalanceBaseUnits?: bigint;
+  mintSlippage?: readonly MintLegSlippage[];
   config?: AnkerProtocolConfig;
   nowMs?: number;
 }): SubscribeDualInvestmentApplicationPlan {
@@ -116,6 +134,8 @@ export function buildSubscribeDualInvestmentApplicationPlan(input: {
     productInput: input.productInput,
     quote: input.quote,
     quoteEnvelope,
+    wrapperBalanceBaseUnits: input.wrapperBalanceBaseUnits,
+    mintSlippage: input.mintSlippage,
     nowMs: input.nowMs,
     config,
   });
@@ -124,5 +144,76 @@ export function buildSubscribeDualInvestmentApplicationPlan(input: {
     managerId: manager.managerId,
     quoteEnvelope,
     transactionPlan,
+  };
+}
+
+/**
+ * D6 layers 2–3: build a provisional (uncapped) PTB, simulate via gRPC, then rebuild
+ * with max_cost / max_probability = simulated × mint slippage. Does not open the wallet.
+ */
+export async function prepareSubscribeDualInvestmentForSigning(input: {
+  accountAddress: string;
+  managers: readonly CustodyAccountRef[] | undefined;
+  notes: readonly Pick<AnkerProductNoteRecord, 'wrapperId'>[] | undefined;
+  productInput: DualInvestmentInput;
+  quote: StructuredProductQuote;
+  quoteEnvelope?: QuoteEnvelope;
+  wrapperBalanceBaseUnits?: bigint;
+  client: unknown;
+  config?: AnkerProtocolConfig;
+  nowMs?: number;
+}): Promise<PreparedSubscribeDualInvestment> {
+  const quoteEnvelope = input.quoteEnvelope ?? createSubscribeQuoteEnvelope(input.quote, input.config);
+  const provisional = buildSubscribeDualInvestmentApplicationPlan({
+    ...input,
+    quoteEnvelope,
+    // Omit mintSlippage → uncapped guards for simulation.
+  });
+
+  const preflight = await preflightTransaction({
+    client: input.client,
+    sender: input.accountAddress,
+    transaction: provisional.transactionPlan.tx,
+  });
+
+  if (preflight.status === 'skipped') {
+    // Demo bypass: still apply quote×tolerance caps (never sign uncapped).
+    const config = input.config ?? DEFAULT_ANKER_CONFIG;
+    const mintSlippage = mintSlippageFromQuoteLegs(input.quote.legs, config);
+    const signed = buildSubscribeDualInvestmentApplicationPlan({
+      ...input,
+      quoteEnvelope,
+      mintSlippage,
+    });
+    return {
+      managerId: signed.managerId,
+      quoteEnvelope,
+      quote: input.quote,
+      transactionPlan: signed.transactionPlan,
+      simulatedMintLegs: [],
+      simulatedTotalCostBaseUnits: signed.transactionPlan.legCosts.reduce((sum, cost) => sum + cost, 0n),
+    };
+  }
+
+  if (preflight.mintLegs.length !== input.quote.legs.length) {
+    throw new Error(
+      `Simulation returned ${preflight.mintLegs.length} OrderMinted event(s); expected ${input.quote.legs.length}.`,
+    );
+  }
+
+  const mintSlippage = mintSlippageFromSimulatedLegs(preflight.mintLegs);
+  const signed = buildSubscribeDualInvestmentApplicationPlan({
+    ...input,
+    quoteEnvelope,
+    mintSlippage,
+  });
+
+  return {
+    managerId: signed.managerId,
+    quoteEnvelope,
+    quote: input.quote,
+    transactionPlan: signed.transactionPlan,
+    simulatedMintLegs: preflight.mintLegs,
+    simulatedTotalCostBaseUnits: preflight.mintLegs.reduce((sum, leg) => sum + leg.allInCost, 0n),
   };
 }

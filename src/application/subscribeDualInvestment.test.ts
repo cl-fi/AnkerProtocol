@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CustodyAccountRef } from './subscribeDualInvestment';
 import type { QuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
@@ -8,6 +8,7 @@ import type { DualInvestmentInput, StructuredProductQuote } from '../products/ty
 import {
   buildSubscribeDualInvestmentApplicationPlan,
   createSubscribeQuoteEnvelope,
+  prepareSubscribeDualInvestmentForSigning,
   refreshDualInvestmentQuoteForSigning,
   selectUnallocatedPredictManager,
 } from './subscribeDualInvestment';
@@ -20,6 +21,7 @@ const ANKER_REGISTRY_ID = `0x${'2'.repeat(64)}`;
 const PREDICT_PACKAGE_ID = `0x${'3'.repeat(64)}`;
 const PREDICT_OBJECT_ID = `0x${'4'.repeat(64)}`;
 const ORACLE_ID = `0x${'5'.repeat(64)}`;
+const ACCOUNT_PACKAGE_ID = `0x${'7'.repeat(64)}`;
 const DUSDC = `${`0x${'6'.repeat(64)}`}::dusdc::DUSDC`;
 
 const config: AnkerProtocolConfig = {
@@ -28,6 +30,16 @@ const config: AnkerProtocolConfig = {
   registryId: ANKER_REGISTRY_ID,
   predictPackageId: PREDICT_PACKAGE_ID,
   poolVaultId: PREDICT_OBJECT_ID,
+  accountPackageId: ACCOUNT_PACKAGE_ID,
+  accumulatorRoot: `0x${'a'.repeat(64)}`,
+  protocolConfigId: `0x${'b'.repeat(64)}`,
+  oracleRegistryId: `0x${'c'.repeat(64)}`,
+  feeds: {
+    pyth: `0x${'d'.repeat(64)}`,
+    blockScholesSpot: `0x${'e'.repeat(64)}`,
+    blockScholesForward: `0x${'f'.repeat(64)}`,
+    blockScholesSvi: `0x${'0'.repeat(63)}1`,
+  },
   quoteAssetType: DUSDC,
   quoteAssetDecimals: 6,
 };
@@ -48,7 +60,8 @@ function quoteFixture(): StructuredProductQuote {
       underlyingAsset: 'BTC',
       expiryMs: 1_781_683_200_000,
       minStrike: 50_000,
-      tickSize: 1,
+      tickSize: 0.01,
+      admissionTickSize: 1,
       status: 'active',
       spot: 66_172,
       forward: 66_167,
@@ -147,6 +160,7 @@ describe('buildSubscribeDualInvestmentApplicationPlan', () => {
 
     expect(plan.managerId).toBe(MANAGER_ID);
     expect(plan.transactionPlan.calls).toContain(`${ANKER_PACKAGE_ID}::product_note::new_dual_investment_note`);
+    expect(plan.transactionPlan.calls).toContain(`${PREDICT_PACKAGE_ID}::expiry_market::mint_exact_quantity`);
     expect(plan.quoteEnvelope.maxTotalCostBaseUnits).toBe(2_121_000n);
   });
 
@@ -164,6 +178,78 @@ describe('buildSubscribeDualInvestmentApplicationPlan', () => {
     ).toThrow('Open your Predict account before subscribing.');
   });
 });
+
+describe('prepareSubscribeDualInvestmentForSigning', () => {
+  it('simulates first, then rebuilds mint caps from OrderMinted costs without signing', async () => {
+    const quote = quoteFixture();
+    const simulateTransaction = vi.fn().mockResolvedValue({
+      $kind: 'Transaction',
+      Transaction: {
+        status: { success: true, error: null },
+        events: [
+          {
+            eventType: '0xpredict::order_events::OrderMinted',
+            json: {
+              net_premium: '2100000',
+              trading_fee: '0',
+              fee_incentive_subsidy: '0',
+              builder_fee: '0',
+              penalty_fee: '0',
+              entry_probability: '210000000',
+            },
+          },
+        ],
+      },
+    });
+
+    const prepared = await prepareSubscribeDualInvestmentForSigning({
+      accountAddress: OWNER,
+      managers: [{ managerId: MANAGER_ID, owner: OWNER }],
+      notes: [],
+      productInput,
+      quote,
+      wrapperBalanceBaseUnits: 0n,
+      client: { simulateTransaction },
+      config,
+      nowMs: 1,
+    });
+
+    expect(simulateTransaction).toHaveBeenCalled();
+    expect(prepared.simulatedTotalCostBaseUnits).toBe(2_100_000n);
+    expect(prepared.transactionPlan.mintSlippage).toEqual([
+      { maxCost: 2_131_500n, maxProbability: 213_150_000n },
+    ]);
+    expect(prepared.transactionPlan.calls).toContain(
+      `${PREDICT_PACKAGE_ID}::expiry_market::mint_exact_quantity`,
+    );
+  });
+
+  it('surfaces readable simulation failures before any wallet prompt', async () => {
+    const simulateTransaction = vi.fn().mockResolvedValue({
+      $kind: 'FailedTransaction',
+      FailedTransaction: {
+        status: {
+          success: false,
+          error: { message: 'MoveAbort: EInsufficientBalance' },
+        },
+      },
+    });
+
+    await expect(
+      prepareSubscribeDualInvestmentForSigning({
+        accountAddress: OWNER,
+        managers: [{ managerId: MANAGER_ID, owner: OWNER }],
+        notes: [],
+        productInput,
+        quote: quoteFixture(),
+        client: { simulateTransaction },
+        config,
+        nowMs: 1,
+      }),
+    ).rejects.toThrow(/Insufficient DUSDC/);
+  });
+});
+
 describe('refreshDualInvestmentQuoteForSigning', () => {
   it('re-quotes the exact Target Buy legs and keeps the original max-cost envelope', async () => {
     const quote = compiledQuoteFixture();

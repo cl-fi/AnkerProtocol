@@ -5,19 +5,19 @@ import { useQueryClient } from '@tanstack/react-query';
 import { WalletCards } from 'lucide-react';
 import { useState } from 'react';
 import {
-  buildSubscribeDualInvestmentApplicationPlan,
   createSubscribeQuoteEnvelope,
+  prepareSubscribeDualInvestmentForSigning,
   refreshDualInvestmentQuoteForSigning,
   selectUnallocatedPredictManager,
 } from '../application/subscribeDualInvestment';
 import { createDefaultQuoteProvider } from '../deepbook/quoteProvider';
+import { useAccountWrapperBalance } from '../hooks/useAccountWrapper';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
 import { usePredictManagers } from '../hooks/usePredictManagers';
 import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { buildCreateAccountWrapperTransaction } from '../sui/accountTransactions';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
-import { preflightTransaction } from '../sui/transactionPreflight';
 import { Button, Card } from '../ui';
 
 interface TargetBuyExecutionPanelViewProps {
@@ -30,6 +30,7 @@ interface TargetBuyExecutionPanelViewProps {
   managerId?: string;
   error?: string | null;
   digest?: string | null;
+  simulatedCostLabel?: string | null;
   locale?: Locale;
   onCreateManager: () => void;
   onSubscribe: () => void;
@@ -105,6 +106,7 @@ export function TargetBuyExecutionPanelView({
   managerId,
   error,
   digest,
+  simulatedCostLabel,
   locale = DEFAULT_LOCALE,
   onCreateManager,
   onSubscribe,
@@ -178,6 +180,7 @@ export function TargetBuyExecutionPanelView({
         <span>{execution.status}</span>
       </div>
 
+      {simulatedCostLabel ? <p className="execution-message">{simulatedCostLabel}</p> : null}
       {quoteWarning && !isQuoteExecutable ? <p className="execution-error">{quoteWarning}</p> : null}
       {digest ? (
         <p className="execution-message">
@@ -214,9 +217,11 @@ export function TargetBuyExecutionPanel({
   const managersQuery = usePredictManagers();
   const portfolioQuery = useAnkerPortfolio();
   const manager = selectUnallocatedPredictManager(managersQuery.data, portfolioQuery.data, account?.address);
+  const balanceQuery = useAccountWrapperBalance(manager?.managerId);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [digest, setDigest] = useState<string | null>(null);
+  const [simulatedCostLabel, setSimulatedCostLabel] = useState<string | null>(null);
 
   async function runTransaction(action: () => Promise<string>) {
     setIsPending(true);
@@ -250,6 +255,7 @@ export function TargetBuyExecutionPanel({
   function handleSubscribe() {
     if (!account || !manager) return;
     void runTransaction(async () => {
+      setSimulatedCostLabel(null);
       const quoteEnvelope = createSubscribeQuoteEnvelope(quote);
       const refreshedQuote = await refreshDualInvestmentQuoteForSigning({
         productInput,
@@ -257,25 +263,27 @@ export function TargetBuyExecutionPanel({
         quoteEnvelope,
         quoteProvider: subscriptionQuoteProvider,
       });
-      const plan = buildSubscribeDualInvestmentApplicationPlan({
+      // Simulate first (readable abort, no wallet). Rebuild mint caps from OrderMinted costs.
+      const prepared = await prepareSubscribeDualInvestmentForSigning({
         accountAddress: account.address,
         managers: managersQuery.data,
         notes: portfolioQuery.data,
         productInput,
         quote: refreshedQuote,
         quoteEnvelope,
-      });
-      await preflightTransaction({
+        wrapperBalanceBaseUnits: balanceQuery.data?.dusdcBalanceBaseUnits ?? 0n,
         client,
-        sender: account.address,
-        transaction: plan.transactionPlan.tx,
       });
-      const result = await dAppKit.signAndExecuteTransaction({ transaction: plan.transactionPlan.tx });
+      const simulatedUsdc = Number(prepared.simulatedTotalCostBaseUnits) / 1_000_000;
+      setSimulatedCostLabel(`Simulated mint cost: ${simulatedUsdc.toFixed(6)} dUSDC`);
+      const result = await dAppKit.signAndExecuteTransaction({
+        transaction: prepared.transactionPlan.tx,
+      });
       const nextDigest = transactionDigest(result);
       await client.waitForTransaction({ digest: nextDigest });
       recordSubscriptionDigest({
         owner: account.address,
-        quoteHash: plan.quoteEnvelope.productHash,
+        quoteHash: prepared.quoteEnvelope.productHash,
         digest: nextDigest,
       });
       return nextDigest;
@@ -293,6 +301,7 @@ export function TargetBuyExecutionPanel({
       managerId={manager?.managerId}
       error={error}
       digest={digest}
+      simulatedCostLabel={simulatedCostLabel}
       locale={locale}
       onCreateManager={handleCreateManager}
       onSubscribe={handleSubscribe}

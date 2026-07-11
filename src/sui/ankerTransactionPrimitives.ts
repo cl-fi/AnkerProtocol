@@ -2,7 +2,14 @@ import type { Transaction } from '@mysten/sui/transactions';
 import type { LegQuote, StructuredProductQuote } from '../products/types';
 import { toChainPrice } from '../products/units';
 import type { AnkerProductNoteRecord } from './ankerPortfolio';
-import type { AnkerProtocolConfig } from './ankerTransactions';
+import type { AnkerProtocolConfig } from './ankerProtocolConfig';
+import { binaryUpRangeTicks } from './predictTicks';
+
+export const U64_MAX = (1n << 64n) - 1n;
+/** 1e9-scaled leverage: 1x (no floor). */
+export const LEVERAGE_1X = 1_000_000_000n;
+/** D6 layer-3 mint slippage (~1.5%). */
+export const MINT_SLIPPAGE_BPS = 150;
 
 function assertSafeU64Number(value: number, label: string) {
   if (!Number.isFinite(value) || value < 0) {
@@ -38,6 +45,53 @@ export function toBpsU64(value: number, label: string): bigint {
   return BigInt(rounded);
 }
 
+/** Convert a 0–1 probability to 1e9 fixed-point. */
+export function probabilityToChainU64(probability: number, label: string): bigint {
+  if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
+    throw new Error(`${label} must be a finite probability in [0, 1].`);
+  }
+  const rounded = Math.round(probability * 1_000_000_000);
+  assertSafeU64Number(rounded, label);
+  return BigInt(rounded);
+}
+
+/** Quote-derived mint caps when simulation events are unavailable (demo bypass only). */
+export function mintSlippageFromQuoteLegs(
+  legs: readonly LegQuote[],
+  config: AnkerProtocolConfig,
+  slippageBps: number = MINT_SLIPPAGE_BPS,
+): { maxCost: bigint; maxProbability: bigint }[] {
+  return legs.map((leg) => ({
+    maxCost: applyMintSlippage(legCostToBaseUnits(leg, config), slippageBps),
+    maxProbability: applyMintSlippage(
+      probabilityToChainU64(leg.askPrice, `Quote leg ${leg.id} ask price`),
+      slippageBps,
+    ),
+  }));
+}
+
+export function applyMintSlippage(value: bigint, slippageBps: number = MINT_SLIPPAGE_BPS): bigint {
+  if (value < 0n) {
+    throw new Error('Slippage base value must be non-negative.');
+  }
+  if (!Number.isInteger(slippageBps) || slippageBps < 0) {
+    throw new Error('Slippage bps must be a non-negative integer.');
+  }
+  if (value === U64_MAX) return U64_MAX;
+  const scaled = value * BigInt(10_000 + slippageBps);
+  const withCeil = (scaled + 9_999n) / 10_000n;
+  return withCeil > U64_MAX ? U64_MAX : withCeil;
+}
+
+export function subscribeTopUpBaseUnits(principalBaseUnits: bigint, wrapperBalanceBaseUnits: bigint): bigint {
+  if (principalBaseUnits < 0n || wrapperBalanceBaseUnits < 0n) {
+    throw new Error('Principal and wrapper balance must be non-negative.');
+  }
+  return principalBaseUnits > wrapperBalanceBaseUnits
+    ? principalBaseUnits - wrapperBalanceBaseUnits
+    : 0n;
+}
+
 export function productIdBytes(productId: string): number[] {
   return Array.from(new TextEncoder().encode(productId));
 }
@@ -48,6 +102,10 @@ export function target(config: AnkerProtocolConfig, moduleName: string, function
 
 export function predictTarget(config: AnkerProtocolConfig, moduleName: string, functionName: string): string {
   return `${config.predictPackageId}::${moduleName}::${functionName}`;
+}
+
+export function accountTarget(config: AnkerProtocolConfig, moduleName: string, functionName: string): string {
+  return `${config.accountPackageId}::${moduleName}::${functionName}`;
 }
 
 export function assertDualInvestmentQuote(quote: StructuredProductQuote) {
@@ -73,6 +131,18 @@ export function legCostToBaseUnits(leg: LegQuote, config: AnkerProtocolConfig): 
   return toQuoteBaseUnits(leg.askCost, config.quoteAssetDecimals, `Quote leg ${leg.id} cost`);
 }
 
+export function legBinaryUpTicks(leg: LegQuote, tickSizeUsd: number) {
+  if (leg.instrumentType !== 'binary-up' && leg.isUp !== true) {
+    throw new Error(`Subscribe currently supports binary-up legs only (got ${leg.id}).`);
+  }
+  const strike = leg.strike;
+  if (typeof strike !== 'number') {
+    throw new Error(`Quote leg ${leg.id} is missing a strike.`);
+  }
+  return binaryUpRangeTicks(strike, tickSizeUsd);
+}
+
+/** @deprecated 4-16 MarketKey helper — kept for redeem path until claim is migrated. */
 export function addMarketKey(tx: Transaction, leg: LegQuote, config: AnkerProtocolConfig, calls: string[]) {
   const callTarget = predictTarget(config, 'market_key', 'new');
   calls.push(callTarget);

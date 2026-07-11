@@ -12,6 +12,7 @@ const ANKER_REGISTRY_ID = `0x${'2'.repeat(64)}`;
 const PREDICT_PACKAGE_ID = `0x${'3'.repeat(64)}`;
 const PREDICT_OBJECT_ID = `0x${'4'.repeat(64)}`;
 const ORACLE_ID = `0x${'5'.repeat(64)}`;
+const ACCOUNT_PACKAGE_ID = `0x${'7'.repeat(64)}`;
 const DUSDC = `${`0x${'6'.repeat(64)}`}::dusdc::DUSDC`;
 
 const config: AnkerProtocolConfig = {
@@ -19,6 +20,16 @@ const config: AnkerProtocolConfig = {
   registryId: ANKER_REGISTRY_ID,
   predictPackageId: PREDICT_PACKAGE_ID,
   poolVaultId: PREDICT_OBJECT_ID,
+  accountPackageId: ACCOUNT_PACKAGE_ID,
+  accumulatorRoot: `0x${'a'.repeat(64)}`,
+  protocolConfigId: `0x${'b'.repeat(64)}`,
+  oracleRegistryId: `0x${'c'.repeat(64)}`,
+  feeds: {
+    pyth: `0x${'d'.repeat(64)}`,
+    blockScholesSpot: `0x${'e'.repeat(64)}`,
+    blockScholesForward: `0x${'f'.repeat(64)}`,
+    blockScholesSvi: `0x${'0'.repeat(63)}1`,
+  },
   quoteAssetType: DUSDC,
   quoteAssetDecimals: 6,
 };

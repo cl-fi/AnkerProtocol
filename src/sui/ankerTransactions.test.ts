@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  U64_MAX,
   buildClaimDualInvestmentNoteTransaction,
   buildRedeemDualInvestmentNoteTransaction,
   buildRedeemDualInvestmentPositionsTransaction,
@@ -10,6 +11,7 @@ import type { SettlementResult } from '../products/settlement';
 import { createQuoteEnvelope } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import type { AnkerProductNoteRecord } from './ankerPortfolio';
+import { POS_INF_TICK } from './predictTicks';
 
 const OWNER = `0x${'a'.repeat(64)}`;
 const MANAGER_ID = `0x${'b'.repeat(64)}`;
@@ -17,6 +19,7 @@ const NOTE_ID = `0x${'c'.repeat(64)}`;
 const ANKER_PACKAGE_ID = `0x${'1'.repeat(64)}`;
 const ANKER_REGISTRY_ID = `0x${'2'.repeat(64)}`;
 const PREDICT_PACKAGE_ID = `0x${'3'.repeat(64)}`;
+const ACCOUNT_PACKAGE_ID = `0x${'7'.repeat(64)}`;
 const PREDICT_OBJECT_ID = `0x${'4'.repeat(64)}`;
 const ORACLE_ID = `0x${'5'.repeat(64)}`;
 const DUSDC = `${`0x${'6'.repeat(64)}`}::dusdc::DUSDC`;
@@ -26,6 +29,16 @@ const config: AnkerProtocolConfig = {
   registryId: ANKER_REGISTRY_ID,
   predictPackageId: PREDICT_PACKAGE_ID,
   poolVaultId: PREDICT_OBJECT_ID,
+  accountPackageId: ACCOUNT_PACKAGE_ID,
+  accumulatorRoot: `0x${'a'.repeat(64)}`,
+  protocolConfigId: `0x${'b'.repeat(64)}`,
+  oracleRegistryId: `0x${'c'.repeat(64)}`,
+  feeds: {
+    pyth: `0x${'d'.repeat(64)}`,
+    blockScholesSpot: `0x${'e'.repeat(64)}`,
+    blockScholesForward: `0x${'f'.repeat(64)}`,
+    blockScholesSvi: `0x${'0'.repeat(63)}1`,
+  },
   quoteAssetType: DUSDC,
   quoteAssetDecimals: 6,
 };
@@ -42,7 +55,8 @@ function quoteFixture(): StructuredProductQuote {
       underlyingAsset: 'BTC',
       expiryMs: 1_781_683_200_000,
       minStrike: 50_000,
-      tickSize: 1,
+      tickSize: 0.01,
+      admissionTickSize: 1,
       status: 'active',
       spot: 66_172,
       forward: 66_167,
@@ -157,7 +171,7 @@ function settlementFixture(overrides: Partial<SettlementResult> = {}): Settlemen
 }
 
 describe('Anker transaction builders', () => {
-  it('builds a Target Buy subscribe PTB plan with deposit, Predict mints, and Anker note creation', () => {
+  it('builds a Turbo subscribe PTB with top-up deposit, live pricer, and mint_exact_quantity', () => {
     const quote = quoteFixture();
     const quoteEnvelope = quoteEnvelopeFixture(quote);
     const plan = buildSubscribeDualInvestmentTransaction({
@@ -166,25 +180,75 @@ describe('Anker transaction builders', () => {
       productInput: dualInputFixture(),
       quote,
       quoteEnvelope,
+      wrapperBalanceBaseUnits: 100_000_000n,
       nowMs: 1,
       config,
     });
 
     expect(plan.depositAmount).toBe(1_000_000_000n);
+    expect(plan.topUpAmount).toBe(900_000_000n);
     expect(plan.legStrikes).toEqual([61_000_000_000_000n, 62_000_000_000_000n]);
     expect(plan.legQuantities).toEqual([10_000_000n, 12_500_000n]);
     expect(plan.legCosts).toEqual([2_100_000n, 3_125_000n]);
+    expect(plan.legLowerTicks).toEqual([6_100_000n, 6_200_000n]);
+    expect(plan.legHigherTicks).toEqual([POS_INF_TICK, POS_INF_TICK]);
+    expect(plan.mintSlippage).toEqual([
+      { maxCost: U64_MAX, maxProbability: U64_MAX },
+      { maxCost: U64_MAX, maxProbability: U64_MAX },
+    ]);
     expect(plan.targetPrice).toBe(66_000_000_000_000n);
     expect(plan.floorPrice).toBe(61_000_000_000_000n);
     expect(new TextDecoder().decode(Uint8Array.from(plan.productIdBytes))).toBe(quoteEnvelope.productHash);
     expect(plan.calls).toEqual([
-      `${PREDICT_PACKAGE_ID}::predict_manager::deposit`,
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::mint`,
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::mint`,
+      `${ACCOUNT_PACKAGE_ID}::account::generate_auth`,
+      `${ACCOUNT_PACKAGE_ID}::account::deposit_funds`,
+      `${PREDICT_PACKAGE_ID}::expiry_market::load_live_pricer`,
+      `${ACCOUNT_PACKAGE_ID}::account::generate_auth`,
+      `${PREDICT_PACKAGE_ID}::expiry_market::mint_exact_quantity`,
+      `${ACCOUNT_PACKAGE_ID}::account::generate_auth`,
+      `${PREDICT_PACKAGE_ID}::expiry_market::mint_exact_quantity`,
       `${ANKER_PACKAGE_ID}::product_note::new_dual_investment_note`,
       'transferObjects',
+    ]);
+  });
+
+  it('skips deposit_funds when the wrapper already covers principal', () => {
+    const quote = quoteFixture();
+    const plan = buildSubscribeDualInvestmentTransaction({
+      accountAddress: OWNER,
+      wrapperId: MANAGER_ID,
+      productInput: dualInputFixture(),
+      quote,
+      quoteEnvelope: quoteEnvelopeFixture(quote),
+      wrapperBalanceBaseUnits: 1_000_000_000n,
+      nowMs: 1,
+      config,
+    });
+
+    expect(plan.topUpAmount).toBe(0n);
+    expect(plan.calls[0]).toBe(`${PREDICT_PACKAGE_ID}::expiry_market::load_live_pricer`);
+    expect(plan.calls).not.toContain(`${ACCOUNT_PACKAGE_ID}::account::deposit_funds`);
+  });
+
+  it('applies simulate-derived mint slippage caps when provided', () => {
+    const quote = quoteFixture();
+    const plan = buildSubscribeDualInvestmentTransaction({
+      accountAddress: OWNER,
+      wrapperId: MANAGER_ID,
+      productInput: dualInputFixture(),
+      quote,
+      quoteEnvelope: quoteEnvelopeFixture(quote),
+      mintSlippage: [
+        { maxCost: 2_131_500n, maxProbability: 213_150_000n },
+        { maxCost: 3_171_875n, maxProbability: 253_750_000n },
+      ],
+      nowMs: 1,
+      config,
+    });
+
+    expect(plan.mintSlippage).toEqual([
+      { maxCost: 2_131_500n, maxProbability: 213_150_000n },
+      { maxCost: 3_171_875n, maxProbability: 253_750_000n },
     ]);
   });
 
@@ -196,7 +260,7 @@ describe('Anker transaction builders', () => {
         productInput: dualInputFixture(),
         quote: quoteFixture(),
         quoteEnvelope: quoteEnvelopeFixture(quoteFixture(), 1),
-      nowMs: 1_000,
+        nowMs: 1_000,
         config,
       }),
     ).toThrow('Quote expired');
@@ -215,7 +279,7 @@ describe('Anker transaction builders', () => {
         productInput: dualInputFixture(),
         quote,
         quoteEnvelope: quoteEnvelopeFixture(quote),
-      nowMs: 1,
+        nowMs: 1,
         config,
       }),
     ).toThrow('Quote principal exceeds safe integer range');
@@ -234,7 +298,7 @@ describe('Anker transaction builders', () => {
         productInput: dualInputFixture(),
         quote,
         quoteEnvelope: quoteEnvelopeFixture(quote),
-      nowMs: 1,
+        nowMs: 1,
         config,
       }),
     ).toThrow('Quote APR must be a non-negative finite number');
@@ -256,7 +320,7 @@ describe('Anker transaction builders', () => {
         productInput: dualInputFixture(),
         quote,
         quoteEnvelope: quoteEnvelopeFixture(quote),
-      nowMs: 1,
+        nowMs: 1,
         config,
       }),
     ).toThrow('Quote Predict object does not match configured Predict object.');
