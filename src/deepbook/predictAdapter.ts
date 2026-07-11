@@ -1,4 +1,5 @@
 import { DEEPBOOK_PREDICT, PREDICT_SERVER_URL } from '../config/deepbook';
+import type { Transaction } from '@mysten/sui/transactions';
 import type { PredictCadenceConfig } from '../config/predictDeployment';
 import { filterMarketsForProductLine, type ProductLine } from '../products/productLineMarkets';
 import { fromChainPrice } from '../products/units';
@@ -35,10 +36,25 @@ export interface PredictAdapter {
   quoteLegs?(legs: unknown[]): Promise<unknown[]>;
   /** Mint legs in a PTB — implemented in #5. */
   mintLegs?(input: unknown): Promise<unknown>;
-  /** Redeem settled legs — implemented in #6. */
-  redeemLegs?(input: unknown): Promise<unknown>;
+  /** Add one permissionless 6-24 settled redemption per Note leg. */
+  redeemLegs(input: PredictRedeemLegsInput): string[];
   /** List custody positions / notes — implemented in #4/#6. */
   listPositions?(owner: string): Promise<unknown[]>;
+}
+
+export interface PredictRedeemLegsInput {
+  tx: Transaction;
+  expiryMarketId: string;
+  wrapperId: string;
+  legs: readonly { orderId: bigint; quantityBaseUnits: bigint }[];
+  config: {
+    predictPackageId: string;
+    accountRegistryId: string;
+    protocolConfigId: string;
+    oracleRegistryId: string;
+    pythFeedId: string;
+    accumulatorRoot: string;
+  };
 }
 
 
@@ -161,6 +177,37 @@ export function createPredictAdapter(input?: {
         nowMs,
         turboCadence: input?.cadence ?? DEEPBOOK_PREDICT.turboCadence,
       });
+    },
+    redeemLegs(redeemInput) {
+      const market = redeemInput.tx.object(redeemInput.expiryMarketId);
+      const wrapper = redeemInput.tx.object(redeemInput.wrapperId);
+      const accountRegistry = redeemInput.tx.object(redeemInput.config.accountRegistryId);
+      const protocolConfig = redeemInput.tx.object(redeemInput.config.protocolConfigId);
+      const oracleRegistry = redeemInput.tx.object(redeemInput.config.oracleRegistryId);
+      const pyth = redeemInput.tx.object(redeemInput.config.pythFeedId);
+      const accumulatorRoot = redeemInput.tx.object(redeemInput.config.accumulatorRoot);
+      const clock = redeemInput.tx.object.clock();
+      const redeemTarget = `${redeemInput.config.predictPackageId}::expiry_market::redeem_settled`;
+
+      redeemInput.legs.forEach((leg) => {
+        redeemInput.tx.moveCall({
+          target: redeemTarget,
+          arguments: [
+            market,
+            accountRegistry,
+            wrapper,
+            protocolConfig,
+            oracleRegistry,
+            pyth,
+            redeemInput.tx.pure.u256(leg.orderId),
+            redeemInput.tx.pure.u64(leg.quantityBaseUnits),
+            accumulatorRoot,
+            clock,
+          ],
+        });
+      });
+
+      return redeemInput.legs.map(() => redeemTarget);
     },
   };
 }

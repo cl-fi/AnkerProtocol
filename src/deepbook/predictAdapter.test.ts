@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Transaction } from '@mysten/sui/transactions';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import {
   createPredictAdapter,
@@ -117,5 +118,34 @@ describe('PredictAdapter market discovery', () => {
       expect(requestedUrls).toHaveLength(1);
       expect(requestedUrls[0]).toContain('/markets?limit=500');
     });
+  });
+});
+
+describe('PredictAdapter settled leg redemption', () => {
+  it('adds one 6-24 redeem_settled command per Note order id', async () => {
+    const tx = new Transaction();
+    const calls = createPredictAdapter().redeemLegs({
+      tx,
+      expiryMarketId: `0x${'1'.repeat(64)}`,
+      wrapperId: `0x${'2'.repeat(64)}`,
+      legs: [
+        { orderId: 11n, quantityBaseUnits: 40_000n },
+        { orderId: 22n, quantityBaseUnits: 60_000n },
+      ],
+      config: {
+        predictPackageId: `0x${'3'.repeat(64)}`,
+        accountRegistryId: `0x${'4'.repeat(64)}`,
+        protocolConfigId: `0x${'5'.repeat(64)}`,
+        oracleRegistryId: `0x${'6'.repeat(64)}`,
+        pythFeedId: `0x${'7'.repeat(64)}`,
+        accumulatorRoot: `0x${'8'.repeat(64)}`,
+      },
+    });
+
+    expect(calls).toEqual([
+      `${`0x${'3'.repeat(64)}`}::expiry_market::redeem_settled`,
+      `${`0x${'3'.repeat(64)}`}::expiry_market::redeem_settled`,
+    ]);
+    expect(await tx.toJSON()).toContain('redeem_settled');
   });
 });

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { CustodyAccountRef } from './subscribeDualInvestment';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { AnkerProtocolConfig } from '../sui/ankerTransactions';
-import type { DualInvestmentClaimState } from '../sui/predictManagerState';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
-import { buildDualInvestmentClaimApplicationPlan } from './settleProductNote';
+import { settlementForProductNote } from './settleProductNote';
+import { buildClaimDualInvestmentNoteTransaction } from '../sui/ankerTransactions';
 import { buildSubscribeDualInvestmentApplicationPlan } from './subscribeDualInvestment';
 
 const OWNER = `0x${'a'.repeat(64)}`;
@@ -26,6 +26,7 @@ const config: AnkerProtocolConfig = {
   predictPackageId: PREDICT_PACKAGE_ID,
   poolVaultId: PREDICT_OBJECT_ID,
   accountPackageId: ACCOUNT_PACKAGE_ID,
+  accountRegistryId: `0x${'8'.repeat(64)}`,
   accumulatorRoot: `0x${'a'.repeat(64)}`,
   protocolConfigId: `0x${'b'.repeat(64)}`,
   oracleRegistryId: `0x${'c'.repeat(64)}`,
@@ -161,43 +162,19 @@ describe('Dual Investment subscribe-to-settle lifecycle', () => {
     );
 
     const note = noteFromQuote(quote);
-    const redeemState: DualInvestmentClaimState = {
-      path: 'redeem-and-withdraw',
-      availableLegCount: 1,
-      missingLegCount: 0,
-      totalLegCount: 1,
-      managerDusdcBalance: quote.reserve + quote.coupon,
-      missingLegs: [],
-    };
-    const redeemPlan = buildDualInvestmentClaimApplicationPlan({
+    const claimPlan = buildClaimDualInvestmentNoteTransaction({
       accountAddress: OWNER,
       note,
-      claimState: redeemState,
+      settlement: settlementForProductNote(note, 64_000),
       config,
     });
 
-    expect(redeemPlan.claimMode).toBe('redeem-positions');
-    expect(redeemPlan.calls).toEqual([`${PREDICT_PACKAGE_ID}::market_key::new`, `${PREDICT_PACKAGE_ID}::predict::redeem`]);
-
-    const withdrawState: DualInvestmentClaimState = {
-      ...redeemState,
-      path: 'withdraw-only',
-      availableLegCount: 0,
-      missingLegCount: 1,
-    };
-    const withdrawPlan = buildDualInvestmentClaimApplicationPlan({
-      accountAddress: OWNER,
-      note,
-      claimState: withdrawState,
-      config,
-    });
-
-    expect(withdrawPlan.claimMode).toBe('withdraw-only');
-    expect(withdrawPlan.payoutAmount).toBe(toBaseUnits(quote.reserve + quote.coupon));
-    expect(withdrawPlan.feeAmount).toBe((toBaseUnits(quote.coupon) * 1_000n) / 10_000n);
-    expect(withdrawPlan.netPayoutAmount).toBe(
+    expect(claimPlan.payoutAmount).toBe(toBaseUnits(quote.reserve + quote.coupon));
+    expect(claimPlan.feeAmount).toBe((toBaseUnits(quote.coupon) * 1_000n) / 10_000n);
+    expect(claimPlan.netPayoutAmount).toBe(
       toBaseUnits(quote.reserve + quote.coupon) - (toBaseUnits(quote.coupon) * 1_000n) / 10_000n,
     );
-    expect(withdrawPlan.calls).toContain(`${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`);
+    expect(claimPlan.calls).toContain(`${PREDICT_PACKAGE_ID}::expiry_market::redeem_settled`);
+    expect(claimPlan.calls).toContain(`${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`);
   });
 });

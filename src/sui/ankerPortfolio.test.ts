@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseOwnedProductNotes, productNoteType } from './ankerPortfolio';
+import { markProductNoteClaimed, parseOwnedProductNotes, productNoteType } from './ankerPortfolio';
 
 const PACKAGE_ID = `0x${'1'.repeat(64)}`;
 const NOTE_ID = `0x${'2'.repeat(64)}`;
@@ -221,5 +221,31 @@ describe('Anker portfolio parser', () => {
       packageId: PACKAGE_ID,
       quoteAssetDecimals: 6,
     })).toEqual([]);
+  });
+});
+
+describe('markProductNoteClaimed', () => {
+  it('updates the claimed note immediately with the submitted payout and fee', () => {
+    const [note] = parseOwnedProductNotes(
+      [{ objectId: NOTE_ID, type: productNoteType(PACKAGE_ID), json: dualNoteFields() }],
+      { packageId: PACKAGE_ID, quoteAssetDecimals: 6 },
+    );
+
+    expect(
+      markProductNoteClaimed([note], NOTE_ID, {
+        grossPayoutBaseUnits: 1_030_000_000n,
+        performanceFeeBaseUnits: 2_000_000n,
+        netPayoutBaseUnits: 1_028_000_000n,
+        realizedLegs: [],
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        status: 'redeemed',
+        redeemedPayout: 1_030,
+        redeemedPayoutBaseUnits: 1_030_000_000n,
+        redeemedFee: 2,
+        redeemedFeeBaseUnits: 2_000_000n,
+      }),
+    ]);
   });
 });

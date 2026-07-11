@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
-import { buildClaimDualInvestmentNoteTransaction, type AnkerProtocolConfig } from '../sui/ankerTransactions';
+import type { AnkerProductNoteRecord } from './ankerPortfolio';
+import { buildClaimDualInvestmentNoteTransaction, type AnkerProtocolConfig } from './ankerTransactions';
+import { settlementForProductNote } from '../application/settleProductNote';
 import { productNoteFixture } from '../test/productNoteFixture';
-import { settlementForProductNote } from './settleProductNote';
 
 const OWNER = `0x${'a'.repeat(64)}`;
+const WRAPPER_ID = `0x${'b'.repeat(64)}`;
+const NOTE_ID = `0x${'c'.repeat(64)}`;
 const MARKET_ID = `0x${'5'.repeat(64)}`;
+const ANKER_PACKAGE_ID = `0x${'1'.repeat(64)}`;
 const PREDICT_PACKAGE_ID = `0x${'3'.repeat(64)}`;
 const ACCOUNT_PACKAGE_ID = `0x${'7'.repeat(64)}`;
-const ANKER_PACKAGE_ID = `0x${'1'.repeat(64)}`;
 
 const config: AnkerProtocolConfig = {
   packageId: ANKER_PACKAGE_ID,
@@ -18,13 +20,13 @@ const config: AnkerProtocolConfig = {
   accountPackageId: ACCOUNT_PACKAGE_ID,
   accountRegistryId: `0x${'8'.repeat(64)}`,
   accumulatorRoot: `0x${'9'.repeat(64)}`,
-  protocolConfigId: `0x${'b'.repeat(64)}`,
-  oracleRegistryId: `0x${'c'.repeat(64)}`,
+  protocolConfigId: `0x${'d'.repeat(64)}`,
+  oracleRegistryId: `0x${'e'.repeat(64)}`,
   feeds: {
-    pyth: `0x${'d'.repeat(64)}`,
-    blockScholesSpot: `0x${'e'.repeat(64)}`,
-    blockScholesForward: `0x${'f'.repeat(64)}`,
-    blockScholesSvi: `0x${'0'.repeat(63)}1`,
+    pyth: `0x${'f'.repeat(64)}`,
+    blockScholesSpot: `0x${'1'.repeat(64)}`,
+    blockScholesForward: `0x${'2'.repeat(64)}`,
+    blockScholesSvi: `0x${'3'.repeat(64)}`,
   },
   quoteAssetType: `${`0x${'6'.repeat(64)}`}::dusdc::DUSDC`,
   quoteAssetDecimals: 6,
@@ -32,10 +34,10 @@ const config: AnkerProtocolConfig = {
 
 function noteFixture(): AnkerProductNoteRecord {
   return productNoteFixture({
-    noteId: `0x${'c'.repeat(64)}`,
+    noteId: NOTE_ID,
     productId: 'dual-demo',
     owner: OWNER,
-    wrapperId: `0x${'b'.repeat(64)}`,
+    wrapperId: WRAPPER_ID,
     oracleId: MARKET_ID,
     expiryMs: 1_000,
     principal: 5,
@@ -50,36 +52,28 @@ function noteFixture(): AnkerProductNoteRecord {
     feeBps: 1_000,
     legs: [
       { strike: 63_000, quantity: 0.04, quantityBaseUnits: 40_000n, cost: 0.02, costBaseUnits: 20_000n },
+      { strike: 64_000, quantity: 0.06, quantityBaseUnits: 60_000n, cost: 0.03, costBaseUnits: 30_000n },
     ],
-    orderIds: [11n],
+    orderIds: [11n, 22n],
   });
 }
 
-describe('Dual Investment settlement application', () => {
-  it('derives gross payout and fee from the settlement price', () => {
-    expect(settlementForProductNote(noteFixture(), 63_500)).toMatchObject({
-      grossPayoutBaseUnits: 4_960_000n,
-      performanceFeeBaseUnits: 2_000n,
-      netPayoutBaseUnits: 4_958_000n,
-    });
-    expect(settlementForProductNote(noteFixture(), 62_500)).toMatchObject({
-      grossPayoutBaseUnits: 4_920_000n,
-      performanceFeeBaseUnits: 2_000n,
-      netPayoutBaseUnits: 4_918_000n,
-    });
-  });
-
-  it('builds the one-shot claim plan from the settlement price', () => {
+describe('buildClaimDualInvestmentNoteTransaction', () => {
+  it('atomically redeems every order id, withdraws the payout, records the fee, and transfers the net coin', () => {
     const note = noteFixture();
+    const settlement = settlementForProductNote(note, 63_500);
     const plan = buildClaimDualInvestmentNoteTransaction({
       accountAddress: OWNER,
       note,
-      settlement: settlementForProductNote(note, 63_500),
+      settlement,
       config,
     });
 
     expect(plan.payoutAmount).toBe(4_960_000n);
+    expect(plan.feeAmount).toBe(2_000n);
+    expect(plan.netPayoutAmount).toBe(4_958_000n);
     expect(plan.calls).toEqual([
+      `${PREDICT_PACKAGE_ID}::expiry_market::redeem_settled`,
       `${PREDICT_PACKAGE_ID}::expiry_market::redeem_settled`,
       `${ACCOUNT_PACKAGE_ID}::account::generate_auth`,
       `${ACCOUNT_PACKAGE_ID}::account::withdraw_funds`,
@@ -87,5 +81,17 @@ describe('Dual Investment settlement application', () => {
       `${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`,
       'transferObjects',
     ]);
+  });
+
+  it('rejects notes whose order ids no longer align with their legs', () => {
+    const note = { ...noteFixture(), orderIds: [11n] };
+    expect(() =>
+      buildClaimDualInvestmentNoteTransaction({
+        accountAddress: OWNER,
+        note,
+        settlement: settlementForProductNote(note, 63_500),
+        config,
+      }),
+    ).toThrow('one order id per leg');
   });
 });

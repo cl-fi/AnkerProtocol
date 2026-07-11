@@ -1,4 +1,5 @@
 import { fromChainPrice } from '../products/units';
+import type { SettlementResult } from '../products/settlement';
 
 export type AnkerProductNoteStatus = 'open' | 'redeemed';
 export type AnkerProductNoteType = 'dual-investment';
@@ -289,4 +290,25 @@ export function parseOwnedProductNotes(
       },
     ];
   });
+}
+
+export function markProductNoteClaimed(
+  notes: readonly AnkerProductNoteRecord[],
+  noteId: string,
+  settlement: SettlementResult,
+  quoteAssetDecimals = 6,
+): AnkerProductNoteRecord[] {
+  const scale = 10 ** quoteAssetDecimals;
+  return notes.map((note) =>
+    note.noteId.toLowerCase() === noteId.toLowerCase()
+      ? {
+          ...note,
+          status: 'redeemed',
+          redeemedPayout: Number(settlement.grossPayoutBaseUnits) / scale,
+          redeemedPayoutBaseUnits: settlement.grossPayoutBaseUnits,
+          redeemedFee: Number(settlement.performanceFeeBaseUnits) / scale,
+          redeemedFeeBaseUnits: settlement.performanceFeeBaseUnits,
+        }
+      : note,
+  );
 }

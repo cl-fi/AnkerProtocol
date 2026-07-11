@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   U64_MAX,
   buildClaimDualInvestmentNoteTransaction,
-  buildRedeemDualInvestmentNoteTransaction,
-  buildRedeemDualInvestmentPositionsTransaction,
   buildSubscribeDualInvestmentTransaction,
   type AnkerProtocolConfig,
 } from './ankerTransactions';
@@ -30,6 +28,7 @@ const config: AnkerProtocolConfig = {
   predictPackageId: PREDICT_PACKAGE_ID,
   poolVaultId: PREDICT_OBJECT_ID,
   accountPackageId: ACCOUNT_PACKAGE_ID,
+  accountRegistryId: `0x${'8'.repeat(64)}`,
   accumulatorRoot: `0x${'a'.repeat(64)}`,
   protocolConfigId: `0x${'b'.repeat(64)}`,
   oracleRegistryId: `0x${'c'.repeat(64)}`,
@@ -326,45 +325,7 @@ describe('Anker transaction builders', () => {
     ).toThrow('Quote Predict object does not match configured Predict object.');
   });
 
-  it('builds a redeem-position PTB directly from an owned Anker ProductNote record', () => {
-    const plan = buildRedeemDualInvestmentNoteTransaction({
-      accountAddress: OWNER,
-      note: noteFixture(),
-      config,
-    });
-
-    expect(plan.feeAmount).toBe(0n);
-    expect(plan.payoutAmount).toBe(0n);
-    expect(plan.netPayoutAmount).toBe(0n);
-    expect(plan.claimMode).toBe('redeem-positions');
-    expect(plan.calls).toEqual([
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::redeem`,
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::redeem`,
-    ]);
-  });
-
-  it('builds a claim PTB that redeems open Predict legs before withdrawing DUSDC', () => {
-    const plan = buildRedeemDualInvestmentPositionsTransaction({
-      accountAddress: OWNER,
-      note: noteFixture(),
-      config,
-    });
-
-    expect(plan.claimMode).toBe('redeem-positions');
-    expect(plan.feeAmount).toBe(0n);
-    expect(plan.payoutAmount).toBe(0n);
-    expect(plan.netPayoutAmount).toBe(0n);
-    expect(plan.calls).toEqual([
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::redeem`,
-      `${PREDICT_PACKAGE_ID}::market_key::new`,
-      `${PREDICT_PACKAGE_ID}::predict::redeem`,
-    ]);
-  });
-
-  it('builds a claim PTB that only withdraws DUSDC when Predict legs were already redeemed', () => {
+  it('builds one atomic claim PTB from settled Predict legs through Note accounting', () => {
     const plan = buildClaimDualInvestmentNoteTransaction({
       accountAddress: OWNER,
       note: noteFixture(),
@@ -372,13 +333,15 @@ describe('Anker transaction builders', () => {
       config,
     });
 
-    expect(plan.claimMode).toBe('withdraw-only');
     expect(plan.feeAmount).toBe(2_000_000n);
     expect(plan.payoutAmount).toBe(1_020_000_000n);
     expect(plan.netPayoutAmount).toBe(1_018_000_000n);
     expect(plan.calls).toEqual([
-      `${PREDICT_PACKAGE_ID}::predict_manager::withdraw`,
-      `${PREDICT_PACKAGE_ID}::predict_manager::withdraw`,
+      `${PREDICT_PACKAGE_ID}::expiry_market::redeem_settled`,
+      `${PREDICT_PACKAGE_ID}::expiry_market::redeem_settled`,
+      `${ACCOUNT_PACKAGE_ID}::account::generate_auth`,
+      `${ACCOUNT_PACKAGE_ID}::account::withdraw_funds`,
+      'splitCoins',
       `${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`,
       'transferObjects',
     ]);
@@ -392,13 +355,6 @@ describe('Anker transaction builders', () => {
     it('refuses to build any transaction plan while demo mode is enabled', () => {
       vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'true');
 
-      expect(() =>
-        buildRedeemDualInvestmentPositionsTransaction({
-          accountAddress: OWNER,
-          note: noteFixture(),
-          config,
-        }),
-      ).toThrow(/demo mode/i);
       expect(() =>
         buildClaimDualInvestmentNoteTransaction({
           accountAddress: OWNER,

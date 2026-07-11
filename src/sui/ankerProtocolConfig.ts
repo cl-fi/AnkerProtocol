@@ -16,6 +16,7 @@ export interface AnkerProtocolConfig {
   /** 6-24 PoolVault shared object (replaces the 4-16 Predict object id). */
   poolVaultId: string;
   accountPackageId: string;
+  accountRegistryId: string;
   accumulatorRoot: string;
   protocolConfigId: string;
   oracleRegistryId: string;
@@ -31,6 +32,7 @@ export const DEFAULT_ANKER_CONFIG: AnkerProtocolConfig = {
   predictPackageId: DEEPBOOK_PREDICT.packageId,
   poolVaultId: DEEPBOOK_PREDICT.poolVaultId,
   accountPackageId: DEEPBOOK_PREDICT.accountPackageId,
+  accountRegistryId: DEEPBOOK_PREDICT.accountRegistryId,
   accumulatorRoot: DEEPBOOK_PREDICT.accumulatorRoot,
   protocolConfigId: DEEPBOOK_PREDICT.protocolConfigId,
   oracleRegistryId: DEEPBOOK_PREDICT.oracleRegistryId,

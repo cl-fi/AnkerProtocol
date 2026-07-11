@@ -32,6 +32,7 @@ const config: AnkerProtocolConfig = {
   predictPackageId: PREDICT_PACKAGE_ID,
   poolVaultId: PREDICT_OBJECT_ID,
   accountPackageId: ACCOUNT_PACKAGE_ID,
+  accountRegistryId: `0x${'8'.repeat(64)}`,
   accumulatorRoot: `0x${'a'.repeat(64)}`,
   protocolConfigId: `0x${'b'.repeat(64)}`,
   oracleRegistryId: `0x${'c'.repeat(64)}`,

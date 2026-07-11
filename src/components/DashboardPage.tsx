@@ -4,32 +4,38 @@ import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
-import { usePredictManagers } from '../hooks/usePredictManagers';
+import { useProductNoteMarketStates } from '../hooks/useProductNoteMarketStates';
 import { useProductNoteEventIndex } from '../hooks/useProductNoteEventIndex';
+import type { PredictMarketState } from '../deepbook/predictMarketState';
 import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
+import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { AccountFundingCard } from './AccountFundingCard';
 import { formatAmount, formatPreciseAmount, shortId } from './DashboardFormat';
-import { ProductNoteCard, managerValidationForNote } from './DashboardProductNoteCard';
+import { ProductNoteCard } from './DashboardProductNoteCard';
 import { Badge, Button, Card } from '../ui';
 
-type PositionFilter = 'all' | 'ready' | 'active' | 'completed';
-type PositionBucket = Exclude<PositionFilter, 'all'>;
+type NoteFilter = 'all' | 'ready' | 'active' | 'completed';
+type NoteBucket = Exclude<NoteFilter, 'all'>;
 
-const FILTER_TABS: { key: PositionFilter }[] = [{ key: 'all' }, { key: 'ready' }, { key: 'active' }, { key: 'completed' }];
+const FILTER_TABS: { key: NoteFilter }[] = [{ key: 'all' }, { key: 'ready' }, { key: 'active' }, { key: 'completed' }];
 
-// Coarse bucket from owned-object fields alone (no per-note manager state needed).
-// The card pill still shows the precise lifecycle (Settling / Action needed / …).
-function positionBucket(note: Pick<AnkerProductNoteRecord, 'status' | 'expiryMs'>, nowMs: number): PositionBucket {
-  if (note.status === 'redeemed') return 'completed';
-  if (nowMs >= note.expiryMs) return 'ready';
+// Dashboard filter bucket derived from each Note plus its Expiry Market settlement state.
+function noteBucket(
+  note: Pick<AnkerProductNoteRecord, 'status' | 'oracleId' | 'expiryMs'>,
+  marketState: PredictMarketState | undefined,
+  nowMs: number,
+): NoteBucket {
+  const lifecycle = lifecycleForProductNote(note, marketState, nowMs);
+  if (lifecycle === 'claimed') return 'completed';
+  if (lifecycle === 'claimable') return 'ready';
   return 'active';
 }
 
-export { ClaimActionView, claimActionViewModel, redeemEstimateForNote } from './DashboardClaimAction';
+export { ClaimActionView, claimActionViewModel, claimEstimateForNote } from './DashboardClaimAction';
 export {
   AllocatedPositionsValue,
   IndexedTransactionDigestValue,
@@ -37,18 +43,18 @@ export {
   SettlementRangeValue,
   SubscriptionDigestValue,
   depositedCashText,
-  managerValidationForNote,
-  positionStatusBadge,
+  noteStatusBadge,
 } from './DashboardProductNoteCard';
 
 export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
   const copy = copyForLocale(locale);
   const account = useCurrentAccount();
   const portfolioQuery = useAnkerPortfolio();
-  const managersQuery = usePredictManagers();
-  const [filter, setFilter] = useState<PositionFilter>('all');
+  const [filter, setFilter] = useState<NoteFilter>('all');
   const contractConfigured = DEFAULT_ANKER_CONFIG.packageId !== '0x0' && DEFAULT_ANKER_CONFIG.packageId.length > 0;
   const notes = portfolioQuery.data ?? [];
+  const marketStates = useProductNoteMarketStates(notes);
+  const marketStateFor = (note: AnkerProductNoteRecord) => marketStates.byMarketId[note.oracleId.toLowerCase()];
   const noteIds = notes.map((note) => note.noteId);
   const productNoteEventIndexQuery = useProductNoteEventIndex(noteIds);
 
@@ -57,23 +63,27 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
   const totalDeposited = openNotes.reduce((sum, note) => sum + note.principal, 0);
   const expectedRewards = openNotes.reduce((sum, note) => sum + note.coupon, 0);
 
-  const bucketOrder: Record<PositionBucket, number> = { ready: 0, active: 1, completed: 2 };
+  const bucketOrder: Record<NoteBucket, number> = { ready: 0, active: 1, completed: 2 };
   const sortedNotes = [...notes].sort((left, right) => {
-    const weight = bucketOrder[positionBucket(left, nowMs)] - bucketOrder[positionBucket(right, nowMs)];
+    const weight =
+      bucketOrder[noteBucket(left, marketStateFor(left), nowMs)] -
+      bucketOrder[noteBucket(right, marketStateFor(right), nowMs)];
     if (weight !== 0) return weight;
     return left.expiryMs - right.expiryMs;
   });
-  const counts: Record<PositionFilter, number> = {
+  const counts: Record<NoteFilter, number> = {
     all: notes.length,
-    ready: notes.filter((note) => positionBucket(note, nowMs) === 'ready').length,
-    active: notes.filter((note) => positionBucket(note, nowMs) === 'active').length,
-    completed: notes.filter((note) => positionBucket(note, nowMs) === 'completed').length,
+    ready: notes.filter((note) => noteBucket(note, marketStateFor(note), nowMs) === 'ready').length,
+    active: notes.filter((note) => noteBucket(note, marketStateFor(note), nowMs) === 'active').length,
+    completed: notes.filter((note) => noteBucket(note, marketStateFor(note), nowMs) === 'completed').length,
   };
   const nonEmptyBuckets = (['ready', 'active', 'completed'] as const).filter((key) => counts[key] > 0).length;
   const showFilters = nonEmptyBuckets >= 2;
   const activeFilter = showFilters ? filter : 'all';
   const visibleNotes =
-    activeFilter === 'all' ? sortedNotes : sortedNotes.filter((note) => positionBucket(note, nowMs) === activeFilter);
+    activeFilter === 'all'
+      ? sortedNotes
+      : sortedNotes.filter((note) => noteBucket(note, marketStateFor(note), nowMs) === activeFilter);
 
   return (
     <main className="dual-page" id="wallet-dashboard">
@@ -104,7 +114,7 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
               </strong>
             </div>
             <div>
-              <span>{copy.dashboard.openPositions}</span>
+              <span>{copy.dashboard.openNotes}</span>
               <strong>{openNotes.length}</strong>
             </div>
           </div>
@@ -127,26 +137,26 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
         </section>
       ) : portfolioQuery.isPending ? (
         <section className="calculation-section">
-          <Card variant="empty">{copy.dashboard.loadingPositions}</Card>
+          <Card variant="empty">{copy.dashboard.loadingNotes}</Card>
         </section>
       ) : portfolioQuery.error ? (
         <section className="calculation-section">
           <Card variant="error">
-            {portfolioQuery.error instanceof Error ? portfolioQuery.error.message : copy.dashboard.unableToLoad}
+            {portfolioQuery.error instanceof Error ? portfolioQuery.error.message : copy.dashboard.unableToLoadNotes}
           </Card>
         </section>
       ) : notes.length === 0 ? (
         <section className="calculation-section">
           <Card variant="empty">
-            {copy.dashboard.noPositions(shortId(account.address))}
+            {copy.dashboard.noNotes(shortId(account.address))}
           </Card>
         </section>
       ) : (
         <section className="calculation-section">
           <div className="section-heading di-positions-heading">
-            <h2>{copy.dashboard.yourPositions}</h2>
+            <h2>{copy.dashboard.yourNotes}</h2>
             <Badge tone="positive">
-              {notes.length} {notes.length === 1 ? copy.dashboard.position : copy.dashboard.positions}
+              {notes.length} {notes.length === 1 ? copy.dashboard.note : copy.dashboard.notes}
             </Badge>
           </div>
           {showFilters ? (
@@ -167,14 +177,13 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
             </div>
           ) : null}
           {visibleNotes.length === 0 ? (
-            <Card variant="empty">{copy.dashboard.noPositionsInView}</Card>
+            <Card variant="empty">{copy.dashboard.noNotesInView}</Card>
           ) : (
             <div className="detail-grid notes-grid">
               {visibleNotes.map((note) => (
                 <ProductNoteCard
                   note={note}
-                  managerValidation={managerValidationForNote(note, managersQuery.data, locale)}
-                  notes={notes}
+                  marketState={marketStateFor(note)}
                   eventIndexEntry={productNoteEventIndexQuery.data?.byNoteId[note.noteId]}
                   locale={locale}
                   key={note.noteId}
