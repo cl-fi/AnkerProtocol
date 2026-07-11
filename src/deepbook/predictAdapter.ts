@@ -21,6 +21,14 @@ export interface ExpiryMarketSummary {
   maxEntryProbability: number;
 }
 
+/**
+ * `/markets` defaults to the 50 most recent rows. The shared testnet also runs a
+ * 1-minute test cadence (~60 markets/hour) that floods that page, pushing live
+ * Turbo 1h markets (3h lifetime, so up to 3 alive at once) out of the default
+ * window. 500 rows covers ~8h of creations with margin.
+ */
+const MARKETS_PAGE_LIMIT = 500;
+
 export interface PredictAdapter {
   discoverMarkets(input?: { nowMs?: number }): Promise<ExpiryMarketSummary[]>;
   /** D6 layer-1 browse quotes — SVI + fee stack via SviBrowseQuoteProvider / useDualInvestmentScan. */
@@ -143,7 +151,8 @@ export function createPredictAdapter(input?: {
   productLine?: ProductLine;
 }): PredictAdapter {
   const productLine = input?.productLine ?? 'turbo';
-  const fetchMarkets = input?.fetchMarkets ?? (() => fetchPredictJson<unknown>('/markets'));
+  const fetchMarkets =
+    input?.fetchMarkets ?? (() => fetchPredictJson<unknown>(`/markets?limit=${MARKETS_PAGE_LIMIT}`));
 
   return {
     async discoverMarkets({ nowMs = Date.now() } = {}) {
@@ -158,7 +167,8 @@ export function createPredictAdapter(input?: {
 
 /** Unfiltered `/markets` parse — callers apply product-line filters (D4). */
 export async function fetchAllExpiryMarketSummaries(
-  fetchMarkets: () => Promise<unknown> = () => fetchPredictJson<unknown>('/markets'),
+  fetchMarkets: () => Promise<unknown> = () =>
+    fetchPredictJson<unknown>(`/markets?limit=${MARKETS_PAGE_LIMIT}`),
 ): Promise<ExpiryMarketSummary[]> {
   return parseExpiryMarketRows(await fetchMarkets());
 }
