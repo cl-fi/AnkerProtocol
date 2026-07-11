@@ -3,6 +3,7 @@ import { buildAutoFloorDualInvestmentInput } from '../products/dualInvestmentSca
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
 import { createQuoteEnvelope } from '../products/quoteEnvelope';
 import type { LegQuote, OracleMarket } from '../products/types';
+import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
 import { buildSubscribeDualInvestmentTransaction } from './subscribeTransactions';
 import { POS_INF_TICK } from './predictTicks';
 import { DEFAULT_ANKER_CONFIG } from './ankerProtocolConfig';
@@ -48,6 +49,101 @@ function isAdmittedLowerTick(tick: bigint, admissionRatio: bigint): boolean {
 function isAdmittedHigherTick(tick: bigint, admissionRatio: bigint): boolean {
   return tick === POS_INF_TICK || tick % admissionRatio === 0n;
 }
+
+/** Turbo-shaped market with real SVI params so fair-price premiums are estimable. */
+function turboSviMarket(): OracleMarket {
+  return {
+    ...oracleMarketFromFixture(),
+    predictId: DEFAULT_ANKER_CONFIG.poolVaultId,
+    tickSize: 0.01,
+    admissionTickSize: 1,
+    minStrike: 1,
+  };
+}
+
+describe('Turbo subscribe mint premium floor (strike_exposure_config::assert_mint_admission, abort 4)', () => {
+  const market = turboSviMarket();
+  const nowMs = market.expiryMs - 40 * 60_000;
+
+  it('marks a small subscription non-executable with a minimum-amount warning', () => {
+    // 5 dUSDC across 6 legs → per-leg premium ~0.001 dUSDC, far below the 1 dUSDC chain floor.
+    const productInput = buildAutoFloorDualInvestmentInput({
+      market,
+      principal: 5,
+      targetPrice: 73_250,
+      targetLegCount: 6,
+    });
+    const intents = buildDualInvestmentLegIntents(productInput, market, { nowMs });
+    const quotedLegs: Partial<LegQuote>[] = intents.map((intent) => ({
+      ...intent,
+      askPrice: 0.5,
+      askCost: 0.5 * intent.quantity,
+      redeemPreview: 0,
+      quoteTimestampMs: nowMs,
+      executable: true,
+    }));
+
+    const quote = compileDualInvestment({ input: productInput, oracle: market, quotedLegs, nowMs });
+
+    expect(quote.executable).toBe(false);
+    expect(quote.warning).toMatch(/premium/i);
+    expect(quote.warning).toMatch(/dUSDC/);
+  });
+
+  it('rejects a below-floor premium leg with a readable error before reaching the chain', () => {
+    const strike = 73_000;
+    const quote = {
+      id: 'dual-thin-premium',
+      productType: 'dual-investment' as const,
+      title: 'Target Buy BTC at 73,250',
+      principal: 5,
+      oracle: market,
+      legs: [
+        {
+          id: `up-${strike}`,
+          instrumentType: 'binary-up' as const,
+          oracleId: market.oracleId,
+          expiryMs: market.expiryMs,
+          strike,
+          isUp: true,
+          quantity: 0.01,
+          description: `UP ${strike}`,
+          askPrice: 0.9,
+          askCost: 0.009,
+          redeemPreview: 0,
+          quoteTimestampMs: nowMs,
+          executable: true,
+        },
+      ],
+      totalLegCost: 0.009,
+      reserve: 4.98,
+      coupon: 0.011,
+      targetPrice: 73_250,
+      floorPrice: strike,
+      apr: 1,
+      executable: true,
+      scenarios: [],
+    };
+    const quoteEnvelope = createQuoteEnvelope({
+      quote,
+      network: 'testnet',
+      quoteAssetDecimals: DEFAULT_ANKER_CONFIG.quoteAssetDecimals,
+      ttlMs: 30_000,
+      slippageBps: 100,
+    });
+
+    expect(() =>
+      buildSubscribeDualInvestmentTransaction({
+        accountAddress: `0x${'a'.repeat(64)}`,
+        wrapperId: `0x${'b'.repeat(64)}`,
+        productInput: { principal: 5, targetPrice: 73_250, floorPrice: strike },
+        quote,
+        quoteEnvelope,
+        nowMs,
+      }),
+    ).toThrow(/premium/i);
+  });
+});
 
 describe('Turbo subscribe mint-tick admission', () => {
   it('produces only admission-grid leg ticks for an hourly market (chain aborts code 1 otherwise)', () => {

@@ -1,5 +1,6 @@
 import { coinWithBalance, Transaction } from '@mysten/sui/transactions';
 import { isDemoMode } from '../config/runtimeModes';
+import { MIN_LEG_PREMIUM_USD, estimateBinaryUpPremiumUsd } from '../products/predictPricing';
 import { assertQuoteEnvelope, type QuoteEnvelope } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { alignPriceToAdmissionGrid, POS_INF_TICK } from './predictTicks';
@@ -54,6 +55,30 @@ function uncappedMintSlippage(legCount: number): MintLegSlippage[] {
     maxCost: U64_MAX,
     maxProbability: U64_MAX,
   }));
+}
+
+/**
+ * Client-side mirror of `strike_exposure_config::assert_mint_admission` (abort 4):
+ * each leg's fee-exclusive premium must clear the chain's 1 dUSDC minimum. Uses
+ * the local SVI fair price as the pricer estimate; skips legs it cannot price
+ * (the pre-sign simulation still covers those).
+ */
+function assertLegPremiumsAboveChainFloor(quote: StructuredProductQuote) {
+  quote.legs.forEach((leg, index) => {
+    if (typeof leg.strike !== 'number') return;
+    const premium = estimateBinaryUpPremiumUsd({
+      market: quote.oracle,
+      strike: leg.strike,
+      quantity: leg.quantity,
+    });
+    if (premium !== null && premium < MIN_LEG_PREMIUM_USD) {
+      throw new Error(
+        `Leg ${index + 1} premium ~${premium.toFixed(4)} dUSDC is below Predict's ` +
+          `${MIN_LEG_PREMIUM_USD} dUSDC minimum per mint; increase the subscription amount ` +
+          'or reduce the leg count.',
+      );
+    }
+  });
 }
 
 /**
@@ -145,6 +170,7 @@ export function buildSubscribeDualInvestmentTransaction(input: {
     tickSizeUsd,
     admissionTickSizeUsd: targetAdmission,
   });
+  assertLegPremiumsAboveChainFloor(input.quote);
   const targetPrice = toChainPriceU64(
     alignPriceToAdmissionGrid(input.productInput.targetPrice, targetAdmission),
     'Target price',

@@ -7,6 +7,7 @@ import type {
 } from './types';
 import { aprFromCoupon, daysBetween } from './units';
 import { alignToGrid, buildStrikeLadder } from './strikeGrid';
+import { MIN_LEG_PREMIUM_USD, estimateBinaryUpPremiumUsd } from './predictPricing';
 import { simulatePayoff } from './payoff';
 import { assertValidDualInvestmentInput, assertValidDualInvestmentQuote } from './dualInvestmentValidation';
 import { legIdentityKey } from './legIdentity';
@@ -53,6 +54,47 @@ function buildLadderIntervals(input: DualInvestmentInput, oracle: OracleMarket):
       width: Math.max(0, nextStrike - strike),
     };
   });
+}
+
+/** Headroom over the chain's 1 dUSDC floor: local SVI pricing drifts vs the chain pricer. */
+const PREMIUM_FLOOR_HEADROOM = 1.1;
+
+function evaluateLegPremiumFloor(
+  legs: readonly LegQuote[],
+  oracle: OracleMarket,
+  principal: number,
+): { belowFloor: boolean; warning?: string } {
+  const premiums = legs.map((leg) =>
+    typeof leg.strike === 'number'
+      ? estimateBinaryUpPremiumUsd({ market: oracle, strike: leg.strike, quantity: leg.quantity })
+      : null,
+  );
+  if (legs.length === 0 || premiums.some((premium) => premium === null)) {
+    return { belowFloor: false };
+  }
+
+  const floorUsd = MIN_LEG_PREMIUM_USD * PREMIUM_FLOOR_HEADROOM;
+  const minPremium = Math.min(...(premiums as number[]));
+  if (minPremium >= floorUsd) return { belowFloor: false };
+
+  if (minPremium <= 0) {
+    return {
+      belowFloor: true,
+      warning:
+        `Predict requires a premium of at least ${MIN_LEG_PREMIUM_USD} dUSDC per leg; ` +
+        'reduce the leg count or move the target closer to the current price.',
+    };
+  }
+
+  // Premiums scale linearly with principal, so the binding leg sets the minimum amount.
+  const minPrincipal = Math.ceil((principal * floorUsd) / minPremium);
+  return {
+    belowFloor: true,
+    warning:
+      `Predict requires a premium of at least ${MIN_LEG_PREMIUM_USD} dUSDC per leg; ` +
+      `subscribe about ${minPrincipal.toLocaleString('en-US')} dUSDC or more for ${legs.length} legs, ` +
+      'or reduce the leg count.',
+  };
 }
 
 function hasLegIdentity(leg: Partial<LegQuote>): leg is LegQuote {
@@ -121,7 +163,8 @@ export function compileDualInvestment(input: {
   const totalLegCost = legs.reduce((sum, leg) => sum + leg.askCost, 0);
   const coupon = input.input.principal - reserve - totalLegCost;
   const days = daysBetween(input.nowMs ?? Date.now(), input.oracle.expiryMs);
-  const executable = coupon > 0 && legs.every((leg) => leg.executable);
+  const premiumFloor = evaluateLegPremiumFloor(legs, input.oracle, validInput.principal);
+  const executable = coupon > 0 && legs.every((leg) => leg.executable) && !premiumFloor.belowFloor;
   const legWarning = legs.find((leg) => !leg.executable && leg.error)?.error;
 
   const quote: StructuredProductQuote = {
@@ -138,7 +181,10 @@ export function compileDualInvestment(input: {
     floorPrice: validInput.floorPrice,
     apr: aprFromCoupon(coupon, validInput.principal, days),
     executable,
-    warning: coupon <= 0 ? 'Current leg costs leave no positive coupon.' : legWarning,
+    warning:
+      coupon <= 0
+        ? 'Current leg costs leave no positive coupon.'
+        : premiumFloor.warning ?? legWarning,
     scenarios: [],
   };
   return assertValidDualInvestmentQuote({ ...quote, scenarios: simulatePayoff(quote) });

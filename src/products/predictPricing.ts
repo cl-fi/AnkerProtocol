@@ -3,6 +3,12 @@ import type { OracleMarket } from './types';
 
 export const DEFAULT_MIN_PREDICT_ASK = 0.02;
 export const DEFAULT_MAX_PREDICT_ASK = DEEPBOOK_PREDICT.maxAskPrice;
+/**
+ * Upstream `strike_exposure_config::assert_mint_admission` (abort 4): each mint's
+ * net premium — range_price × quantity at 1x leverage, fee-exclusive — must be
+ * at least 1_000_000 base units (1 DUSDC). Hardcoded in the 6-24 bytecode.
+ */
+export const MIN_LEG_PREMIUM_USD = 1;
 export const DEFAULT_PREDICT_BASE_SPREAD = DEEPBOOK_PREDICT.baseSpread;
 export const DEFAULT_PREDICT_MIN_SPREAD = DEEPBOOK_PREDICT.minSpread;
 export const DEFAULT_PREDICT_UTILIZATION_MULTIPLIER = DEEPBOOK_PREDICT.utilizationMultiplier;
@@ -48,6 +54,21 @@ export function estimateBinaryUpFairPrice(input: { market: OracleMarket; strike:
   const totalVolatility = Math.sqrt(totalVariance);
   const d2 = Math.log(market.forward / strike) / totalVolatility - totalVolatility / 2;
   return clamp(normalCdf(d2), 0, 1);
+}
+
+/**
+ * Estimated on-chain mint premium for a binary-up leg: fair price × quantity.
+ * Mirrors the value `assert_mint_admission` compares against MIN_LEG_PREMIUM_USD
+ * (the chain uses its own pricer; fees are charged separately and excluded here).
+ * Null when the market has no SVI parameters to price from.
+ */
+export function estimateBinaryUpPremiumUsd(input: {
+  market: OracleMarket;
+  strike: number;
+  quantity: number;
+}): number | null {
+  const fairPrice = estimateBinaryUpFairPrice({ market: input.market, strike: input.strike });
+  return fairPrice === null ? null : fairPrice * input.quantity;
 }
 
 /**

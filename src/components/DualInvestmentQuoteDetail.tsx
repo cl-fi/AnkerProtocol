@@ -259,14 +259,19 @@ export function DualInvestmentConfirm({
       {subscribeQuote && !demoMode ? (
         <TargetBuyExecutionPanel quote={subscribeQuote} productInput={productInput} locale={locale} />
       ) : (
-        <div className={error ? 'di-confirm-pending is-error' : 'di-confirm-pending'} aria-live="polite">
+        <div
+          className={
+            error || (!quote.executable && quote.warning) ? 'di-confirm-pending is-error' : 'di-confirm-pending'
+          }
+          aria-live="polite"
+        >
           {demoMode
             ? (subscribeDisabledMessage ?? copy.demo.subscribeDisabled)
             : error
               ? error
               : isVerifying
                 ? copy.dualInvestment.confirmingLiveQuote
-                : copy.dualInvestment.adjustForLiveQuote}
+                : (!quote.executable && quote.warning) || copy.dualInvestment.adjustForLiveQuote}
         </div>
       )}
     </section>
