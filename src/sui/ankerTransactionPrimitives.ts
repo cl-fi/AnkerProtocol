@@ -98,8 +98,17 @@ export function assertQuoteMatchesConfig(quote: StructuredProductQuote, config: 
   }
 }
 
+/**
+ * Client-side mirror of `order::assert_valid_quantity` (abort 4): the order book
+ * only stores quantity in fixed-width "lots", so mint_exact_quantity requires an
+ * exact multiple of the lot size or the mint aborts. Ladder math produces
+ * arbitrary floats, so floor to the lot boundary after scaling to base units.
+ */
+const ORDER_QUANTITY_LOT_SIZE_BASE_UNITS = 10_000n;
+
 export function legQuantityToBaseUnits(leg: LegQuote, config: AnkerProtocolConfig): bigint {
-  return toQuoteBaseUnits(leg.quantity, config.quoteAssetDecimals, `Quote leg ${leg.id} quantity`);
+  const raw = toQuoteBaseUnits(leg.quantity, config.quoteAssetDecimals, `Quote leg ${leg.id} quantity`);
+  return (raw / ORDER_QUANTITY_LOT_SIZE_BASE_UNITS) * ORDER_QUANTITY_LOT_SIZE_BASE_UNITS;
 }
 
 export function legCostToBaseUnits(leg: LegQuote, config: AnkerProtocolConfig): bigint {

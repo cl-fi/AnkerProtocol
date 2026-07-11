@@ -253,3 +253,47 @@ describe('Turbo subscribe mint-tick admission', () => {
     ).toThrow(/admission grid/);
   });
 });
+
+describe('Turbo subscribe mint order quantity (order::assert_valid_quantity, abort 4)', () => {
+  it('produces lot-aligned leg quantities for a laddered subscription (verified via devInspect against 0xdb3e…446e: lot size is 10_000 base units)', () => {
+    const market = turboHourlyMarket();
+    const ORDER_QUANTITY_LOT_SIZE_BASE_UNITS = 10_000n;
+
+    const productInput = buildAutoFloorDualInvestmentInput({
+      market,
+      principal: 3_000,
+      targetPrice: 118_200,
+      targetLegCount: 6,
+    });
+
+    const intents = buildDualInvestmentLegIntents(productInput, market, { nowMs: NOW_MS });
+    const quotedLegs: Partial<LegQuote>[] = intents.map((intent) => ({
+      ...intent,
+      askPrice: 0.2,
+      askCost: 0.2 * intent.quantity,
+      redeemPreview: 0,
+      quoteTimestampMs: NOW_MS,
+      executable: true,
+    }));
+    const quote = compileDualInvestment({ input: productInput, oracle: market, quotedLegs, nowMs: NOW_MS });
+    const quoteEnvelope = createQuoteEnvelope({
+      quote,
+      network: 'testnet',
+      quoteAssetDecimals: DEFAULT_ANKER_CONFIG.quoteAssetDecimals,
+      ttlMs: 30_000,
+      slippageBps: 100,
+    });
+
+    const plan = buildSubscribeDualInvestmentTransaction({
+      accountAddress: `0x${'a'.repeat(64)}`,
+      wrapperId: `0x${'b'.repeat(64)}`,
+      productInput,
+      quote,
+      quoteEnvelope,
+      nowMs: NOW_MS,
+    });
+
+    const misaligned = plan.legQuantities.filter((qty) => qty % ORDER_QUANTITY_LOT_SIZE_BASE_UNITS !== 0n);
+    expect(misaligned, `non-lot-aligned quantities: ${misaligned.join(', ')}`).toEqual([]);
+  });
+});
