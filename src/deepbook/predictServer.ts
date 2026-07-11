@@ -2,7 +2,12 @@ import { DEEPBOOK_PREDICT, PREDICT_SERVER_URL, PROPBOOK_SERVER_URL } from '../co
 import type { OracleMarket, PredictPricingState } from '../products/types';
 import { fromChainPrice } from '../products/units';
 import { fetchBlockScholesForward, fetchBlockScholesSpot, fetchBlockScholesSvi } from './blockScholesFeeds';
-import { predictAdapter, type ExpiryMarketSummary } from './predictAdapter';
+import {
+  createPredictAdapter,
+  predictAdapter,
+  type ExpiryMarketSummary,
+} from './predictAdapter';
+import type { ProductLine } from '../products/productLineMarkets';
 import {
   isOracleTimestampFresh,
   parsePythSpotObservation,
@@ -24,7 +29,7 @@ export interface PredictOracleListItem {
   tick_size: number;
   admission_tick_size: number;
   status: string;
-  cadence: '1h';
+  cadence: '1h' | 'multi-day';
 }
 
 const MIN_TRADABLE_TIME_MS = 5 * 60_000;
@@ -56,7 +61,10 @@ function scaledProbability(value: unknown): number | null {
   return raw / FLOAT_SCALE;
 }
 
-export function expiryMarketToListItem(market: ExpiryMarketSummary): PredictOracleListItem {
+export function expiryMarketToListItem(
+  market: ExpiryMarketSummary,
+  cadence: PredictOracleListItem['cadence'] = '1h',
+): PredictOracleListItem {
   return {
     predict_id: market.poolVaultId,
     oracle_id: market.expiryMarketId,
@@ -66,7 +74,7 @@ export function expiryMarketToListItem(market: ExpiryMarketSummary): PredictOrac
     tick_size: market.tickSize,
     admission_tick_size: market.admissionTickSize,
     status: 'active',
-    cadence: '1h',
+    cadence,
   };
 }
 
@@ -126,9 +134,13 @@ export async function fetchPredictStatus(): Promise<PredictStatus> {
   return parseStatus(await fetchPredictJson('/status'));
 }
 
-export async function fetchActiveBtcOracles(): Promise<PredictOracleListItem[]> {
-  const markets = await predictAdapter.discoverMarkets();
-  return markets.map(expiryMarketToListItem);
+export async function fetchActiveBtcOracles(
+  productLine: ProductLine = 'turbo',
+): Promise<PredictOracleListItem[]> {
+  const adapter = productLine === 'turbo' ? predictAdapter : createPredictAdapter({ productLine });
+  const cadence = productLine === 'multi-day' ? 'multi-day' : '1h';
+  const markets = await adapter.discoverMarkets();
+  return markets.map((market) => expiryMarketToListItem(market, cadence));
 }
 
 export function selectNearestTradableOracle(

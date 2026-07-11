@@ -1,5 +1,6 @@
 import { DEEPBOOK_PREDICT, PREDICT_SERVER_URL } from '../config/deepbook';
 import type { PredictCadenceConfig } from '../config/predictDeployment';
+import { filterMarketsForProductLine, type ProductLine } from '../products/productLineMarkets';
 import { fromChainPrice } from '../products/units';
 
 const FLOAT_SCALE = 1_000_000_000;
@@ -137,17 +138,29 @@ async function fetchPredictJson<T>(path: string): Promise<T> {
 
 export function createPredictAdapter(input?: {
   fetchMarkets?: () => Promise<unknown>;
+  /** @deprecated Prefer productLine — kept for Turbo cadence overrides in tests. */
   cadence?: Pick<PredictCadenceConfig, 'maxExpiryAllocation' | 'initialExpiryCash'>;
+  productLine?: ProductLine;
 }): PredictAdapter {
-  const cadence = input?.cadence ?? DEEPBOOK_PREDICT.turboCadence;
+  const productLine = input?.productLine ?? 'turbo';
   const fetchMarkets = input?.fetchMarkets ?? (() => fetchPredictJson<unknown>('/markets'));
 
   return {
     async discoverMarkets({ nowMs = Date.now() } = {}) {
       const rows = parseExpiryMarketRows(await fetchMarkets());
-      return filterExpiryMarketsByCadence(rows, cadence, nowMs);
+      return filterMarketsForProductLine(rows, productLine, {
+        nowMs,
+        turboCadence: input?.cadence ?? DEEPBOOK_PREDICT.turboCadence,
+      });
     },
   };
+}
+
+/** Unfiltered `/markets` parse — callers apply product-line filters (D4). */
+export async function fetchAllExpiryMarketSummaries(
+  fetchMarkets: () => Promise<unknown> = () => fetchPredictJson<unknown>('/markets'),
+): Promise<ExpiryMarketSummary[]> {
+  return parseExpiryMarketRows(await fetchMarkets());
 }
 
 export const predictAdapter = createPredictAdapter();
