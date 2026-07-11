@@ -203,6 +203,7 @@ export function DualInvestmentConfirm({
   isVerifying,
   error,
   demoMode = false,
+  subscribeDisabledMessage,
   locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
@@ -211,6 +212,7 @@ export function DualInvestmentConfirm({
   isVerifying: boolean;
   error?: string | null;
   demoMode?: boolean;
+  subscribeDisabledMessage?: string;
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
@@ -259,7 +261,7 @@ export function DualInvestmentConfirm({
       ) : (
         <div className={error ? 'di-confirm-pending is-error' : 'di-confirm-pending'} aria-live="polite">
           {demoMode
-            ? copy.demo.subscribeDisabled
+            ? (subscribeDisabledMessage ?? copy.demo.subscribeDisabled)
             : error
               ? error
               : isVerifying

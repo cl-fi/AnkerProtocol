@@ -751,6 +751,54 @@ a {
   font-weight: 900;
 }
 
+.degradation-banner {
+  background: color-mix(in srgb, var(--gold-tint) 70%, #f7f1e6);
+}
+
+.degradation-subscribe-note {
+  width: min(100%, 1360px);
+  margin: 0 auto 28px;
+  padding: 0 28px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.shark-fin-preview {
+  width: min(100%, 720px);
+  margin: 0 auto 48px;
+  padding: 24px 28px;
+  display: grid;
+  gap: 16px;
+}
+
+.shark-fin-tenor {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.shark-fin-tenor select {
+  max-width: 280px;
+  padding: 8px 10px;
+}
+
+.shark-fin-bounds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0;
+}
+
+.shark-fin-bounds dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.shark-fin-bounds dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
 .mode-tabs {
   display: flex;
   gap: 8px;

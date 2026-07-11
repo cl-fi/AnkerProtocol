@@ -6,6 +6,8 @@ export const enCopy = {
     connectWallet: 'Connect Wallet',
     dashboard: 'Dashboard',
     dualInvestment: 'Dual Investment',
+    multiDayDualInvestment: 'Multi-day Dual Investment',
+    sharkFin: 'Shark Fin',
     buyLow: 'Buy Low',
     sellHigh: 'Sell High',
     live: 'Live',
@@ -90,9 +92,20 @@ export const enCopy = {
     subscribeDisabled: 'Demo mode — subscriptions reopen once the DeepBook Predict migration completes.',
     claimDisabled: 'Demo mode — claims reopen once the DeepBook Predict migration completes.',
   },
+  degradation: {
+    bannerTitle: 'Fixture data',
+    bannerBody:
+      'No day-scale Expiry Markets are live on DeepBook Predict yet. Anker is showing labeled fixture tenors so you can preview the product. Trading stays off until multi-day cadence returns — then this page switches to live data automatically.',
+    subscribeDisabled:
+      'Subscriptions stay closed while this page uses fixture data. They reopen when day-scale Expiry Markets are available.',
+    sourceFixture: 'Fixture',
+    sourceLive: 'Live',
+  },
   dualInvestment: {
     title: 'Dual Investment',
     subtitle: 'Enjoy high rewards — Buy Low, Sell High',
+    multiDayTitle: 'Multi-day Dual Investment',
+    multiDaySubtitle: 'Day-scale Buy Low tenors (1d–14d) — live when upstream multi-day markets exist',
     btcPrice: 'BTC price',
     returnOverview: 'Return Overview',
     returnOverviewBody: 'What you get at settlement, depending on where BTC lands',
@@ -186,6 +199,16 @@ export const enCopy = {
       verified: 'Verified',
       unavailable: 'Unavailable',
     },
+  },
+  sharkFin: {
+    title: 'Shark Fin',
+    subtitle: 'Principal-protected range yield — enhanced coupon inside the bound, base coupon outside.',
+    previewBody:
+      'Shark Fin uses the same day-scale Expiry Markets as multi-day Dual Investment. Until those markets return, this page shows labeled fixture data and keeps trading closed.',
+    boundsLabel: 'Range bounds (preview)',
+    lowerBound: 'Lower bound',
+    upperBound: 'Upper bound',
+    tradingClosed: 'Trading unavailable on fixture data',
   },
   dashboard: {
     filters: {
@@ -340,6 +363,8 @@ export const zhCnCopy: AppCopy = {
     connectWallet: '连接钱包',
     dashboard: '仪表盘',
     dualInvestment: '双币赢',
+    multiDayDualInvestment: '多日双币投资',
+    sharkFin: '鲨鱼鳍',
     buyLow: '低买',
     sellHigh: '高卖',
     live: '实时',
@@ -405,9 +430,19 @@ export const zhCnCopy: AppCopy = {
     subscribeDisabled: '演示模式：DeepBook Predict 迁移完成后将重新开放认购。',
     claimDisabled: '演示模式：DeepBook Predict 迁移完成后将重新开放领取。',
   },
+  degradation: {
+    bannerTitle: '样例数据',
+    bannerBody:
+      'DeepBook Predict 尚无日级到期市场。Anker 展示带标注的样例期限供预览产品形态；交易入口关闭。上游恢复 multi-day cadence 后，本页将自动切换为真数据。',
+    subscribeDisabled: '当前为样例数据，认购暂不可用。日级到期市场恢复后将自动开放。',
+    sourceFixture: '样例',
+    sourceLive: '实盘',
+  },
   dualInvestment: {
     title: '双币赢',
     subtitle: '享受高收益：低买，高卖',
+    multiDayTitle: '多日双币投资',
+    multiDaySubtitle: '日级低买期限（1d–14d）— 上游 multi-day 市场存在时自动切真数据',
     btcPrice: 'BTC 价格',
     returnOverview: '收益概览',
     returnOverviewBody: '根据 BTC 结算价格，查看你到期会收到什么',
@@ -501,6 +536,16 @@ export const zhCnCopy: AppCopy = {
       verified: '已验证',
       unavailable: '不可用',
     },
+  },
+  sharkFin: {
+    title: '鲨鱼鳍',
+    subtitle: '本金保护型区间收益：价格落在区间内拿增强票息，否则拿基础票息。',
+    previewBody:
+      '鲨鱼鳍与多日双币投资共用日级到期市场。市场恢复前本页展示带标注的样例数据，交易入口关闭。',
+    boundsLabel: '区间边界（预览）',
+    lowerBound: '下界',
+    upperBound: '上界',
+    tradingClosed: '样例数据下不可交易',
   },
   dashboard: {
     filters: {

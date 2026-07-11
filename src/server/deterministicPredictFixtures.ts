@@ -1,4 +1,5 @@
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
+import { dayScaleFixtureMarkets } from '../deepbook/dayScaleFixtures';
 import type { CuratedOracleListItem, CuratedOracleMarketResponse } from './curatedOracles';
 
 const HOUR_MS = 60 * 60_000;
@@ -115,6 +116,7 @@ export function deterministicBinanceDualInvestmentProducts(nowMs = fixtureNowMs(
 export function deterministicCuratedBtcOracleResponse(nowMs = fixtureNowMs()): CuratedOracleMarketResponse {
   return {
     generatedAt: nowMs,
+    dataSource: 'live',
     oracles: deterministicOracleList(nowMs).map(
       (oracle) =>
         ({
@@ -127,3 +129,33 @@ export function deterministicCuratedBtcOracleResponse(nowMs = fixtureNowMs()): C
     ),
   };
 }
+
+/** E2E/demo fixture for multi-day Dual Investment / shark-fin (D4 labeled degradation). */
+export function deterministicMultiDayCuratedBtcOracleResponse(
+  nowMs = fixtureNowMs(),
+): CuratedOracleMarketResponse {
+  return {
+    generatedAt: nowMs,
+    dataSource: 'fixture',
+    reason: 'no-day-scale-markets',
+    oracles: dayScaleFixtureMarkets(nowMs).map(
+      (market) =>
+        ({
+          predict_id: market.poolVaultId,
+          oracle_id: market.expiryMarketId,
+          underlying_asset: 'BTC',
+          expiry: market.expiryMs,
+          min_strike: market.admissionTickSize,
+          tick_size: market.tickSize,
+          admission_tick_size: market.admissionTickSize,
+          status: 'active',
+          cadence: 'multi-day',
+          stateReady: true,
+          quoteReady: true,
+          productReady: true,
+          timeToExpiryMs: market.expiryMs - nowMs,
+        }) as CuratedOracleListItem,
+    ),
+  };
+}
+

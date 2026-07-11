@@ -1,11 +1,19 @@
-import type { PredictOracleListItem } from '../deepbook/predictServer';
-import { fetchActiveBtcOracles, fetchOracleMarket, fetchPredictStatus } from '../deepbook/predictServer';
+import { dayScaleFixtureMarkets } from '../deepbook/dayScaleFixtures';
+import { fetchAllExpiryMarketSummaries } from '../deepbook/predictAdapter';
+import {
+  expiryMarketToListItem,
+  fetchActiveBtcOracles,
+  fetchOracleMarket,
+  fetchPredictStatus,
+  type PredictOracleListItem,
+} from '../deepbook/predictServer';
+import {
+  resolveProductLineDataSource,
+  type ProductLine,
+  type ProductLineDataSource,
+} from '../products/productLineMarkets';
 
 const CURATED_ORACLE_CACHE_MS = 15_000;
-
-let cachedCuratedResponse: CuratedOracleMarketResponse | null = null;
-let cachedCuratedAt = 0;
-let inFlightCuratedResponse: Promise<CuratedOracleMarketResponse> | null = null;
 
 export interface OracleReadiness {
   stateReady: boolean;
@@ -23,11 +31,34 @@ export interface CuratedOracleListItem extends PredictOracleListItem {
 
 export interface CuratedOracleMarketResponse {
   generatedAt: number;
+  dataSource: 'live' | 'fixture';
+  reason?: Extract<ProductLineDataSource, { kind: 'fixture' }>['reason'];
   oracles: CuratedOracleListItem[];
 }
 
+const curatedCache = new Map<
+  ProductLine,
+  {
+    at: number;
+    response: CuratedOracleMarketResponse | null;
+    inFlight: Promise<CuratedOracleMarketResponse> | null;
+  }
+>();
+
 function dedupeKey(oracle: PredictOracleListItem) {
   return `${oracle.underlying_asset}-${oracle.expiry}-${oracle.min_strike}-${oracle.tick_size}`;
+}
+
+function cacheSlot(productLine: ProductLine) {
+  const existing = curatedCache.get(productLine);
+  if (existing) return existing;
+  const created = {
+    at: 0,
+    response: null as CuratedOracleMarketResponse | null,
+    inFlight: null as Promise<CuratedOracleMarketResponse> | null,
+  };
+  curatedCache.set(productLine, created);
+  return created;
 }
 
 export function curateBtcOracles(
@@ -69,6 +100,19 @@ export function curateBtcOracles(
   return [...bestByKey.values()].sort((a, b) => a.expiry - b.expiry);
 }
 
+function fixtureCuratedOracles(nowMs: number): CuratedOracleListItem[] {
+  return dayScaleFixtureMarkets(nowMs).map((market) => {
+    const item = expiryMarketToListItem(market, 'multi-day');
+    return {
+      ...item,
+      stateReady: true,
+      quoteReady: true,
+      productReady: true,
+      timeToExpiryMs: market.expiryMs - nowMs,
+    };
+  });
+}
+
 async function getOracleReadiness(input: {
   oracle: PredictOracleListItem;
   serverLagSeconds: number;
@@ -99,8 +143,8 @@ async function getOracleReadiness(input: {
   }
 }
 
-async function computeCuratedBtcOracleResponse(nowMs: number): Promise<CuratedOracleMarketResponse> {
-  const [status, candidateOracles] = await Promise.all([fetchPredictStatus(), fetchActiveBtcOracles()]);
+async function computeTurboCuratedResponse(nowMs: number): Promise<CuratedOracleMarketResponse> {
+  const [status, candidateOracles] = await Promise.all([fetchPredictStatus(), fetchActiveBtcOracles('turbo')]);
   const readinessEntries = await Promise.all(
     candidateOracles.map(
       async (oracle) =>
@@ -114,29 +158,88 @@ async function computeCuratedBtcOracleResponse(nowMs: number): Promise<CuratedOr
     ),
   );
 
-  cachedCuratedAt = nowMs;
-  cachedCuratedResponse = {
+  return {
     generatedAt: nowMs,
+    dataSource: 'live',
     oracles: curateBtcOracles(candidateOracles, new Map(readinessEntries), nowMs),
   };
-  return cachedCuratedResponse;
 }
 
-export async function buildCuratedBtcOracleResponse(nowMs = Date.now()): Promise<CuratedOracleMarketResponse> {
-  if (
-    cachedCuratedResponse &&
-    nowMs >= cachedCuratedAt &&
-    nowMs - cachedCuratedAt < CURATED_ORACLE_CACHE_MS
-  ) {
-    return cachedCuratedResponse;
-  }
-
-  if (inFlightCuratedResponse) {
-    return inFlightCuratedResponse;
-  }
-
-  inFlightCuratedResponse = computeCuratedBtcOracleResponse(nowMs).finally(() => {
-    inFlightCuratedResponse = null;
+async function computeMultiDayCuratedResponse(nowMs: number): Promise<CuratedOracleMarketResponse> {
+  const discovered = await fetchAllExpiryMarketSummaries();
+  const source = resolveProductLineDataSource({
+    line: 'multi-day',
+    discovered,
+    fixtures: dayScaleFixtureMarkets(nowMs),
+    nowMs,
   });
-  return inFlightCuratedResponse;
+
+  if (source.kind === 'fixture') {
+    return {
+      generatedAt: nowMs,
+      dataSource: 'fixture',
+      reason: source.reason,
+      oracles: fixtureCuratedOracles(nowMs),
+    };
+  }
+
+  const candidateOracles = source.markets.map((market) => expiryMarketToListItem(market, 'multi-day'));
+  const status = await fetchPredictStatus();
+  const readinessEntries = await Promise.all(
+    candidateOracles.map(
+      async (oracle) =>
+        [
+          oracle.oracle_id,
+          await getOracleReadiness({
+            oracle,
+            serverLagSeconds: status.maxTimeLagSeconds,
+          }),
+        ] as const,
+    ),
+  );
+
+  return {
+    generatedAt: nowMs,
+    dataSource: 'live',
+    oracles: curateBtcOracles(candidateOracles, new Map(readinessEntries), nowMs),
+  };
+}
+
+async function computeCuratedBtcOracleResponse(
+  nowMs: number,
+  productLine: ProductLine,
+): Promise<CuratedOracleMarketResponse> {
+  if (productLine === 'multi-day') {
+    return computeMultiDayCuratedResponse(nowMs);
+  }
+  return computeTurboCuratedResponse(nowMs);
+}
+
+export async function buildCuratedBtcOracleResponse(
+  nowMs = Date.now(),
+  productLine: ProductLine = 'turbo',
+): Promise<CuratedOracleMarketResponse> {
+  const slot = cacheSlot(productLine);
+  if (slot.response && nowMs >= slot.at && nowMs - slot.at < CURATED_ORACLE_CACHE_MS) {
+    return slot.response;
+  }
+
+  if (slot.inFlight) {
+    return slot.inFlight;
+  }
+
+  slot.inFlight = computeCuratedBtcOracleResponse(nowMs, productLine)
+    .then((response) => {
+      slot.at = nowMs;
+      slot.response = response;
+      return response;
+    })
+    .finally(() => {
+      slot.inFlight = null;
+    });
+  return slot.inFlight;
+}
+
+export function parseProductLineParam(value: string | null): ProductLine {
+  return value === 'multi-day' ? 'multi-day' : 'turbo';
 }

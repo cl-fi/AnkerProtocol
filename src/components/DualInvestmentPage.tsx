@@ -11,10 +11,15 @@ import { useMarketData } from '../hooks/useMarketData';
 import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
+import {
+  isProductLineTradingEnabled,
+  type ProductLine,
+} from '../products/productLineMarkets';
 import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
+import { DegradationBanner } from './DegradationBanner';
 import {
   BuyLowControls,
   DEFAULT_PRINCIPAL,
@@ -32,17 +37,25 @@ const DEFAULT_LEG_COUNT = 6;
 export function DualInvestmentPage({
   initialMode = 'buy-low',
   locale = DEFAULT_LOCALE,
+  productLine = 'turbo',
 }: {
   initialMode?: DualInvestmentMode;
   locale?: Locale;
+  productLine?: ProductLine;
 }) {
   const mode = initialMode;
   const copy = copyForLocale(locale);
   const format = formattersForLocale(locale);
   const [selectedOracleId, setSelectedOracleId] = useState<string | undefined>();
-  const marketQuery = useMarketData(selectedOracleId);
+  const marketQuery = useMarketData(selectedOracleId, productLine);
   const market = marketQuery.data?.market;
   const productOracles = marketQuery.data?.productOracles ?? [];
+  const dataSourceKind = marketQuery.data?.dataSource ?? 'live';
+  const fixtureDegraded = dataSourceKind === 'fixture';
+  const tradingEnabled = isProductLineTradingEnabled({
+    dataSourceKind,
+    demoMode: isDemoMode(),
+  });
   const scanQuery = useDualInvestmentScan({ market, principal: DEFAULT_PRINCIPAL, enabled: true });
   const binanceQuery = useBinanceDualInvestment({ market, enabled: true });
   const binanceStatus =
@@ -58,6 +71,12 @@ export function DualInvestmentPage({
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const verifyIdRef = useRef(0);
   const seededOracleRef = useRef<string | undefined>();
+
+  const pageTitle = productLine === 'multi-day' ? copy.dualInvestment.multiDayTitle : copy.dualInvestment.title;
+  const pageSubtitle =
+    productLine === 'multi-day' ? copy.dualInvestment.multiDaySubtitle : copy.dualInvestment.subtitle;
+  const activeProduct = productLine === 'multi-day' ? 'multi-day' : 'dual-investment';
+  const sourceLabel = fixtureDegraded ? copy.degradation.sourceFixture : copy.common.live;
 
   // Seed the default Buy Low target once per oracle (nearest grid step below spot).
   const defaultTarget = useMemo(() => {
@@ -121,24 +140,25 @@ export function DualInvestmentPage({
   }, []);
 
   // Debounced verification whenever the inputs settle on a new combination.
-  // Demo mode stays on the local SVI estimate — there is no live deployment to verify against.
+  // Demo mode and D4 fixture degradation stay on the local SVI estimate.
   useEffect(() => {
-    if (isDemoMode()) return undefined;
+    if (!tradingEnabled) return undefined;
     if (!market || !effectiveInput || !currentKey || verifiedKey === currentKey) return undefined;
     const handle = window.setTimeout(() => {
       void runVerify(effectiveInput, currentKey, market);
     }, 450);
     return () => window.clearTimeout(handle);
-  }, [market, effectiveInput, currentKey, verifiedKey, runVerify]);
+  }, [market, effectiveInput, currentKey, verifiedKey, runVerify, tradingEnabled]);
 
   // Keep the matched live quote fresh on the envelope TTL.
   useEffect(() => {
+    if (!tradingEnabled) return undefined;
     if (!market || !effectiveInput || !currentKey || verifiedKey !== currentKey) return undefined;
     const handle = window.setTimeout(() => {
       void runVerify(effectiveInput, currentKey, market);
     }, DEFAULT_QUOTE_ENVELOPE_TTL_MS);
     return () => window.clearTimeout(handle);
-  }, [market, effectiveInput, currentKey, verifiedKey, verifiedQuote, runVerify]);
+  }, [market, effectiveInput, currentKey, verifiedKey, verifiedQuote, runVerify, tradingEnabled]);
 
   const matchedVerified = verifiedQuote && verifiedKey === currentKey ? verifiedQuote : null;
   const displayQuote = matchedVerified ?? estimateQuote;
@@ -156,19 +176,20 @@ export function DualInvestmentPage({
 
   return (
     <main className="dual-page" id="dual-investment">
-      <AppHeader activeProduct="dual-investment" locale={locale} />
+      <AppHeader activeProduct={activeProduct} locale={locale} />
+      <DegradationBanner locale={locale} visible={fixtureDegraded} />
 
       <section className="dual-hero calculation-hero">
         <div>
-          <h1>{copy.dualInvestment.title}</h1>
-          <p>{copy.dualInvestment.subtitle}</p>
+          <h1>{pageTitle}</h1>
+          <p>{pageSubtitle}</p>
         </div>
         <div className="di-hero-ticker">
           <span className="di-hero-label">
             {copy.dualInvestment.btcPrice}
-            <span className={marketQuery.data?.staleSnapshot ? 'di-live-flag is-stale' : 'di-live-flag'}>
+            <span className={fixtureDegraded || marketQuery.data?.staleSnapshot ? 'di-live-flag is-stale' : 'di-live-flag'}>
               <span className="di-live-dot" aria-hidden="true" />
-              {marketQuery.data?.staleSnapshot ? copy.common.snapshot : copy.common.live}
+              {sourceLabel}
             </span>
           </span>
           <strong>{market ? format.usd(market.spot) : '--'}</strong>
@@ -234,7 +255,10 @@ export function DualInvestmentPage({
           subscribeQuote={subscribeQuote}
           isVerifying={isVerifying}
           error={verifyError}
-          demoMode={isDemoMode()}
+          demoMode={!tradingEnabled}
+          subscribeDisabledMessage={
+            fixtureDegraded ? copy.degradation.subscribeDisabled : copy.demo.subscribeDisabled
+          }
           locale={locale}
         />
       ) : null}
@@ -246,6 +270,12 @@ export function DualInvestmentPage({
           onLegCountChange={setLegCount}
           locale={locale}
         />
+      ) : null}
+
+      {!tradingEnabled && fixtureDegraded ? (
+        <p className="degradation-subscribe-note" role="status">
+          {copy.degradation.subscribeDisabled}
+        </p>
       ) : null}
 
       <AppFooter locale={locale} />
