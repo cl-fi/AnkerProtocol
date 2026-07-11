@@ -2,7 +2,7 @@ import { coinWithBalance, Transaction } from '@mysten/sui/transactions';
 import { isDemoMode } from '../config/runtimeModes';
 import { assertQuoteEnvelope, type QuoteEnvelope } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
-import { alignPriceToAdmissionGrid } from './predictTicks';
+import { alignPriceToAdmissionGrid, POS_INF_TICK } from './predictTicks';
 import {
   U64_MAX,
   LEVERAGE_1X,
@@ -54,6 +54,33 @@ function uncappedMintSlippage(legCount: number): MintLegSlippage[] {
     maxCost: U64_MAX,
     maxProbability: U64_MAX,
   }));
+}
+
+/**
+ * Client-side mirror of `strike_exposure::assert_admitted_mint_ticks` so an
+ * off-admission-grid leg fails here with a readable message instead of a bare
+ * on-chain abort (code 1). reference_tick is unknowable offline and ignored.
+ */
+function assertAdmittedMintTicks(input: {
+  legLowerTicks: readonly bigint[];
+  legHigherTicks: readonly bigint[];
+  tickSizeUsd: number;
+  admissionTickSizeUsd: number;
+}) {
+  const ratio = BigInt(Math.round(input.admissionTickSizeUsd / input.tickSizeUsd));
+  if (ratio <= 1n) return;
+  input.legLowerTicks.forEach((lowerTick, index) => {
+    const higherTick = input.legHigherTicks[index];
+    const lowerAdmitted = lowerTick === 0n || lowerTick % ratio === 0n;
+    const higherAdmitted = higherTick === POS_INF_TICK || higherTick % ratio === 0n;
+    if (!lowerAdmitted || !higherAdmitted) {
+      const strike = Number(lowerAdmitted ? higherTick : lowerTick) * input.tickSizeUsd;
+      throw new Error(
+        `Leg ${index + 1} strike ${strike.toLocaleString('en-US')} is not on the market's ` +
+          `$${input.admissionTickSizeUsd} admission grid; the chain would abort the mint.`,
+      );
+    }
+  });
 }
 
 export function buildSubscribeDualInvestmentTransaction(input: {
@@ -112,6 +139,12 @@ export function buildSubscribeDualInvestmentTransaction(input: {
     input.quote.oracle.admissionTickSize && input.quote.oracle.admissionTickSize > 0
       ? input.quote.oracle.admissionTickSize
       : tickSizeUsd;
+  assertAdmittedMintTicks({
+    legLowerTicks,
+    legHigherTicks,
+    tickSizeUsd,
+    admissionTickSizeUsd: targetAdmission,
+  });
   const targetPrice = toChainPriceU64(
     alignPriceToAdmissionGrid(input.productInput.targetPrice, targetAdmission),
     'Target price',

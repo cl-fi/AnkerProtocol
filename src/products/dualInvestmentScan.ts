@@ -24,8 +24,10 @@ function admissionAlignStep(market: OracleMarket) {
     : market.tickSize;
 }
 
+// Admission alignment uses origin 0: the chain admits absolute tick indexes
+// (tick % ratio == 0), not offsets from minStrike.
 export function alignTargetToAdmissionGrid(market: OracleMarket, targetPrice: number) {
-  return alignToGrid(targetPrice, market.minStrike, admissionAlignStep(market)).aligned;
+  return alignToGrid(targetPrice, 0, admissionAlignStep(market)).aligned;
 }
 
 export function buildAutoFloorDualInvestmentInput(input: {
@@ -37,15 +39,23 @@ export function buildAutoFloorDualInvestmentInput(input: {
 }): DualInvestmentInput {
   const floorDistance = input.floorDistance ?? 5_000;
   const targetPrice = alignTargetToAdmissionGrid(input.market, input.targetPrice);
-  const floorPrice = alignToGrid(
-    estimateTargetBuyFloorPrice({
-      market: input.market,
-      targetPrice,
-      fallbackFloorDistance: floorDistance,
-    }),
-    input.market.minStrike,
-    input.market.tickSize,
-  ).aligned;
+  // The floor is the first leg's strike, so it must sit on the admission grid too.
+  const step = admissionAlignStep(input.market);
+  const floorPrice = Math.min(
+    targetPrice - step,
+    Math.max(
+      input.market.minStrike,
+      alignToGrid(
+        estimateTargetBuyFloorPrice({
+          market: input.market,
+          targetPrice,
+          fallbackFloorDistance: floorDistance,
+        }),
+        0,
+        step,
+      ).aligned,
+    ),
+  );
 
   return {
     principal: input.principal,

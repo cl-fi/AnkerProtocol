@@ -19,37 +19,40 @@ interface LadderInterval {
 function buildLadderIntervals(input: DualInvestmentInput, oracle: OracleMarket): LadderInterval[] {
   if (input.targetPrice <= input.floorPrice) return [];
 
+  // Upstream strike_exposure::assert_admitted_mint_ticks only admits strikes on
+  // the absolute admission grid (tick % (admission_tick_size / tick_size) == 0),
+  // so leg strikes align to admissionTickSize — not the finer price tick grid.
+  const alignStep =
+    oracle.admissionTickSize && oracle.admissionTickSize > 0 ? oracle.admissionTickSize : oracle.tickSize;
+
+  let rawStrikes: number[];
   if (input.targetLegCount !== undefined) {
     const targetLegCount = Math.max(1, Math.floor(input.targetLegCount));
     const rawWidth = (input.targetPrice - input.floorPrice) / targetLegCount;
-    const strikes: number[] = [];
-
-    for (let index = 0; index < targetLegCount; index += 1) {
-      const rawStrike = input.floorPrice + rawWidth * index;
-      const strike = alignToGrid(rawStrike, oracle.minStrike, oracle.tickSize).aligned;
-      if (strike >= input.floorPrice && strike < input.targetPrice && !strikes.includes(strike)) {
-        strikes.push(strike);
-      }
-    }
-
-    return strikes.map((strike, index) => {
-      const nextStrike = strikes[index + 1] ?? input.targetPrice;
-      return {
-        strike,
-        width: Math.max(0, nextStrike - strike),
-      };
+    rawStrikes = Array.from({ length: targetLegCount }, (_, index) => input.floorPrice + rawWidth * index);
+  } else {
+    rawStrikes = buildStrikeLadder({
+      floor: input.floorPrice,
+      target: input.targetPrice,
+      step: input.stepSize ?? input.targetPrice - input.floorPrice,
     });
   }
 
-  const stepSize = input.stepSize ?? input.targetPrice - input.floorPrice;
-  return buildStrikeLadder({
-    floor: input.floorPrice,
-    target: input.targetPrice,
-    step: stepSize,
-  }).map((strike) => ({
-    strike,
-    width: Math.min(stepSize, input.targetPrice - strike),
-  }));
+  const strikes: number[] = [];
+  for (const rawStrike of rawStrikes) {
+    const strike = alignToGrid(rawStrike, 0, alignStep).aligned;
+    if (strike >= input.floorPrice && strike < input.targetPrice && !strikes.includes(strike)) {
+      strikes.push(strike);
+    }
+  }
+
+  return strikes.map((strike, index) => {
+    const nextStrike = strikes[index + 1] ?? input.targetPrice;
+    return {
+      strike,
+      width: Math.max(0, nextStrike - strike),
+    };
+  });
 }
 
 function hasLegIdentity(leg: Partial<LegQuote>): leg is LegQuote {
