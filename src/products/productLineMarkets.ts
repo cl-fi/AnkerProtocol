@@ -15,8 +15,8 @@ export type ProductLineDataSource =
   | { kind: 'fixture'; reason: 'no-day-scale-markets'; markets: ExpiryMarketSummary[] };
 
 /**
- * Shared discovery, different filter (D4): Turbo keeps the 1h cadence fingerprint
- * (ADR-0002); multi-day keeps markets whose expiry is at least one day away.
+ * Shared discovery, different filter (D4): Turbo = 1h cadence fingerprint and
+ * sub-day expiry distance (ADR-0002); multi-day = expiry at least one day away.
  */
 export function filterMarketsForProductLine(
   markets: readonly ExpiryMarketSummary[],
@@ -32,7 +32,7 @@ export function filterMarketsForProductLine(
       markets,
       options.turboCadence ?? DEEPBOOK_PREDICT.turboCadence,
       nowMs,
-    );
+    ).filter((market) => market.expiryMs - nowMs < DAY_MS);
   }
 
   return markets

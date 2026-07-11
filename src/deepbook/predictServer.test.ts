@@ -21,6 +21,7 @@ function listItem(
     admission_tick_size: 1,
     status: 'active',
     cadence: '1h',
+    productLine: 'turbo',
   };
 }
 

@@ -34,7 +34,7 @@ function dayScaleSummary(input: {
   };
 }
 
-/** Day-scale Expiry Market summaries used when upstream has no multi-day cadence. */
+/** Day-scale Expiry Market summaries used when upstream has no day-scale markets. */
 export function dayScaleFixtureMarkets(nowMs = Date.now()): ExpiryMarketSummary[] {
   return [
     dayScaleSummary({ id: DAY_SCALE_FIXTURE_IDS.d1, expiryMs: nowMs + 1 * DAY_MS }),

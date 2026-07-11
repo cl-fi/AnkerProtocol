@@ -95,7 +95,7 @@ export const enCopy = {
   degradation: {
     bannerTitle: 'Fixture data',
     bannerBody:
-      'No day-scale Expiry Markets are live on DeepBook Predict yet. Anker is showing labeled fixture tenors so you can preview the product. Trading stays off until multi-day cadence returns — then this page switches to live data automatically.',
+      'No day-scale Expiry Markets are live on DeepBook Predict yet. Anker is showing labeled fixture tenors so you can preview the product. Trading stays off until day-scale markets return — then this page switches to live data automatically.',
     subscribeDisabled:
       'Subscriptions stay closed while this page uses fixture data. They reopen when day-scale Expiry Markets are available.',
     sourceFixture: 'Fixture',
@@ -433,7 +433,7 @@ export const zhCnCopy: AppCopy = {
   degradation: {
     bannerTitle: '样例数据',
     bannerBody:
-      'DeepBook Predict 尚无日级到期市场。Anker 展示带标注的样例期限供预览产品形态；交易入口关闭。上游恢复 multi-day cadence 后，本页将自动切换为真数据。',
+      'DeepBook Predict 尚无日级到期市场。Anker 展示带标注的样例期限供预览产品形态；交易入口关闭。上游恢复日级市场后，本页将自动切换为真数据。',
     subscribeDisabled: '当前为样例数据，认购暂不可用。日级到期市场恢复后将自动开放。',
     sourceFixture: '样例',
     sourceLive: '实盘',

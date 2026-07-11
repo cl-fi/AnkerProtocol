@@ -1,6 +1,5 @@
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
-import { dayScaleFixtureMarkets } from '../deepbook/dayScaleFixtures';
-import type { CuratedOracleListItem, CuratedOracleMarketResponse } from './curatedOracles';
+import { fixtureCuratedOracles, type CuratedOracleListItem, type CuratedOracleMarketResponse } from './curatedOracles';
 
 const HOUR_MS = 60 * 60_000;
 
@@ -74,6 +73,7 @@ function deterministicOracleList(nowMs = fixtureNowMs()) {
       admission_tick_size: Number(DEEPBOOK_PREDICT.turboCadence.admissionTickSize) / 1_000_000_000,
       status: 'active',
       cadence: '1h' as const,
+      productLine: 'turbo' as const,
     };
   });
 }
@@ -138,24 +138,7 @@ export function deterministicMultiDayCuratedBtcOracleResponse(
     generatedAt: nowMs,
     dataSource: 'fixture',
     reason: 'no-day-scale-markets',
-    oracles: dayScaleFixtureMarkets(nowMs).map(
-      (market) =>
-        ({
-          predict_id: market.poolVaultId,
-          oracle_id: market.expiryMarketId,
-          underlying_asset: 'BTC',
-          expiry: market.expiryMs,
-          min_strike: market.admissionTickSize,
-          tick_size: market.tickSize,
-          admission_tick_size: market.admissionTickSize,
-          status: 'active',
-          cadence: 'multi-day',
-          stateReady: true,
-          quoteReady: true,
-          productReady: true,
-          timeToExpiryMs: market.expiryMs - nowMs,
-        }) as CuratedOracleListItem,
-    ),
+    oracles: fixtureCuratedOracles(nowMs),
   };
 }
 

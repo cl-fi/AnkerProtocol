@@ -29,8 +29,12 @@ export interface PredictOracleListItem {
   tick_size: number;
   admission_tick_size: number;
   status: string;
-  cadence: '1h' | 'multi-day';
+  /** Predict schedule name when known (CONTEXT: Cadence — 1m / 5m / 1h). */
+  cadence?: '1h' | '5m' | '1m';
+  /** Anker product line this row was curated for (D4). */
+  productLine: ProductLine;
 }
+
 
 const MIN_TRADABLE_TIME_MS = 5 * 60_000;
 const QUOTE_ASSET_SCALE = 10 ** DEEPBOOK_PREDICT.quoteAssetDecimals;
@@ -63,7 +67,7 @@ function scaledProbability(value: unknown): number | null {
 
 export function expiryMarketToListItem(
   market: ExpiryMarketSummary,
-  cadence: PredictOracleListItem['cadence'] = '1h',
+  productLine: ProductLine = 'turbo',
 ): PredictOracleListItem {
   return {
     predict_id: market.poolVaultId,
@@ -74,7 +78,8 @@ export function expiryMarketToListItem(
     tick_size: market.tickSize,
     admission_tick_size: market.admissionTickSize,
     status: 'active',
-    cadence,
+    cadence: productLine === 'turbo' ? '1h' : undefined,
+    productLine,
   };
 }
 
@@ -138,9 +143,8 @@ export async function fetchActiveBtcOracles(
   productLine: ProductLine = 'turbo',
 ): Promise<PredictOracleListItem[]> {
   const adapter = productLine === 'turbo' ? predictAdapter : createPredictAdapter({ productLine });
-  const cadence = productLine === 'multi-day' ? 'multi-day' : '1h';
   const markets = await adapter.discoverMarkets();
-  return markets.map((market) => expiryMarketToListItem(market, cadence));
+  return markets.map((market) => expiryMarketToListItem(market, productLine));
 }
 
 export function selectNearestTradableOracle(

@@ -56,7 +56,7 @@ describe('/api/markets/btc-oracles', () => {
     expect(payload.reason).toBe('no-day-scale-markets');
     expect(payload.oracles.length).toBeGreaterThan(0);
     expect(payload.oracles[0]).toMatchObject({
-      cadence: 'multi-day',
+      productLine: 'multi-day',
       productReady: true,
       underlying_asset: 'BTC',
     });

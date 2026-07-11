@@ -39,7 +39,7 @@ function market(input: {
 describe('filterMarketsForProductLine', () => {
   const nowMs = 1_700_000_000_000;
 
-  it('keeps Turbo on the hourly cadence fingerprint (not minute markets)', () => {
+  it('keeps Turbo on the hourly cadence fingerprint and sub-day expiry distance', () => {
     const markets = [
       market({
         id: '0x1m',
@@ -48,6 +48,10 @@ describe('filterMarketsForProductLine', () => {
         initialExpiryCash: MINUTE_CASH,
       }),
       market({ id: '0x1h', expiryMs: nowMs + 3_600_000 }),
+      market({
+        id: '0x3d-same-fingerprint',
+        expiryMs: nowMs + 3 * DAY_MS,
+      }),
       market({
         id: '0x3d',
         expiryMs: nowMs + 3 * DAY_MS,

@@ -25,7 +25,7 @@ describe('multi-day curated product line (D4)', () => {
     const response = deterministicMultiDayCuratedBtcOracleResponse(nowMs);
     expect(response.dataSource).toBe('fixture');
     expect(response.reason).toBe('no-day-scale-markets');
-    expect(response.oracles.every((oracle) => oracle.cadence === 'multi-day')).toBe(true);
+    expect(response.oracles.every((oracle) => oracle.productLine === 'multi-day')).toBe(true);
     expect(response.oracles.every((oracle) => oracle.expiry - nowMs >= DAY_MS)).toBe(true);
   });
 });

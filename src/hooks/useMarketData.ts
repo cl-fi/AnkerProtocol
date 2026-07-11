@@ -40,7 +40,7 @@ export function useMarketData(selectedOracleId?: string, productLine: ProductLin
           productOracles: [] as CuratedOracleListItem[],
           selectedOracleId: undefined,
           staleSnapshot: true,
-          dataSource: 'fixture' as const,
+          dataSource: dataSource,
           reason: curated.reason,
         };
       }

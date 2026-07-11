@@ -100,7 +100,7 @@ export function curateBtcOracles(
   return [...bestByKey.values()].sort((a, b) => a.expiry - b.expiry);
 }
 
-function fixtureCuratedOracles(nowMs: number): CuratedOracleListItem[] {
+export function fixtureCuratedOracles(nowMs: number): CuratedOracleListItem[] {
   return dayScaleFixtureMarkets(nowMs).map((market) => {
     const item = expiryMarketToListItem(market, 'multi-day');
     return {
