@@ -9,7 +9,7 @@ export const ACCUMULATOR_ROOT =
 const DEFAULT_PREDICT_SERVER_URL = 'https://predict-server-beta.testnet.mystenlabs.com';
 const DEFAULT_PROPBOOK_SERVER_URL = 'https://propbook.api.testnet.mystenlabs.com';
 const DEFAULT_GRPC_URL = 'https://fullnode.testnet.sui.io:443';
-const DEFAULT_GRAPHQL_URL = 'https://graphql.testnet.sui.io';
+const DEFAULT_GRAPHQL_URL = 'https://graphql.testnet.sui.io/graphql';
 
 export interface PredictCadenceConfig {
   id: number;

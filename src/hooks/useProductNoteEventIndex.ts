@@ -3,26 +3,10 @@ import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import {
   buildProductNoteEventIndex,
   productNoteEventTypes,
+  type ProductNoteEventClient,
   type ProductNoteEventIndex,
 } from '../sui/productNoteEvents';
-
-const PRODUCT_NOTE_EVENT_LIMIT = 100;
-
-type ProductNoteEventClient = {
-  queryEvents(input: {
-    query: { MoveEventType: string };
-    cursor?: unknown;
-    order?: 'ascending' | 'descending';
-    limit?: number;
-  }): Promise<{ data?: unknown[]; hasNextPage?: boolean; nextCursor?: unknown }>;
-};
-
-/** Empty client — JSON-RPC event indexing was removed (D7); GraphQL path is #9. */
-const disabledProductNoteEventClient: ProductNoteEventClient = {
-  async queryEvents() {
-    return { data: [], hasNextPage: false, nextCursor: null };
-  },
-};
+import { graphqlProductNoteEventClient } from '../sui/productNoteEventsGraphql';
 
 function configuredPackageId(packageId: string) {
   return packageId.length > 0 && packageId !== '0x0';
@@ -54,25 +38,16 @@ export function filterProductNoteEventIndex(index: ProductNoteEventIndex, noteId
   return { byNoteId, byOwner, byWrapperId };
 }
 
-export async function fetchProductNoteEventIndex(
-  client: ProductNoteEventClient,
-  packageId: string,
-  limit = PRODUCT_NOTE_EVENT_LIMIT,
-) {
+export async function fetchProductNoteEventIndex(client: ProductNoteEventClient, packageId: string) {
   const eventsByType = await Promise.all(
-    productNoteEventTypes(packageId).map(async (MoveEventType) => {
+    productNoteEventTypes(packageId).map(async (eventType) => {
       const events: unknown[] = [];
-      let cursor: unknown;
+      let cursor: string | null = null;
 
       do {
-        const page = await client.queryEvents({
-          query: { MoveEventType },
-          cursor,
-          order: 'descending',
-          limit,
-        });
-        if (Array.isArray(page.data)) events.push(...page.data);
-        cursor = page.hasNextPage ? (page.nextCursor ?? null) : null;
+        const page = await client.listEvents({ eventType, cursor });
+        events.push(...page.events);
+        cursor = page.nextCursor;
       } while (cursor);
 
       return events;
@@ -85,7 +60,7 @@ export async function fetchProductNoteEventIndex(
 export function useProductNoteEventIndex(
   noteIds: readonly string[] | undefined,
   packageId = DEFAULT_ANKER_CONFIG.packageId,
-  client: ProductNoteEventClient = disabledProductNoteEventClient,
+  client: ProductNoteEventClient = graphqlProductNoteEventClient,
 ) {
   const sortedNoteIds = [...(noteIds ?? [])].sort();
 

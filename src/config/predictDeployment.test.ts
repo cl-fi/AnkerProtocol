@@ -69,7 +69,7 @@ describe('parsePredictDeployment', () => {
       'https://propbook.api.testnet.mystenlabs.com',
     );
     expect(config.endpoints.grpcUrl).toBe('https://fullnode.testnet.sui.io:443');
-    expect(config.endpoints.graphqlUrl).toBe('https://graphql.testnet.sui.io');
+    expect(config.endpoints.graphqlUrl).toBe('https://graphql.testnet.sui.io/graphql');
   });
 
   it('exposes the Turbo 1h cadence fingerprint used to filter Expiry Markets', () => {

@@ -39,6 +39,16 @@ export type ProductNoteEventIndex = {
   byWrapperId: Record<string, string[]>;
 };
 
+export type ProductNoteEventPage = {
+  events: unknown[];
+  /** Opaque pagination cursor; null once the last page has been read. */
+  nextCursor: string | null;
+};
+
+export type ProductNoteEventClient = {
+  listEvents(input: { eventType: string; cursor?: string | null; limit?: number }): Promise<ProductNoteEventPage>;
+};
+
 type ProductNoteSuiEvent = {
   id?: { txDigest?: unknown };
   type?: unknown;

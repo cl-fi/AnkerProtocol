@@ -18,8 +18,8 @@ function eventFixture(typeName: string, txDigest: string, parsedJson: Record<str
 
 describe('fetchProductNoteEventIndex', () => {
   it('queries ProductNote Move event types and builds a note-indexed lifecycle map', async () => {
-    const queryEvents = vi.fn(async ({ query }: { query: { MoveEventType: string } }) => ({
-      data: query.MoveEventType.endsWith('ProductSubscribed')
+    const listEvents = vi.fn(async ({ eventType }: { eventType: string }) => ({
+      events: eventType.endsWith('ProductSubscribed')
         ? [
             eventFixture('ProductSubscribed', '0xsubscribe', {
               note_id: NOTE_ID,
@@ -29,55 +29,45 @@ describe('fetchProductNoteEventIndex', () => {
             }),
           ]
         : [],
-      hasNextPage: false,
       nextCursor: null,
     }));
 
-    const index = await fetchProductNoteEventIndex({ queryEvents }, PACKAGE_ID);
+    const index = await fetchProductNoteEventIndex({ listEvents }, PACKAGE_ID);
 
-    expect(queryEvents).toHaveBeenCalledTimes(2);
-    expect(queryEvents.mock.calls.map(([input]) => input.query.MoveEventType)).toEqual(productNoteEventTypes(PACKAGE_ID));
+    expect(listEvents).toHaveBeenCalledTimes(2);
+    expect(listEvents.mock.calls.map(([input]) => input.eventType)).toEqual(productNoteEventTypes(PACKAGE_ID));
     expect(index.byNoteId[NOTE_ID]?.subscriptionDigest).toBe('0xsubscribe');
   });
 
   it('paginates each ProductNote event type until nextCursor is exhausted', async () => {
-    const pageTwoCursor = { txDigest: '0xpage1', eventSeq: '0' };
-    const seenCursors: Array<typeof pageTwoCursor | null | undefined> = [];
-    const queryEvents = vi.fn(
-      async ({
-        query,
-        cursor,
-      }: {
-        query: { MoveEventType: string };
-        cursor?: typeof pageTwoCursor | null;
-      }) => {
-        if (!query.MoveEventType.endsWith('ProductSubscribed')) {
-          return { data: [], hasNextPage: false, nextCursor: null };
-        }
+    const pageTwoCursor = 'cursor-page-2';
+    const seenCursors: Array<string | null | undefined> = [];
+    const listEvents = vi.fn(async ({ eventType, cursor }: { eventType: string; cursor?: string | null }) => {
+      if (!eventType.endsWith('ProductSubscribed')) {
+        return { events: [], nextCursor: null };
+      }
 
-        seenCursors.push(cursor);
-        if (!cursor) {
-          return { data: [], hasNextPage: true, nextCursor: pageTwoCursor };
-        }
+      seenCursors.push(cursor);
+      if (!cursor) {
+        return { events: [], nextCursor: pageTwoCursor };
+      }
 
-        return {
-          data: [
-            eventFixture('ProductSubscribed', '0xsubscribe-page-2', {
-              note_id: NOTE_ID,
-              owner: OWNER,
-              wrapper_id: MANAGER_ID,
-              oracle_id: `0x${'4'.repeat(64)}`,
-            }),
-          ],
-          hasNextPage: false,
-          nextCursor: null,
-        };
-      },
-    );
+      return {
+        events: [
+          eventFixture('ProductSubscribed', '0xsubscribe-page-2', {
+            note_id: NOTE_ID,
+            owner: OWNER,
+            wrapper_id: MANAGER_ID,
+            oracle_id: `0x${'4'.repeat(64)}`,
+          }),
+        ],
+        nextCursor: null,
+      };
+    });
 
-    const index = await fetchProductNoteEventIndex({ queryEvents }, PACKAGE_ID);
+    const index = await fetchProductNoteEventIndex({ listEvents }, PACKAGE_ID);
 
-    expect(seenCursors).toEqual([undefined, pageTwoCursor]);
+    expect(seenCursors).toEqual([null, pageTwoCursor]);
     expect(index.byNoteId[NOTE_ID]?.subscriptionDigest).toBe('0xsubscribe-page-2');
   });
 
