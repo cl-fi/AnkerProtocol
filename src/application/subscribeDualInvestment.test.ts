@@ -248,6 +248,21 @@ describe('prepareSubscribeDualInvestmentForSigning', () => {
       }),
     ).rejects.toThrow(/Insufficient DUSDC/);
   });
+
+  it('refuses to prepare a subscription when simulation is unavailable', async () => {
+    await expect(
+      prepareSubscribeDualInvestmentForSigning({
+        accountAddress: OWNER,
+        managers: [{ managerId: MANAGER_ID, owner: OWNER }],
+        notes: [],
+        productInput,
+        quote: quoteFixture(),
+        client: {},
+        config,
+        nowMs: 1,
+      }),
+    ).rejects.toThrow(/simulation is unavailable/i);
+  });
 });
 
 describe('refreshDualInvestmentQuoteForSigning', () => {

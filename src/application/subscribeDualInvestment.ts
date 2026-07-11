@@ -16,7 +16,6 @@ import {
   type MintLegSlippage,
   type SubscribeDualInvestmentTransactionPlan,
 } from '../sui/ankerTransactions';
-import { mintSlippageFromQuoteLegs } from '../sui/ankerTransactionPrimitives';
 import {
   mintSlippageFromSimulatedLegs,
   preflightTransaction,
@@ -177,22 +176,10 @@ export async function prepareSubscribeDualInvestmentForSigning(input: {
   });
 
   if (preflight.status === 'skipped') {
-    // Demo bypass: still apply quote×tolerance caps (never sign uncapped).
-    const config = input.config ?? DEFAULT_ANKER_CONFIG;
-    const mintSlippage = mintSlippageFromQuoteLegs(input.quote.legs, config);
-    const signed = buildSubscribeDualInvestmentApplicationPlan({
-      ...input,
-      quoteEnvelope,
-      mintSlippage,
-    });
-    return {
-      managerId: signed.managerId,
-      quoteEnvelope,
-      quote: input.quote,
-      transactionPlan: signed.transactionPlan,
-      simulatedMintLegs: [],
-      simulatedTotalCostBaseUnits: signed.transactionPlan.legCosts.reduce((sum, cost) => sum + cost, 0n),
-    };
+    throw new Error(
+      preflight.reason ||
+        'Transaction simulation is required before signing a Turbo subscription.',
+    );
   }
 
   if (preflight.mintLegs.length !== input.quote.legs.length) {

@@ -108,22 +108,16 @@ export function buildSubscribeDualInvestmentTransaction(input: {
     throw new Error('Mint slippage must include one entry per quote leg.');
   }
 
+  const targetAdmission =
+    input.quote.oracle.admissionTickSize && input.quote.oracle.admissionTickSize > 0
+      ? input.quote.oracle.admissionTickSize
+      : tickSizeUsd;
   const targetPrice = toChainPriceU64(
-    alignPriceToAdmissionGrid(
-      input.productInput.targetPrice,
-      input.quote.oracle.admissionTickSize && input.quote.oracle.admissionTickSize > 0
-        ? input.quote.oracle.admissionTickSize
-        : tickSizeUsd,
-    ),
+    alignPriceToAdmissionGrid(input.productInput.targetPrice, targetAdmission),
     'Target price',
   );
   const floorPrice = toChainPriceU64(
-    alignPriceToAdmissionGrid(
-      input.productInput.floorPrice,
-      input.quote.oracle.admissionTickSize && input.quote.oracle.admissionTickSize > 0
-        ? input.quote.oracle.admissionTickSize
-        : tickSizeUsd,
-    ),
+    alignPriceToAdmissionGrid(input.productInput.floorPrice, targetAdmission),
     'Floor price',
   );
   const idBytes = productIdBytes(input.quoteEnvelope.productHash);
