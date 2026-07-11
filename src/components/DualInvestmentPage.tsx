@@ -52,12 +52,15 @@ export function DualInvestmentPage({
   const productOracles = marketQuery.data?.productOracles ?? [];
   const dataSourceKind = marketQuery.data?.dataSource ?? 'live';
   const fixtureDegraded = dataSourceKind === 'fixture';
+  const staleSnapshot = marketQuery.data?.staleSnapshot ?? false;
   const tradingEnabled = isProductLineTradingEnabled({
     dataSourceKind,
     demoMode: isDemoMode(),
   });
-  const scanQuery = useDualInvestmentScan({ market, principal: DEFAULT_PRINCIPAL, enabled: true });
-  const binanceQuery = useBinanceDualInvestment({ market, enabled: true });
+  // Only browse-quote when we have a real (or explicitly labeled fixture) market.
+  const scanEnabled = Boolean(market) && (fixtureDegraded || !staleSnapshot);
+  const scanQuery = useDualInvestmentScan({ market, principal: DEFAULT_PRINCIPAL, enabled: scanEnabled });
+  const binanceQuery = useBinanceDualInvestment({ market, enabled: scanEnabled });
   const binanceStatus =
     binanceQuery.isPending && !binanceQuery.data ? 'loading' : binanceQuery.isError ? 'error' : 'ready';
 
@@ -76,7 +79,11 @@ export function DualInvestmentPage({
   const pageSubtitle =
     productLine === 'multi-day' ? copy.dualInvestment.multiDaySubtitle : copy.dualInvestment.subtitle;
   const activeProduct = productLine === 'multi-day' ? 'multi-day' : 'dual-investment';
-  const sourceLabel = fixtureDegraded ? copy.degradation.sourceFixture : copy.common.live;
+  const sourceLabel = fixtureDegraded
+    ? copy.degradation.sourceFixture
+    : staleSnapshot
+      ? copy.common.snapshot
+      : copy.common.live;
 
   // Seed the default Buy Low target once per oracle (nearest grid step below spot).
   const defaultTarget = useMemo(() => {
@@ -187,7 +194,7 @@ export function DualInvestmentPage({
         <div className="di-hero-ticker">
           <span className="di-hero-label">
             {copy.dualInvestment.btcPrice}
-            <span className={fixtureDegraded || marketQuery.data?.staleSnapshot ? 'di-live-flag is-stale' : 'di-live-flag'}>
+            <span className={fixtureDegraded || staleSnapshot ? 'di-live-flag is-stale' : 'di-live-flag'}>
               <span className="di-live-dot" aria-hidden="true" />
               {sourceLabel}
             </span>

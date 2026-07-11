@@ -36,8 +36,6 @@ interface TargetBuyExecutionPanelViewProps {
   onSubscribe: () => void;
 }
 
-const subscriptionQuoteProvider = createDefaultQuoteProvider();
-
 function shortId(value: string) {
   return value.length > 16 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
@@ -261,7 +259,9 @@ export function TargetBuyExecutionPanel({
         productInput,
         quote,
         quoteEnvelope,
-        quoteProvider: subscriptionQuoteProvider,
+        // Must pass the market so SVI browse pricing is used — market-less
+        // createDefaultQuoteProvider() falls back to non-executable Snapshot quotes.
+        quoteProvider: createDefaultQuoteProvider(quote.oracle),
       });
       // Simulate first (readable abort, no wallet). Rebuild mint caps from OrderMinted costs.
       const prepared = await prepareSubscribeDualInvestmentForSigning({

@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { dayScaleMarketSnapshot } from '../deepbook/dayScaleFixtures';
-import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
 import {
   fetchOracleMarket,
   fetchPredictPricingState,
@@ -8,6 +7,7 @@ import {
   selectNearestTradableOracle,
 } from '../deepbook/predictServer';
 import type { ProductLine } from '../products/productLineMarkets';
+import type { OracleMarket } from '../products/types';
 import type { CuratedOracleListItem, CuratedOracleMarketResponse } from '../server/curatedOracles';
 
 async function fetchCuratedBtcOracles(productLine: ProductLine): Promise<CuratedOracleMarketResponse> {
@@ -22,7 +22,14 @@ async function fetchCuratedBtcOracles(productLine: ProductLine): Promise<Curated
 export function useMarketData(selectedOracleId?: string, productLine: ProductLine = 'turbo') {
   return useQuery({
     queryKey: ['deepbook-market', productLine, selectedOracleId],
-    queryFn: async () => {
+    queryFn: async (): Promise<{
+      market: OracleMarket | undefined;
+      productOracles: CuratedOracleListItem[];
+      selectedOracleId: string | undefined;
+      staleSnapshot: boolean;
+      dataSource: 'live' | 'fixture';
+      reason?: CuratedOracleMarketResponse['reason'];
+    }> => {
       const [status, curated, predictPricing] = await Promise.all([
         fetchPredictStatus(),
         fetchCuratedBtcOracles(productLine),
@@ -34,13 +41,14 @@ export function useMarketData(selectedOracleId?: string, productLine: ProductLin
         productOracles.find((oracle: CuratedOracleListItem) => oracle.oracle_id === selectedOracleId) ??
         selectNearestTradableOracle(productOracles, Date.now(), 0);
 
+      // Turbo is a live product: never invent browse quotes from a hardcoded snapshot.
       if (!selected) {
         return {
-          market: lastKnownMarketSnapshot,
-          productOracles: [] as CuratedOracleListItem[],
+          market: undefined,
+          productOracles: [],
           selectedOracleId: undefined,
           staleSnapshot: true,
-          dataSource: dataSource,
+          dataSource,
           reason: curated.reason,
         };
       }

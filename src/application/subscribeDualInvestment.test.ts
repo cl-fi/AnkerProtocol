@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CustodyAccountRef } from './subscribeDualInvestment';
-import type { QuoteProvider } from '../deepbook/quoteProvider';
+import { createDefaultQuoteProvider, SviBrowseQuoteProvider, type QuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { AnkerProtocolConfig } from '../sui/ankerTransactions';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
+import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
 import {
   buildSubscribeDualInvestmentApplicationPlan,
   createSubscribeQuoteEnvelope,
@@ -266,6 +267,42 @@ describe('prepareSubscribeDualInvestmentForSigning', () => {
 });
 
 describe('refreshDualInvestmentQuoteForSigning', () => {
+  it('re-quotes with the market SVI provider used at subscribe time (not market-less snapshot fallback)', async () => {
+    // Mirrors TargetBuyExecutionPanel: createDefaultQuoteProvider() with no market
+    // must not be used for subscribe refresh when the quote already carries SVI.
+    const market = oracleMarketFromFixture();
+    const input: DualInvestmentInput = {
+      principal: 1_000,
+      targetPrice: 75_000,
+      floorPrice: 72_500,
+      targetLegCount: 1,
+    };
+    const quotedLegs = await new SviBrowseQuoteProvider(market).quoteLegs(
+      buildDualInvestmentLegIntents(input, market, { nowMs: market.sviTimestampMs }),
+    );
+    const quote = compileDualInvestment({
+      input,
+      oracle: market,
+      quotedLegs,
+      nowMs: market.sviTimestampMs,
+    });
+    expect(quote.executable).toBe(true);
+
+    const quoteEnvelope = createSubscribeQuoteEnvelope(quote, config);
+    // Regression: subscribe refresh must use a market-aware provider (SVI), not the
+    // market-less Snapshot fallback that surfaces "Using stale snapshot pricing…".
+    await expect(
+      refreshDualInvestmentQuoteForSigning({
+        productInput: input,
+        quote,
+        quoteEnvelope,
+        quoteProvider: createDefaultQuoteProvider(market),
+        config,
+        nowMs: market.sviTimestampMs,
+      }),
+    ).resolves.toMatchObject({ executable: true });
+  });
+
   it('re-quotes the exact Target Buy legs and keeps the original max-cost envelope', async () => {
     const quote = compiledQuoteFixture();
     const quoteEnvelope = createSubscribeQuoteEnvelope(quote, config);

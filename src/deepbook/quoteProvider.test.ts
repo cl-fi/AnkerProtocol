@@ -86,4 +86,23 @@ describe('createDefaultQuoteProvider', () => {
     const provider = createDefaultQuoteProvider();
     expect(provider).toBeInstanceOf(SnapshotQuoteProvider);
   });
+
+  it('falls back to non-executable snapshot quotes when no market is provided', async () => {
+    vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'false');
+    const provider = createDefaultQuoteProvider();
+    const [quote] = await provider.quoteLegs([
+      {
+        id: 'up',
+        instrumentType: 'binary-up',
+        oracleId: '0xoracle',
+        expiryMs: 1,
+        strike: 72_500,
+        isUp: true,
+        quantity: 10,
+        description: 'UP',
+      },
+    ]);
+    expect(quote.executable).toBe(false);
+    expect(quote.error).toBe('Using stale snapshot pricing until live preview succeeds.');
+  });
 });

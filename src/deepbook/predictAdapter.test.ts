@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
-import { filterExpiryMarketsByCadence, parseExpiryMarketRows } from './predictAdapter';
+import {
+  createPredictAdapter,
+  filterExpiryMarketsByCadence,
+  parseExpiryMarketRows,
+} from './predictAdapter';
 
 const HOUR_ALLOC = DEEPBOOK_PREDICT.turboCadence.maxExpiryAllocation;
 const HOUR_CASH = DEEPBOOK_PREDICT.turboCadence.initialExpiryCash;
@@ -93,5 +97,25 @@ describe('PredictAdapter market discovery', () => {
 
     const turbo = filterExpiryMarketsByCadence(rows, DEEPBOOK_PREDICT.turboCadence, nowMs);
     expect(turbo.map((market) => market.expiryMarketId)).toEqual(['0x1h-a', '0x1h-b']);
+  });
+
+  describe('default /markets request', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('requests enough rows that live Turbo markets are not paged out by 1m test markets', async () => {
+      const requestedUrls: string[] = [];
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        requestedUrls.push(String(input));
+        return { ok: true, json: async () => [] } as Response;
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      await createPredictAdapter().discoverMarkets();
+
+      expect(requestedUrls).toHaveLength(1);
+      expect(requestedUrls[0]).toContain('/markets?limit=500');
+    });
   });
 });
