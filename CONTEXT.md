@@ -7,18 +7,14 @@ Non-custodial structured yield products (dual investment, shark fin) on Sui, bui
 ### Products
 
 **Dual Investment (双币投资)**:
-Anker's flagship structured product: deposit quote asset, pick a target price and tenor; at expiry the deposit either converts at the target price or is returned, and the coupon is paid either way. Mirrors the CEX product of the same name.
-_Avoid_: dual currency, DCI, 双币盈 (Binance brand name — use only when citing Binance)
-
-**Turbo Dual Investment (Turbo)**:
-A separate product line with the exact same payoff as Dual Investment, offered on hourly tenors (1h–3h) backed by DeepBook Predict's hourly cadence markets. Primary yield is per-period; a muted reference APR may appear for magnitude only (ADR-0002). Minute-level tenors are deliberately not offered.
-_Avoid_: flash product, prediction, up/down bet
+Anker's flagship structured product: deposit quote asset, pick a target price and tenor; at expiry the deposit either converts at the target price or is returned, and the coupon is paid either way. Mirrors the CEX product of the same name. A single product whose tenor list spans hourly to day-scale; hourly tenors show per-period yield with at most a muted reference APR (ADR-0002), and minute-level tenors are deliberately not offered.
+_Avoid_: dual currency, DCI, 双币盈 (Binance brand name — use only when citing Binance), Turbo (retired name for the hourly tenors — no longer a separate product line)
 
 **Shark Fin (鲨鱼鳍)**:
 Principal-protected range product: enhanced coupon if price stays inside a bound, base coupon otherwise.
 
 **Tenor (期限)**:
-Time from subscription to expiry of a product. Turbo tenors are hourly; standard Dual Investment tenors are day-scale (1d–14d).
+Time from subscription to expiry of a product. Dual Investment tenors run from hourly (1h–3h) to day-scale (1d–14d); day-scale is the primary offering, hourly exists as the live fallback while day-scale markets are unavailable upstream.
 _Avoid_: duration, term, expiry length
 
 ### Lifecycle
@@ -45,15 +41,23 @@ _Avoid_: redeem (reserved for the Predict-level leg operation), withdraw
 ### Upstream (DeepBook Predict)
 
 **AccountWrapper**:
-The DeepBook Predict custody object that holds a subscriber's deposited funds and minted legs. One wrapper per subscriber; Anker Notes record its object id.
-_Avoid_: Manager, PredictManager, product container
+The DeepBook Predict custody object that holds a subscriber's deposited funds and minted legs. One wrapper per subscriber; Anker Notes record its object id. Created invisibly as a one-time setup step inside the first subscription flow — never presented to users as an account they own or manage; the wallet is the only user-facing identity.
+_Avoid_: Manager, PredictManager, product container, Predict account (retired user-facing name — implies a manageable account concept)
 
 **Cadence**:
-A DeepBook Predict schedule that continuously creates per-expiry markets (currently 1m / 5m / 1h on testnet). Anker's Turbo uses only the 1h cadence.
+A DeepBook Predict schedule that continuously creates per-expiry markets (currently 1m / 5m / 1h on testnet). Anker's hourly tenors use only the 1h cadence.
 
 **Expiry Market**:
 One DeepBook Predict market object for a single expiry timestamp, discovered from the Predict indexer; where legs are minted, priced, and settled.
 _Avoid_: oracle market (pre-6-24 vocabulary), pool
+
+**Legacy Oracle (旧部署 oracle)**:
+A still-updating expiry oracle object on the retired 4-16 deployment, read directly from chain. Supplies live browse pricing (spot, forward, SVI) for day-scale tenors while the 6-24 deployment has no day-scale Expiry Markets; never tradable — subscribe stays disabled as "awaiting migration". Self-retires: once day-scale Expiry Markets are discovered live, they replace Legacy Oracles with no code change.
+_Avoid_: fixture (Legacy Oracle data is live, not canned), old market
+
+**Snapshot (行情快照)**:
+Real market data — Legacy Oracle states plus the matching Binance benchmark — captured at one recorded instant and committed to the repo. Rendered as a frozen photograph of that instant: countdowns, expiry dates, and the Binance comparison all display as of the capture time, under a visible "snapshot as of <time>" label. Used only when neither live Expiry Markets nor Legacy Oracles are available.
+_Avoid_: fixture (invented data — allowed only in Demo Mode and tests, never as a product data source)
 
 **Demo Mode**:
 Site-wide fallback state: fixture market data, transactions disabled, banner shown. Used when the upstream deployment is unavailable.

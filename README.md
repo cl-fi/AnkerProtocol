@@ -266,8 +266,9 @@ The testnet contract is deliberately scoped: it records product terms, fee polic
 ```text
 /                      Landing page
 /app                   Alias → same workspace page
-/app/dual-investment   BTC Buy Low Dual Investment
+/app/dual-investment   BTC Buy Low Dual Investment (hourly + day tenors)
 /app/dashboard         Wallet ProductNote dashboard
+/app/multi-day         Legacy redirect → /app/dual-investment (merged page)
 /dual-investment       Legacy redirect → /app/dual-investment
 ```
 

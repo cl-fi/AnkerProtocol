@@ -178,7 +178,7 @@ describe('buildSubscribeDualInvestmentApplicationPlan', () => {
         config,
         nowMs: 1,
       }),
-    ).toThrow('Open your Predict account before subscribing.');
+    ).toThrow('Finish the one-time setup before subscribing.');
   });
 });
 

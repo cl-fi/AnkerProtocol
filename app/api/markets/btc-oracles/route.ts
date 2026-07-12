@@ -1,12 +1,6 @@
 import { isFixtureDataMode } from '../../../../src/config/runtimeModes';
-import {
-  deterministicCuratedBtcOracleResponse,
-  deterministicMultiDayCuratedBtcOracleResponse,
-} from '../../../../src/server/deterministicPredictFixtures';
-import {
-  buildCuratedBtcOracleResponse,
-  parseProductLineParam,
-} from '../../../../src/server/curatedOracles';
+import { deterministicCuratedBtcOracleResponse } from '../../../../src/server/deterministicPredictFixtures';
+import { buildCuratedBtcOracleResponse } from '../../../../src/server/curatedOracles';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,25 +14,18 @@ function jsonWithCache(payload: unknown) {
   });
 }
 
-export async function GET(request: Request) {
-  const productLine = parseProductLineParam(new URL(request.url).searchParams.get('productLine'));
-
+export async function GET() {
   if (isFixtureDataMode()) {
-    return jsonWithCache(
-      productLine === 'multi-day'
-        ? deterministicMultiDayCuratedBtcOracleResponse()
-        : deterministicCuratedBtcOracleResponse(),
-    );
+    return jsonWithCache(deterministicCuratedBtcOracleResponse());
   }
 
   try {
-    return jsonWithCache(await buildCuratedBtcOracleResponse(Date.now(), productLine));
+    return jsonWithCache(await buildCuratedBtcOracleResponse(Date.now()));
   } catch (error) {
     return Response.json(
       {
         error: error instanceof Error ? error.message : 'Curated BTC oracle request failed.',
         generatedAt: Date.now(),
-        dataSource: 'live',
         oracles: [],
       },
       { status: 502 },

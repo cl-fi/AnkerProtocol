@@ -1,5 +1,7 @@
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
-import { fixtureCuratedOracles, type CuratedOracleListItem, type CuratedOracleMarketResponse } from './curatedOracles';
+import { dayScaleFixtureMarkets, dayScaleMarketSnapshot } from '../deepbook/dayScaleFixtures';
+import { expiryMarketToListItem } from '../deepbook/predictServer';
+import type { CuratedOracleListItem, CuratedOracleMarketResponse } from './curatedOracles';
 
 const HOUR_MS = 60 * 60_000;
 
@@ -73,7 +75,7 @@ function deterministicOracleList(nowMs = fixtureNowMs()) {
       admission_tick_size: Number(DEEPBOOK_PREDICT.turboCadence.admissionTickSize) / 1_000_000_000,
       status: 'active',
       cadence: '1h' as const,
-      productLine: 'turbo' as const,
+      group: 'hourly' as const,
     };
   });
 }
@@ -113,32 +115,39 @@ export function deterministicBinanceDualInvestmentProducts(nowMs = fixtureNowMs(
   );
 }
 
-export function deterministicCuratedBtcOracleResponse(nowMs = fixtureNowMs()): CuratedOracleMarketResponse {
-  return {
-    generatedAt: nowMs,
-    dataSource: 'live',
-    oracles: deterministicOracleList(nowMs).map(
-      (oracle) =>
-        ({
-          ...oracle,
-          stateReady: true,
-          quoteReady: true,
-          productReady: true,
-          timeToExpiryMs: oracle.expiry - nowMs,
-        }) as CuratedOracleListItem,
-    ),
-  };
+/** Demo/E2E day rows: invented fixtures, allowed only here (CONTEXT: Snapshot _Avoid_ note). */
+function deterministicDayRows(nowMs: number): CuratedOracleListItem[] {
+  return dayScaleFixtureMarkets(nowMs).map((market) => ({
+    ...expiryMarketToListItem(market, 'day'),
+    stateReady: true,
+    quoteReady: true,
+    productReady: true,
+    timeToExpiryMs: market.expiryMs - nowMs,
+    source: 'snapshot' as const,
+    market: dayScaleMarketSnapshot({ nowMs, expiryMarketId: market.expiryMarketId }),
+  }));
 }
 
-/** E2E/demo fixture for multi-day Dual Investment (D4 labeled degradation). */
-export function deterministicMultiDayCuratedBtcOracleResponse(
-  nowMs = fixtureNowMs(),
-): CuratedOracleMarketResponse {
+export function deterministicCuratedBtcOracleResponse(nowMs = fixtureNowMs()): CuratedOracleMarketResponse {
+  const hourlyRows = deterministicOracleList(nowMs).map(
+    (oracle) =>
+      ({
+        ...oracle,
+        stateReady: true,
+        quoteReady: true,
+        productReady: true,
+        timeToExpiryMs: oracle.expiry - nowMs,
+        source: 'live',
+      }) as CuratedOracleListItem,
+  );
+
   return {
     generatedAt: nowMs,
-    dataSource: 'fixture',
-    reason: 'no-day-scale-markets',
-    oracles: fixtureCuratedOracles(nowMs),
+    oracles: [...deterministicDayRows(nowMs), ...hourlyRows],
+    snapshot: {
+      capturedAtMs: nowMs,
+      binanceProducts: deterministicBinanceDualInvestmentProducts(nowMs),
+    },
   };
 }
 

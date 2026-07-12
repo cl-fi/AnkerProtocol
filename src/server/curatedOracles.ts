@@ -1,5 +1,9 @@
-import { dayScaleFixtureMarkets } from '../deepbook/dayScaleFixtures';
 import { fetchAllExpiryMarketSummaries } from '../deepbook/predictAdapter';
+import {
+  fetchLegacyDayOracles,
+  legacyOracleToMarket,
+  type LegacyOracleState,
+} from '../deepbook/legacyOracles';
 import {
   expiryMarketToListItem,
   fetchActiveBtcOracles,
@@ -8,12 +12,15 @@ import {
   type PredictOracleListItem,
 } from '../deepbook/predictServer';
 import {
-  resolveProductLineDataSource,
-  type ProductLine,
-  type ProductLineDataSource,
-} from '../products/productLineMarkets';
+  filterMarketsForTenorGroup,
+  type TenorSource,
+} from '../products/tenorMarkets';
+import type { OracleMarket } from '../products/types';
+import { loadDaySnapshot, type DaySnapshotMeta } from './daySnapshot';
 
 const CURATED_ORACLE_CACHE_MS = 15_000;
+
+export type { DaySnapshotMeta } from './daySnapshot';
 
 export interface OracleReadiness {
   stateReady: boolean;
@@ -27,38 +34,28 @@ export interface CuratedOracleListItem extends PredictOracleListItem {
   productReady: boolean;
   timeToExpiryMs: number;
   reason?: string;
+  /** Row-level provenance (CONTEXT: Legacy Oracle, Snapshot). Only 'live' rows are tradable. */
+  source: TenorSource;
+  /** Embedded browse market for rows the 6-24 indexer cannot serve (legacy / snapshot). */
+  market?: OracleMarket;
 }
 
 export interface CuratedOracleMarketResponse {
   generatedAt: number;
-  dataSource: 'live' | 'fixture';
-  reason?: Extract<ProductLineDataSource, { kind: 'fixture' }>['reason'];
+  /** Day rows first (primary product), then hourly rows; expiry-sorted within each group. */
   oracles: CuratedOracleListItem[];
+  /** Present when day rows come from the committed Snapshot (photograph model). */
+  snapshot?: DaySnapshotMeta;
 }
 
-const curatedCache = new Map<
-  ProductLine,
-  {
-    at: number;
-    response: CuratedOracleMarketResponse | null;
-    inFlight: Promise<CuratedOracleMarketResponse> | null;
-  }
->();
+const cache: {
+  at: number;
+  response: CuratedOracleMarketResponse | null;
+  inFlight: Promise<CuratedOracleMarketResponse> | null;
+} = { at: 0, response: null, inFlight: null };
 
 function dedupeKey(oracle: PredictOracleListItem) {
   return `${oracle.underlying_asset}-${oracle.expiry}-${oracle.min_strike}-${oracle.tick_size}`;
-}
-
-function cacheSlot(productLine: ProductLine) {
-  const existing = curatedCache.get(productLine);
-  if (existing) return existing;
-  const created = {
-    at: 0,
-    response: null as CuratedOracleMarketResponse | null,
-    inFlight: null as Promise<CuratedOracleMarketResponse> | null,
-  };
-  curatedCache.set(productLine, created);
-  return created;
 }
 
 export function curateBtcOracles(
@@ -77,7 +74,7 @@ export function curateBtcOracles(
       const timeToExpiryMs = oracle.expiry - nowMs;
       const stateReady = Boolean(readiness?.stateReady);
       const quoteReady = Boolean(readiness?.quoteReady);
-      // Turbo 1h markets are product-ready once discovered and state-readable (ADR-0002).
+      // Live rows are product-ready once discovered and state-readable (ADR-0002).
       const productReady = stateReady;
       const item: CuratedOracleListItem = {
         ...oracle,
@@ -86,6 +83,7 @@ export function curateBtcOracles(
         productReady,
         timeToExpiryMs,
         reason: readiness?.reason,
+        source: 'live',
       };
 
       if (!item.productReady) return;
@@ -100,17 +98,30 @@ export function curateBtcOracles(
   return [...bestByKey.values()].sort((a, b) => a.expiry - b.expiry);
 }
 
-export function fixtureCuratedOracles(nowMs: number): CuratedOracleListItem[] {
-  return dayScaleFixtureMarkets(nowMs).map((market) => {
-    const item = expiryMarketToListItem(market, 'multi-day');
-    return {
-      ...item,
-      stateReady: true,
-      quoteReady: true,
-      productReady: true,
-      timeToExpiryMs: market.expiryMs - nowMs,
-    };
-  });
+/** Day tenor row backed by a Legacy Oracle or the Snapshot; browse state embedded. */
+export function legacyOracleToListItem(
+  state: LegacyOracleState,
+  input: { nowMs: number; source: Extract<TenorSource, 'legacy' | 'snapshot'> },
+): CuratedOracleListItem {
+  const market = legacyOracleToMarket(state);
+  return {
+    predict_id: market.predictId,
+    oracle_id: state.oracleId,
+    underlying_asset: 'BTC',
+    expiry: state.expiryMs,
+    min_strike: market.minStrike,
+    tick_size: market.tickSize,
+    admission_tick_size: market.tickSize,
+    status: 'active',
+    group: 'day',
+    stateReady: true,
+    quoteReady: true,
+    productReady: true,
+    // For snapshot rows the caller passes the capture clock (photograph model).
+    timeToExpiryMs: state.expiryMs - input.nowMs,
+    source: input.source,
+    market,
+  };
 }
 
 async function getOracleReadiness(input: {
@@ -143,47 +154,7 @@ async function getOracleReadiness(input: {
   }
 }
 
-async function computeTurboCuratedResponse(nowMs: number): Promise<CuratedOracleMarketResponse> {
-  const [status, candidateOracles] = await Promise.all([fetchPredictStatus(), fetchActiveBtcOracles('turbo')]);
-  const readinessEntries = await Promise.all(
-    candidateOracles.map(
-      async (oracle) =>
-        [
-          oracle.oracle_id,
-          await getOracleReadiness({
-            oracle,
-            serverLagSeconds: status.maxTimeLagSeconds,
-          }),
-        ] as const,
-    ),
-  );
-
-  return {
-    generatedAt: nowMs,
-    dataSource: 'live',
-    oracles: curateBtcOracles(candidateOracles, new Map(readinessEntries), nowMs),
-  };
-}
-
-async function computeMultiDayCuratedResponse(nowMs: number): Promise<CuratedOracleMarketResponse> {
-  const discovered = await fetchAllExpiryMarketSummaries();
-  const source = resolveProductLineDataSource({
-    line: 'multi-day',
-    discovered,
-    fixtures: dayScaleFixtureMarkets(nowMs),
-    nowMs,
-  });
-
-  if (source.kind === 'fixture') {
-    return {
-      generatedAt: nowMs,
-      dataSource: 'fixture',
-      reason: source.reason,
-      oracles: fixtureCuratedOracles(nowMs),
-    };
-  }
-
-  const candidateOracles = source.markets.map((market) => expiryMarketToListItem(market, 'multi-day'));
+async function curateWithReadiness(candidateOracles: PredictOracleListItem[], nowMs: number) {
   const status = await fetchPredictStatus();
   const readinessEntries = await Promise.all(
     candidateOracles.map(
@@ -197,49 +168,90 @@ async function computeMultiDayCuratedResponse(nowMs: number): Promise<CuratedOra
         ] as const,
     ),
   );
+  return curateBtcOracles(candidateOracles, new Map(readinessEntries), nowMs);
+}
 
+async function computeHourlyRows(nowMs: number): Promise<CuratedOracleListItem[]> {
+  const candidateOracles = await fetchActiveBtcOracles('hourly');
+  return curateWithReadiness(candidateOracles, nowMs);
+}
+
+/**
+ * Day ladder: live 6-24 day-scale Expiry Markets → Legacy Oracles (4-16,
+ * chain-direct) → committed Snapshot. Each tier self-retires the ones below it
+ * with no code change; invented fixtures never appear here.
+ */
+async function computeDayRows(nowMs: number): Promise<{
+  oracles: CuratedOracleListItem[];
+  snapshot?: DaySnapshotMeta;
+}> {
+  try {
+    const discovered = await fetchAllExpiryMarketSummaries();
+    const dayMarkets = filterMarketsForTenorGroup(discovered, 'day', { nowMs });
+    if (dayMarkets.length > 0) {
+      const curated = await curateWithReadiness(
+        dayMarkets.map((market) => expiryMarketToListItem(market, 'day')),
+        nowMs,
+      );
+      if (curated.length > 0) return { oracles: curated };
+    }
+  } catch {
+    // Live day discovery is expected to be empty/unreachable until upstream ships day cadences.
+  }
+
+  try {
+    const legacy = await fetchLegacyDayOracles(nowMs);
+    if (legacy.length > 0) {
+      return {
+        oracles: legacy.map((state) => legacyOracleToListItem(state, { nowMs, source: 'legacy' })),
+      };
+    }
+  } catch {
+    // Legacy oracles died — fall through to the committed Snapshot.
+  }
+
+  const snapshot = loadDaySnapshot();
   return {
-    generatedAt: nowMs,
-    dataSource: 'live',
-    oracles: curateBtcOracles(candidateOracles, new Map(readinessEntries), nowMs),
+    oracles: snapshot.oracles.map((state) =>
+      legacyOracleToListItem(state, { nowMs: snapshot.capturedAtMs, source: 'snapshot' }),
+    ),
+    snapshot: { capturedAtMs: snapshot.capturedAtMs, binanceProducts: snapshot.binanceProducts },
   };
 }
 
-async function computeCuratedBtcOracleResponse(
-  nowMs: number,
-  productLine: ProductLine,
-): Promise<CuratedOracleMarketResponse> {
-  if (productLine === 'multi-day') {
-    return computeMultiDayCuratedResponse(nowMs);
-  }
-  return computeTurboCuratedResponse(nowMs);
+async function computeMergedResponse(nowMs: number): Promise<CuratedOracleMarketResponse> {
+  const [day, hourly] = await Promise.all([
+    computeDayRows(nowMs),
+    // Hourly discovery failure must not blank the day group; the client refetches on its 15s cycle.
+    computeHourlyRows(nowMs).catch(() => [] as CuratedOracleListItem[]),
+  ]);
+
+  return {
+    generatedAt: nowMs,
+    oracles: [...day.oracles, ...hourly],
+    snapshot: day.snapshot,
+  };
 }
 
 export async function buildCuratedBtcOracleResponse(
   nowMs = Date.now(),
-  productLine: ProductLine = 'turbo',
 ): Promise<CuratedOracleMarketResponse> {
-  const slot = cacheSlot(productLine);
-  if (slot.response && nowMs >= slot.at && nowMs - slot.at < CURATED_ORACLE_CACHE_MS) {
-    return slot.response;
+  if (cache.response && nowMs >= cache.at && nowMs - cache.at < CURATED_ORACLE_CACHE_MS) {
+    return cache.response;
   }
 
-  if (slot.inFlight) {
-    return slot.inFlight;
+  if (cache.inFlight) {
+    return cache.inFlight;
   }
 
-  slot.inFlight = computeCuratedBtcOracleResponse(nowMs, productLine)
+  cache.inFlight = computeMergedResponse(nowMs)
     .then((response) => {
-      slot.at = nowMs;
-      slot.response = response;
+      cache.at = nowMs;
+      cache.response = response;
       return response;
     })
     .finally(() => {
-      slot.inFlight = null;
+      cache.inFlight = null;
     });
-  return slot.inFlight;
-}
-
-export function parseProductLineParam(value: string | null): ProductLine {
-  return value === 'multi-day' ? 'multi-day' : 'turbo';
+  return cache.inFlight;
 }

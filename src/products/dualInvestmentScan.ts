@@ -7,7 +7,7 @@ import { netAprAfterCouponFee } from './feePolicy';
 export const TURBO_DISPLAY_TARGET_STEP = 50;
 /** How many $50 rungs to scan before filtering by min bps (~$800 below spot). */
 export const TURBO_DISPLAY_TARGET_ROWS = 16;
-/** Legacy multi-day Dual Investment browse step. */
+/** Day-tenor browse step (classic $500 Dual Investment ladder). */
 export const DEFAULT_DISPLAY_TARGET_STEP = 500;
 /** Hide Turbo browse rows whose per-period yield is below this (1 bp = 0.01%). */
 export const TURBO_MIN_PERIOD_RETURN_BPS = 1;

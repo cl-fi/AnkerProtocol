@@ -15,7 +15,7 @@ function oracle(
     admission_tick_size: input.admission_tick_size ?? 1,
     status: input.status ?? 'active',
     cadence: '1h',
-    productLine: 'turbo',
+    group: 'hourly',
   };
 }
 

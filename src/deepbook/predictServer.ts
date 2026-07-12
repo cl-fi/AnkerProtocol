@@ -7,7 +7,7 @@ import {
   predictAdapter,
   type ExpiryMarketSummary,
 } from './predictAdapter';
-import type { ProductLine } from '../products/productLineMarkets';
+import type { TenorGroup } from '../products/tenorMarkets';
 import {
   isOracleTimestampFresh,
   parsePythSpotObservation,
@@ -31,8 +31,8 @@ export interface PredictOracleListItem {
   status: string;
   /** Predict schedule name when known (CONTEXT: Cadence — 1m / 5m / 1h). */
   cadence?: '1h' | '5m' | '1m';
-  /** Anker product line this row was curated for (D4). */
-  productLine: ProductLine;
+  /** Tenor group this row belongs to on the single Dual Investment page. */
+  group: TenorGroup;
 }
 
 
@@ -67,7 +67,7 @@ function scaledProbability(value: unknown): number | null {
 
 export function expiryMarketToListItem(
   market: ExpiryMarketSummary,
-  productLine: ProductLine = 'turbo',
+  group: TenorGroup = 'hourly',
 ): PredictOracleListItem {
   return {
     predict_id: market.poolVaultId,
@@ -78,8 +78,8 @@ export function expiryMarketToListItem(
     tick_size: market.tickSize,
     admission_tick_size: market.admissionTickSize,
     status: 'active',
-    cadence: productLine === 'turbo' ? '1h' : undefined,
-    productLine,
+    cadence: group === 'hourly' ? '1h' : undefined,
+    group,
   };
 }
 
@@ -140,15 +140,15 @@ export async function fetchPredictStatus(): Promise<PredictStatus> {
 }
 
 export async function fetchActiveBtcOracles(
-  productLine: ProductLine = 'turbo',
+  group: TenorGroup = 'hourly',
 ): Promise<PredictOracleListItem[]> {
-  const adapter = productLine === 'turbo' ? predictAdapter : createPredictAdapter({ productLine });
+  const adapter = group === 'hourly' ? predictAdapter : createPredictAdapter({ group });
   const markets = await adapter.discoverMarkets();
-  return markets.map((market) => expiryMarketToListItem(market, productLine));
+  return markets.map((market) => expiryMarketToListItem(market, group));
 }
 
-export function selectNearestTradableOracle(
-  oracles: PredictOracleListItem[],
+export function selectNearestTradableOracle<T extends Pick<PredictOracleListItem, 'expiry'>>(
+  oracles: T[],
   nowMs = Date.now(),
   minTimeToExpiryMs = MIN_TRADABLE_TIME_MS,
 ) {

@@ -13,7 +13,6 @@ import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
-import { AccountFundingCard } from './AccountFundingCard';
 import { formatAmount, formatPreciseAmount, shortId } from './DashboardFormat';
 import { ProductNoteCard } from './DashboardProductNoteCard';
 import { Badge, Button, Card } from '../ui';
@@ -125,11 +124,7 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
         <section className="calculation-section">
           <Card variant="empty">{copy.dashboard.connectWallet}</Card>
         </section>
-      ) : (
-        <section className="calculation-section">
-          <AccountFundingCard locale={locale} />
-        </section>
-      )}
+      ) : null}
 
       {!account ? null : !contractConfigured ? (
         <section className="calculation-section">

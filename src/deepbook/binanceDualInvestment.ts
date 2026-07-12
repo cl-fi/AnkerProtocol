@@ -45,6 +45,11 @@ function toPositiveNumberOrNull(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+/** Parse raw Binance project-list rows (also used to load the committed day Snapshot). */
+export function parseBinanceDualInvestmentRows(rows: unknown[]): BinanceDualInvestmentProduct[] {
+  return parseProducts(rows.filter((row): row is BinanceDualInvestmentApiRow => typeof row === 'object' && row !== null));
+}
+
 function parseProducts(rows: BinanceDualInvestmentApiRow[]) {
   return rows
     .map((row): BinanceDualInvestmentProduct | null => {

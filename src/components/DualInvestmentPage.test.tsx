@@ -17,8 +17,10 @@ const mocks = vi.hoisted(() => ({
     | {
         data: {
           market: OracleMarket;
-          productOracles: Array<{ oracle_id: string; expiry: number }>;
-          staleSnapshot: boolean;
+          productOracles: Array<{ oracle_id: string; expiry: number; group: string; source: string }>;
+          selectedOracleId?: string;
+          selectedSource: 'live' | 'legacy' | 'snapshot';
+          snapshot?: { capturedAtMs: number; binanceProducts: BinanceDualInvestmentProduct[] };
         };
       }
     | undefined,
@@ -42,6 +44,7 @@ vi.mock('lucide-react', () => ({
   ShieldCheck: () => <span data-testid="shield-icon" />,
   Github: () => <span data-testid="github-icon" />,
   Send: () => <span data-testid="send-icon" />,
+  Camera: () => <span data-testid="camera-icon" />,
 }));
 
 vi.mock('../hooks/useMarketData', () => ({
@@ -446,8 +449,9 @@ describe('DualInvestmentPage', () => {
     mocks.marketData = {
       data: {
         market,
-        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs }],
-        staleSnapshot: false,
+        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs, group: 'hourly', source: 'live' }],
+        selectedOracleId: market.oracleId,
+        selectedSource: 'live',
       },
     };
     mocks.buildVerifiedDualInvestmentQuote.mockReset();
@@ -515,5 +519,52 @@ describe('DualInvestmentPage', () => {
     expect(screen.getByText('devInspect unavailable')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Return Overview' })).toBeVisible();
     expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
+  });
+
+  it('shows a disabled Awaiting-migration action for Legacy Oracle rows and never verifies', async () => {
+    const market = marketFixture();
+    mocks.marketData = {
+      data: {
+        market,
+        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs, group: 'day', source: 'legacy' }],
+        selectedOracleId: market.oracleId,
+        selectedSource: 'legacy',
+      },
+    };
+
+    render(<DualInvestmentPage />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+
+    expect(mocks.buildVerifiedDualInvestmentQuote).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Awaiting migration' })).toBeDisabled();
+    expect(screen.getByText(/retired 4-16 deployment/)).toBeVisible();
+    // Legacy data is live — no snapshot banner, hero badge stays Live.
+    expect(screen.queryByText('Market snapshot')).not.toBeInTheDocument();
+    expect(screen.getByText('Live')).toBeVisible();
+  });
+
+  it('renders snapshot rows as a frozen photograph: banner, Snapshot badge, frozen benchmark', () => {
+    const capturedAtMs = Date.UTC(2026, 6, 12, 14, 58);
+    const market = marketFixture();
+    mocks.marketData = {
+      data: {
+        market,
+        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs, group: 'day', source: 'snapshot' }],
+        selectedOracleId: market.oracleId,
+        selectedSource: 'snapshot',
+        snapshot: { capturedAtMs, binanceProducts: [] },
+      },
+    };
+
+    render(<DualInvestmentPage />);
+
+    expect(screen.getByText('Market snapshot')).toBeVisible();
+    expect(screen.getByText(/frozen photograph of real market data/)).toBeVisible();
+    expect(screen.getByText(/Snapshot · as of/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Awaiting migration' })).toBeDisabled();
+    expect(screen.getByText('Historical snapshot — browse only.')).toBeVisible();
   });
 });

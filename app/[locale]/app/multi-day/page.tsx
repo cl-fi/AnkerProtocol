@@ -1,7 +1,7 @@
-import { DualInvestmentPage } from '../../../../src/components/DualInvestmentPage';
-import { normalizeLocale } from '../../../../src/i18n';
+import { redirect } from 'next/navigation';
+import { localizedPath, normalizeLocale } from '../../../../src/i18n';
 
+/** The split multi-day page merged back into /app/dual-investment — keep old links alive. */
 export default function Page({ params }: { params: { locale: string } }) {
-  const locale = normalizeLocale(params.locale);
-  return <DualInvestmentPage locale={locale} productLine="multi-day" />;
+  redirect(localizedPath(normalizeLocale(params.locale), '/app/dual-investment'));
 }

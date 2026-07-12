@@ -205,7 +205,7 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
     expect(mocks.signAndExecuteTransaction).not.toHaveBeenCalled();
   });
 
-  it('opens a Predict account as a separate wallet transaction when none is available', async () => {
+  it('runs the one-time setup as a separate wallet transaction when none is available', async () => {
     mocks.managersData = [];
     const productInput = productInputFixture();
     const quote = quoteFixture(productInput);
@@ -224,7 +224,7 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
 
     render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Predict account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set up now' }));
 
     await waitFor(() => expect(mocks.signAndExecuteTransaction).toHaveBeenCalledTimes(1));
     expect(mocks.waitForTransaction).toHaveBeenCalledWith({ digest: '0xmanager' });

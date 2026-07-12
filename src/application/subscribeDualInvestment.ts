@@ -123,7 +123,7 @@ export function buildSubscribeDualInvestmentApplicationPlan(input: {
   const config = input.config ?? DEFAULT_ANKER_CONFIG;
   const manager = selectUnallocatedPredictManager(input.managers, input.notes, input.accountAddress);
   if (!manager) {
-    throw new Error('Open your Predict account before subscribing.');
+    throw new Error('Finish the one-time setup before subscribing.');
   }
 
   const quoteEnvelope = input.quoteEnvelope ?? createSubscribeQuoteEnvelope(input.quote, config);

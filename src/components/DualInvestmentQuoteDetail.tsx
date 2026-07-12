@@ -8,7 +8,7 @@ import { netAprAfterCouponFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
-import { Badge, Card } from '../ui';
+import { Badge, Button, Card } from '../ui';
 
 function oldestQuoteTimestamp(quote: StructuredProductQuote) {
   return quote.legs.reduce(
@@ -204,6 +204,7 @@ export function DualInvestmentConfirm({
   error,
   demoMode = false,
   subscribeDisabledMessage,
+  disabledAction,
   locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
@@ -213,6 +214,8 @@ export function DualInvestmentConfirm({
   error?: string | null;
   demoMode?: boolean;
   subscribeDisabledMessage?: string;
+  /** Non-tradable rows (Legacy Oracle / Snapshot): disabled button whose label is the state. */
+  disabledAction?: { label: string; note: string };
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
@@ -258,6 +261,13 @@ export function DualInvestmentConfirm({
 
       {subscribeQuote && !demoMode ? (
         <TargetBuyExecutionPanel quote={subscribeQuote} productInput={productInput} locale={locale} />
+      ) : disabledAction ? (
+        <div className="di-confirm-pending di-confirm-awaiting" aria-live="polite">
+          <Button variant="primary" disabled>
+            {disabledAction.label}
+          </Button>
+          <p className="di-confirm-awaiting-note">{disabledAction.note}</p>
+        </div>
       ) : (
         <div
           className={

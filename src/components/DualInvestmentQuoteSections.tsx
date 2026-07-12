@@ -23,7 +23,7 @@ export const DEFAULT_PRINCIPAL = 5;
 export type DualInvestmentMode = 'buy-low';
 export type BinanceBenchmarkStatus = 'loading' | 'error' | 'ready';
 
-const EXPECTED_TURBO_TENORS = 3;
+const EXPECTED_HOURLY_TENORS = 3;
 
 function formatEdge(value: number, locale: Locale) {
   const sign = value > 0 ? '+' : '';
@@ -42,9 +42,14 @@ function formatBelowSpot(targetPrice: number, spot: number, locale: Locale) {
   });
 }
 
-function formatExpiryOption(oracle: CuratedOracleListItem, locale: Locale) {
+function formatExpiryOption(oracle: CuratedOracleListItem, locale: Locale, snapshotCapturedAtMs?: number) {
   const format = formattersForLocale(locale);
-  return `${format.timeToExpiry(oracle.expiry)} · ${format.time(oracle.expiry)}`;
+  // Snapshot rows freeze their countdown at the capture instant (photograph model).
+  const timeToExpiry =
+    oracle.source === 'snapshot' && snapshotCapturedAtMs
+      ? format.timeToExpiry(oracle.expiry, snapshotCapturedAtMs)
+      : format.timeToExpiry(oracle.expiry);
+  return `${timeToExpiry} · ${format.time(oracle.expiry)}`;
 }
 
 export function DirectionPairBar({
@@ -52,16 +57,28 @@ export function DirectionPairBar({
   market,
   productOracles,
   onSelectOracle,
+  snapshotCapturedAtMs,
   locale = DEFAULT_LOCALE,
 }: {
   mode: DualInvestmentMode;
   market?: OracleMarket;
   productOracles: CuratedOracleListItem[];
   onSelectOracle: (oracleId: string) => void;
+  snapshotCapturedAtMs?: number;
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
-  const showSparseTenorsHint = productOracles.length > 0 && productOracles.length < EXPECTED_TURBO_TENORS;
+  const dayRows = productOracles.filter((oracle) => oracle.group === 'day');
+  const hourlyRows = productOracles.filter((oracle) => oracle.group !== 'day');
+  const dayGroupLabel =
+    dayRows[0]?.source === 'live' ? copy.migration.dayGroupLive : copy.migration.dayGroupAwaiting;
+  const showSparseTenorsHint = hourlyRows.length > 0 && hourlyRows.length < EXPECTED_HOURLY_TENORS;
+
+  const renderOption = (oracle: CuratedOracleListItem) => (
+    <option value={oracle.oracle_id} key={oracle.oracle_id}>
+      {formatExpiryOption(oracle, locale, snapshotCapturedAtMs)}
+    </option>
+  );
   return (
     <section className="di-selection" aria-label={copy.dualInvestment.chooseMarketLabel}>
       <div className="di-select-group">
@@ -103,11 +120,10 @@ export function DirectionPairBar({
             value={market?.oracleId ?? ''}
             onChange={(event) => onSelectOracle(event.currentTarget.value)}
           >
-            {productOracles.map((oracle) => (
-              <option value={oracle.oracle_id} key={oracle.oracle_id}>
-                {formatExpiryOption(oracle, locale)}
-              </option>
-            ))}
+            {dayRows.length > 0 ? <optgroup label={dayGroupLabel}>{dayRows.map(renderOption)}</optgroup> : null}
+            {hourlyRows.length > 0 ? (
+              <optgroup label={copy.migration.hourlyGroup}>{hourlyRows.map(renderOption)}</optgroup>
+            ) : null}
           </select>
         </label>
         {showSparseTenorsHint ? <p className="di-tenor-hint">{copy.dualInvestment.sparseTenorsHint}</p> : null}
@@ -328,7 +344,7 @@ export function ReferenceTable({
           </tbody>
         </table>
         <p className="di-reference-footnote">
-          {subDay ? copy.dualInvestment.turboReferenceFootnote : copy.dualInvestment.referenceFootnote}
+          {subDay ? copy.dualInvestment.hourlyReferenceFootnote : copy.dualInvestment.referenceFootnote}
         </p>
       </div>
     </section>

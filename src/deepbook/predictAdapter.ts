@@ -1,7 +1,7 @@
 import { DEEPBOOK_PREDICT, PREDICT_SERVER_URL } from '../config/deepbook';
 import type { Transaction } from '@mysten/sui/transactions';
 import type { PredictCadenceConfig } from '../config/predictDeployment';
-import { filterMarketsForProductLine, type ProductLine } from '../products/productLineMarkets';
+import { filterMarketsForTenorGroup, type TenorGroup } from '../products/tenorMarkets';
 import { fromChainPrice } from '../products/units';
 
 const FLOAT_SCALE = 1_000_000_000;
@@ -162,18 +162,18 @@ async function fetchPredictJson<T>(path: string): Promise<T> {
 
 export function createPredictAdapter(input?: {
   fetchMarkets?: () => Promise<unknown>;
-  /** @deprecated Prefer productLine — kept for Turbo cadence overrides in tests. */
+  /** @deprecated Prefer group — kept for hourly cadence overrides in tests. */
   cadence?: Pick<PredictCadenceConfig, 'maxExpiryAllocation' | 'initialExpiryCash'>;
-  productLine?: ProductLine;
+  group?: TenorGroup;
 }): PredictAdapter {
-  const productLine = input?.productLine ?? 'turbo';
+  const group = input?.group ?? 'hourly';
   const fetchMarkets =
     input?.fetchMarkets ?? (() => fetchPredictJson<unknown>(`/markets?limit=${MARKETS_PAGE_LIMIT}`));
 
   return {
     async discoverMarkets({ nowMs = Date.now() } = {}) {
       const rows = parseExpiryMarketRows(await fetchMarkets());
-      return filterMarketsForProductLine(rows, productLine, {
+      return filterMarketsForTenorGroup(rows, group, {
         nowMs,
         turboCadence: input?.cadence ?? DEEPBOOK_PREDICT.turboCadence,
       });
@@ -212,7 +212,7 @@ export function createPredictAdapter(input?: {
   };
 }
 
-/** Unfiltered `/markets` parse — callers apply product-line filters (D4). */
+/** Unfiltered `/markets` parse — callers apply tenor-group filters. */
 export async function fetchAllExpiryMarketSummaries(
   fetchMarkets: () => Promise<unknown> = () =>
     fetchPredictJson<unknown>(`/markets?limit=${MARKETS_PAGE_LIMIT}`),

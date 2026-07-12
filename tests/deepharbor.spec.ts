@@ -8,7 +8,15 @@ async function expectDualInvestmentWorkspace(page: Page) {
   await expect(market).toBeVisible();
   await expect(market.getByRole('link', { name: 'Buy Low' })).toBeVisible();
   await expect(market.getByRole('button', { name: 'Sell High' })).toHaveAttribute('aria-disabled', 'true');
-  await expect(market.getByLabel('Settlement date')).toBeVisible();
+
+  // Merged page: one tenor dropdown, day group first (primary product), hourly group tradable.
+  const tenor = market.getByLabel('Tenor');
+  await expect(tenor).toBeVisible();
+  await expect(tenor.locator('optgroup').first()).toHaveAttribute(
+    'label',
+    'Days — primary product · awaiting migration',
+  );
+  await expect(tenor.locator('optgroup').nth(1)).toHaveAttribute('label', 'Hours — tradable now');
 
   const reference = page.getByRole('region', { name: 'APR reference' });
   await expect(reference.getByRole('heading', { name: 'Price & APR reference' })).toBeVisible();
@@ -80,7 +88,7 @@ test('renders the wallet dashboard entry point when disconnected', async ({ page
 
   await expect(page.locator('main#wallet-dashboard')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-  await expect(page.getByText('Connect your wallet to see your positions.')).toBeVisible();
+  await expect(page.getByText('Connect your wallet to see your Notes.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Refresh' })).toBeDisabled();
 });
 
@@ -91,5 +99,11 @@ test('normalizes legacy and disabled Sell High routes to the Buy Low workspace',
 
   await page.goto('/dual-investment?mode=target-sale');
   await expect(page).toHaveURL(/\/app\/dual-investment$/);
+  await expectDualInvestmentWorkspace(page);
+});
+
+test('redirects the retired multi-day route to the merged Dual Investment page', async ({ page }) => {
+  await page.goto('/en/app/multi-day');
+  await expect(page).toHaveURL(/\/en\/app\/dual-investment$/);
   await expectDualInvestmentWorkspace(page);
 });

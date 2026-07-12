@@ -1,69 +1,81 @@
 import { useQuery } from '@tanstack/react-query';
-import { dayScaleMarketSnapshot } from '../deepbook/dayScaleFixtures';
 import {
   fetchOracleMarket,
   fetchPredictPricingState,
   fetchPredictStatus,
   selectNearestTradableOracle,
 } from '../deepbook/predictServer';
-import type { ProductLine } from '../products/productLineMarkets';
+import type { TenorSource } from '../products/tenorMarkets';
 import type { OracleMarket } from '../products/types';
-import type { CuratedOracleListItem, CuratedOracleMarketResponse } from '../server/curatedOracles';
+import type {
+  CuratedOracleListItem,
+  CuratedOracleMarketResponse,
+  DaySnapshotMeta,
+} from '../server/curatedOracles';
 
-async function fetchCuratedBtcOracles(productLine: ProductLine): Promise<CuratedOracleMarketResponse> {
-  const params = productLine === 'multi-day' ? '?productLine=multi-day' : '';
-  const response = await fetch(`/api/markets/btc-oracles${params}`);
+async function fetchCuratedBtcOracles(): Promise<CuratedOracleMarketResponse> {
+  const response = await fetch('/api/markets/btc-oracles');
   if (!response.ok) {
     throw new Error(`Curated oracle request failed: ${response.status} ${response.statusText}`);
   }
   return response.json() as Promise<CuratedOracleMarketResponse>;
 }
 
-export function useMarketData(selectedOracleId?: string, productLine: ProductLine = 'turbo') {
-  return useQuery({
-    queryKey: ['deepbook-market', productLine, selectedOracleId],
-    queryFn: async (): Promise<{
-      market: OracleMarket | undefined;
-      productOracles: CuratedOracleListItem[];
-      selectedOracleId: string | undefined;
-      staleSnapshot: boolean;
-      dataSource: 'live' | 'fixture';
-      reason?: CuratedOracleMarketResponse['reason'];
-    }> => {
-      const [status, curated, predictPricing] = await Promise.all([
-        fetchPredictStatus(),
-        fetchCuratedBtcOracles(productLine),
-        fetchPredictPricingState().catch(() => undefined),
-      ]);
-      const productOracles = curated.oracles;
-      const dataSource = curated.dataSource ?? 'live';
-      const selected =
-        productOracles.find((oracle: CuratedOracleListItem) => oracle.oracle_id === selectedOracleId) ??
-        selectNearestTradableOracle(productOracles, Date.now(), 0);
+/** Landing default: nearest day row (primary product), else nearest tradable hourly row. */
+export function defaultOracleSelection(
+  oracles: CuratedOracleListItem[],
+  nowMs = Date.now(),
+): CuratedOracleListItem | undefined {
+  const dayRows = oracles.filter((oracle) => oracle.group === 'day');
+  if (dayRows.length > 0) return dayRows[0];
+  return selectNearestTradableOracle(oracles, nowMs, 0);
+}
 
-      // Turbo is a live product: never invent browse quotes from a hardcoded snapshot.
+export interface MarketDataResult {
+  market: OracleMarket | undefined;
+  productOracles: CuratedOracleListItem[];
+  selectedOracleId: string | undefined;
+  /** Provenance of the selected row — drives badges and the subscribe state. */
+  selectedSource: TenorSource | undefined;
+  /** Present when day rows come from the committed Snapshot (photograph model). */
+  snapshot?: DaySnapshotMeta;
+}
+
+export function useMarketData(selectedOracleId?: string) {
+  return useQuery({
+    queryKey: ['deepbook-market', selectedOracleId],
+    queryFn: async (): Promise<MarketDataResult> => {
+      const curated = await fetchCuratedBtcOracles();
+      const productOracles = curated.oracles;
+      const selected =
+        productOracles.find((oracle) => oracle.oracle_id === selectedOracleId) ??
+        defaultOracleSelection(productOracles);
+
       if (!selected) {
         return {
           market: undefined,
           productOracles: [],
           selectedOracleId: undefined,
-          staleSnapshot: true,
-          dataSource,
-          reason: curated.reason,
+          selectedSource: undefined,
+          snapshot: curated.snapshot,
         };
       }
 
-      if (dataSource === 'fixture' && productLine === 'multi-day') {
+      // Legacy / snapshot rows embed their browse market — the 6-24 indexer can't serve them.
+      if (selected.market) {
         return {
-          market: dayScaleMarketSnapshot({ expiryMarketId: selected.oracle_id }),
+          market: selected.market,
           productOracles,
           selectedOracleId: selected.oracle_id,
-          staleSnapshot: true,
-          dataSource: 'fixture' as const,
-          reason: curated.reason ?? 'no-day-scale-markets',
+          selectedSource: selected.source,
+          snapshot: curated.snapshot,
         };
       }
 
+      const [status, predictPricing] = await Promise.all([
+        fetchPredictStatus(),
+        fetchPredictPricingState().catch(() => undefined),
+      ]);
       const market = await fetchOracleMarket(selected.oracle_id, {
         serverLagSeconds: status.maxTimeLagSeconds,
       });
@@ -71,9 +83,8 @@ export function useMarketData(selectedOracleId?: string, productLine: ProductLin
         market: predictPricing ? { ...market, predictPricing } : market,
         productOracles,
         selectedOracleId: selected.oracle_id,
-        staleSnapshot: false,
-        dataSource: 'live' as const,
-        reason: undefined,
+        selectedSource: selected.source,
+        snapshot: curated.snapshot,
       };
     },
     refetchInterval: 15_000,

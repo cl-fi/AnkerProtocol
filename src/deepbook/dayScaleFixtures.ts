@@ -1,12 +1,12 @@
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import type { ExpiryMarketSummary } from './predictAdapter';
 import type { OracleMarket } from '../products/types';
-import { DAY_MS } from '../products/productLineMarkets';
+import { DAY_MS } from '../products/tenorMarkets';
 
 const DAY_SCALE_ALLOC = '999000000000';
 const DAY_SCALE_CASH = '999000000000';
 
-/** Stable fixture ids so the multi-day Dual Investment page can resolve without upstream. */
+/** Stable fixture ids for Demo Mode / E2E day rows — never a production data source. */
 export const DAY_SCALE_FIXTURE_IDS = {
   d1: '0xday000000000000000000000000000000000000000000000000000000000001',
   d3: '0xday000000000000000000000000000000000000000000000000000000000003',

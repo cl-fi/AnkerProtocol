@@ -42,7 +42,7 @@ function clampIndicativeAskPrice(market: OracleMarket, value: number) {
   return Math.min(maxAskPrice, Math.max(minAskPrice, value));
 }
 
-function buildIndicativeLegQuote(market: OracleMarket, leg: LegIntent): LegQuote {
+function buildIndicativeLegQuote(market: OracleMarket, leg: LegIntent, nowMs?: number): LegQuote {
   const sviAskPrice =
     leg.instrumentType === 'binary-up' && leg.strike !== undefined
       ? estimateBinaryUpAskPrice({ market, strike: leg.strike })
@@ -54,27 +54,31 @@ function buildIndicativeLegQuote(market: OracleMarket, leg: LegIntent): LegQuote
     askPrice,
     askCost,
     redeemPreview: askCost,
-    quoteTimestampMs: Date.now(),
+    quoteTimestampMs: nowMs ?? Date.now(),
     executable: Boolean(market.svi) && sviAskPrice !== null,
   };
 }
 
+/** `nowMs` freezes the quote clock — pass the capture instant for Snapshot rows (photograph model). */
 export function buildIndicativeDualInvestmentQuote(input: {
   market: OracleMarket;
   productInput: DualInvestmentInput;
+  nowMs?: number;
 }) {
-  const intents = buildDualInvestmentLegIntents(input.productInput, input.market);
-  const quotedLegs = intents.map((intent) => buildIndicativeLegQuote(input.market, intent));
+  const intents = buildDualInvestmentLegIntents(input.productInput, input.market, { nowMs: input.nowMs });
+  const quotedLegs = intents.map((intent) => buildIndicativeLegQuote(input.market, intent, input.nowMs));
   return compileDualInvestment({
     input: input.productInput,
     oracle: input.market,
     quotedLegs,
+    nowMs: input.nowMs,
   });
 }
 
 export async function buildDualInvestmentScan(input: {
   market: OracleMarket;
   principal: number;
+  nowMs?: number;
 }): Promise<DualInvestmentScanRow[]> {
   const scanInputs = buildDualInvestmentScanInputs({
     market: input.market,
@@ -85,7 +89,7 @@ export async function buildDualInvestmentScan(input: {
     try {
       return {
         input: productInput,
-        intents: buildDualInvestmentLegIntents(productInput, input.market),
+        intents: buildDualInvestmentLegIntents(productInput, input.market, { nowMs: input.nowMs }),
       };
     } catch (error) {
       return {
@@ -106,11 +110,12 @@ export async function buildDualInvestmentScan(input: {
     }
 
     try {
-      const quotedLegs = row.intents.map((intent) => buildIndicativeLegQuote(input.market, intent));
+      const quotedLegs = row.intents.map((intent) => buildIndicativeLegQuote(input.market, intent, input.nowMs));
       const quote = compileDualInvestment({
         input: row.input,
         oracle: input.market,
         quotedLegs,
+        nowMs: input.nowMs,
       });
       return {
         input: row.input,
@@ -125,10 +130,16 @@ export async function buildDualInvestmentScan(input: {
     }
   });
 
-  return filterMeaningfulScanRows(rows);
+  return filterMeaningfulScanRows(rows, { nowMs: input.nowMs });
 }
 
-export function useDualInvestmentScan(input: { market?: OracleMarket; principal: number; enabled?: boolean }) {
+export function useDualInvestmentScan(input: {
+  market?: OracleMarket;
+  principal: number;
+  enabled?: boolean;
+  /** Frozen clock for Snapshot rows (photograph model). */
+  nowMs?: number;
+}) {
   return useQuery({
     queryKey: [
       'dual-investment-scan',
@@ -141,9 +152,15 @@ export function useDualInvestmentScan(input: { market?: OracleMarket; principal:
       input.market?.predictPricing?.minSpread,
       input.market?.predictPricing?.ewmaPenaltyRate,
       input.principal,
+      input.nowMs,
     ],
     enabled: Boolean(input.market) && (input.enabled ?? true),
-    queryFn: () => buildDualInvestmentScan({ market: input.market as OracleMarket, principal: input.principal }),
+    queryFn: () =>
+      buildDualInvestmentScan({
+        market: input.market as OracleMarket,
+        principal: input.principal,
+        nowMs: input.nowMs,
+      }),
     retry: 0,
     placeholderData: (previous) => previous,
   });

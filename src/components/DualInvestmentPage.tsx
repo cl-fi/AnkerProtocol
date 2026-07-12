@@ -11,15 +11,12 @@ import { useMarketData } from '../hooks/useMarketData';
 import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
-import {
-  isProductLineTradingEnabled,
-  type ProductLine,
-} from '../products/productLineMarkets';
+import { isTenorTradingEnabled } from '../products/tenorMarkets';
 import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
-import { DegradationBanner } from './DegradationBanner';
+import { SnapshotBanner } from './SnapshotBanner';
 import {
   BuyLowControls,
   DEFAULT_PRINCIPAL,
@@ -37,32 +34,46 @@ const DEFAULT_LEG_COUNT = 6;
 export function DualInvestmentPage({
   initialMode = 'buy-low',
   locale = DEFAULT_LOCALE,
-  productLine = 'turbo',
 }: {
   initialMode?: DualInvestmentMode;
   locale?: Locale;
-  productLine?: ProductLine;
 }) {
   const mode = initialMode;
   const copy = copyForLocale(locale);
   const format = formattersForLocale(locale);
   const [selectedOracleId, setSelectedOracleId] = useState<string | undefined>();
-  const marketQuery = useMarketData(selectedOracleId, productLine);
+  const marketQuery = useMarketData(selectedOracleId);
   const market = marketQuery.data?.market;
   const productOracles = marketQuery.data?.productOracles ?? [];
-  const dataSourceKind = marketQuery.data?.dataSource ?? 'live';
-  const fixtureDegraded = dataSourceKind === 'fixture';
-  const staleSnapshot = marketQuery.data?.staleSnapshot ?? false;
-  const tradingEnabled = isProductLineTradingEnabled({
-    dataSourceKind,
+  const selectedSource = marketQuery.data?.selectedSource;
+  const snapshot = marketQuery.data?.snapshot;
+  const isSnapshotRow = selectedSource === 'snapshot';
+  const isLegacyRow = selectedSource === 'legacy';
+  // Photograph model: snapshot rows freeze every clock at the capture instant.
+  const frozenNowMs = isSnapshotRow ? snapshot?.capturedAtMs : undefined;
+  const capturedAtLabel = snapshot ? format.time(snapshot.capturedAtMs) : '';
+  const tradingEnabled = isTenorTradingEnabled({
+    source: selectedSource,
     demoMode: isDemoMode(),
   });
-  // Only browse-quote when we have a real (or explicitly labeled fixture) market.
-  const scanEnabled = Boolean(market) && (fixtureDegraded || !staleSnapshot);
-  const scanQuery = useDualInvestmentScan({ market, principal: DEFAULT_PRINCIPAL, enabled: scanEnabled });
-  const binanceQuery = useBinanceDualInvestment({ market, enabled: scanEnabled });
-  const binanceStatus =
-    binanceQuery.isPending && !binanceQuery.data ? 'loading' : binanceQuery.isError ? 'error' : 'ready';
+  const scanEnabled = Boolean(market);
+  const scanQuery = useDualInvestmentScan({
+    market,
+    principal: DEFAULT_PRINCIPAL,
+    enabled: scanEnabled,
+    nowMs: frozenNowMs,
+  });
+  // Photograph model: snapshot rows compare against the Binance benchmark captured
+  // at the same instant — never a live benchmark stitched onto frozen prices.
+  const liveBinanceQuery = useBinanceDualInvestment({ market, enabled: scanEnabled && !isSnapshotRow });
+  const binanceProducts = isSnapshotRow ? (snapshot?.binanceProducts ?? []) : (liveBinanceQuery.data ?? []);
+  const binanceStatus = isSnapshotRow
+    ? 'ready'
+    : liveBinanceQuery.isPending && !liveBinanceQuery.data
+      ? 'loading'
+      : liveBinanceQuery.isError
+        ? 'error'
+        : 'ready';
 
   const [principal, setPrincipal] = useState(DEFAULT_PRINCIPAL);
   const [targetPrice, setTargetPrice] = useState(0);
@@ -75,15 +86,9 @@ export function DualInvestmentPage({
   const verifyIdRef = useRef(0);
   const seededOracleRef = useRef<string | undefined>();
 
-  const pageTitle = productLine === 'multi-day' ? copy.dualInvestment.multiDayTitle : copy.dualInvestment.title;
-  const pageSubtitle =
-    productLine === 'multi-day' ? copy.dualInvestment.multiDaySubtitle : copy.dualInvestment.subtitle;
-  const activeProduct = productLine === 'multi-day' ? 'multi-day' : 'dual-investment';
-  const sourceLabel = fixtureDegraded
-    ? copy.degradation.sourceFixture
-    : staleSnapshot
-      ? copy.common.snapshot
-      : copy.common.live;
+  const sourceLabel = isSnapshotRow
+    ? `${copy.common.snapshot} · ${copy.migration.snapshotAsOf(capturedAtLabel)}`
+    : copy.common.live;
 
   // Seed the default Buy Low target once per oracle (nearest grid step below spot).
   const defaultTarget = useMemo(() => {
@@ -109,11 +114,11 @@ export function DualInvestmentPage({
   const estimateQuote = useMemo<StructuredProductQuote | null>(() => {
     if (!market || !effectiveInput) return null;
     try {
-      return buildIndicativeDualInvestmentQuote({ market, productInput: effectiveInput });
+      return buildIndicativeDualInvestmentQuote({ market, productInput: effectiveInput, nowMs: frozenNowMs });
     } catch {
       return null;
     }
-  }, [market, effectiveInput]);
+  }, [market, effectiveInput, frozenNowMs]);
 
   const currentKey = useMemo(() => {
     if (!market || !effectiveInput) return null;
@@ -147,7 +152,7 @@ export function DualInvestmentPage({
   }, []);
 
   // Debounced verification whenever the inputs settle on a new combination.
-  // Demo mode and D4 fixture degradation stay on the local SVI estimate.
+  // Demo mode and non-tradable rows (Legacy Oracle / Snapshot) stay on the local SVI estimate.
   useEffect(() => {
     if (!tradingEnabled) return undefined;
     if (!market || !effectiveInput || !currentKey || verifiedKey === currentKey) return undefined;
@@ -177,24 +182,31 @@ export function DualInvestmentPage({
       ? estimateQuote.coupon / estimateQuote.principal
       : null;
 
+  // Awaiting-migration rows: the disabled button is the state (Q8) — copy explains why.
+  const disabledAction = isLegacyRow
+    ? { label: copy.migration.awaitingMigration, note: copy.migration.legacySubscribeNote }
+    : isSnapshotRow
+      ? { label: copy.migration.awaitingMigration, note: copy.migration.snapshotSubscribeNote }
+      : undefined;
+
   const handleSelectPreset = useCallback((input: DualInvestmentInput) => {
     setTargetPrice(input.targetPrice);
   }, []);
 
   return (
     <main className="dual-page" id="dual-investment">
-      <AppHeader activeProduct={activeProduct} locale={locale} />
-      <DegradationBanner locale={locale} visible={fixtureDegraded} />
+      <AppHeader activeProduct="dual-investment" locale={locale} />
+      <SnapshotBanner locale={locale} visible={isSnapshotRow} capturedAtLabel={capturedAtLabel} />
 
       <section className="dual-hero calculation-hero">
         <div>
-          <h1>{pageTitle}</h1>
-          <p>{pageSubtitle}</p>
+          <h1>{copy.dualInvestment.title}</h1>
+          <p>{copy.dualInvestment.subtitle}</p>
         </div>
         <div className="di-hero-ticker">
           <span className="di-hero-label">
             {copy.dualInvestment.btcPrice}
-            <span className={fixtureDegraded || staleSnapshot ? 'di-live-flag is-stale' : 'di-live-flag'}>
+            <span className={isSnapshotRow ? 'di-live-flag is-stale' : 'di-live-flag'}>
               <span className="di-live-dot" aria-hidden="true" />
               {sourceLabel}
             </span>
@@ -208,6 +220,7 @@ export function DualInvestmentPage({
         market={market}
         productOracles={productOracles}
         onSelectOracle={setSelectedOracleId}
+        snapshotCapturedAtMs={snapshot?.capturedAtMs}
         locale={locale}
       />
 
@@ -232,7 +245,7 @@ export function DualInvestmentPage({
           <ReferenceTable
             market={market}
             rows={scanQuery.data ?? []}
-            binanceProducts={binanceQuery.data ?? []}
+            binanceProducts={binanceProducts}
             binanceStatus={binanceStatus}
             activeTargetPrice={targetPrice}
             isFetching={scanQuery.isFetching}
@@ -263,9 +276,8 @@ export function DualInvestmentPage({
           isVerifying={isVerifying}
           error={verifyError}
           demoMode={!tradingEnabled}
-          subscribeDisabledMessage={
-            fixtureDegraded ? copy.degradation.subscribeDisabled : copy.demo.subscribeDisabled
-          }
+          subscribeDisabledMessage={copy.demo.subscribeDisabled}
+          disabledAction={disabledAction}
           locale={locale}
         />
       ) : null}
@@ -277,12 +289,6 @@ export function DualInvestmentPage({
           onLegCountChange={setLegCount}
           locale={locale}
         />
-      ) : null}
-
-      {!tradingEnabled && fixtureDegraded ? (
-        <p className="degradation-subscribe-note" role="status">
-          {copy.degradation.subscribeDisabled}
-        </p>
       ) : null}
 
       <AppFooter locale={locale} />
