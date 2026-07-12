@@ -45,6 +45,27 @@ describe('Anker portfolio parser', () => {
     expect(productNoteType(PACKAGE_ID)).toBe(`${PACKAGE_ID}::product_note::ProductNote`);
   });
 
+  it('rejects objects typed under a non-original package id (upgrades never re-type notes)', () => {
+    const upgradedPackageId = `0x${'f'.repeat(64)}`;
+    const notes = parseOwnedProductNotes(
+      [
+        {
+          objectId: NOTE_ID,
+          type: productNoteType(PACKAGE_ID),
+          json: dualNoteFields(),
+        },
+        {
+          objectId: `0x${'8'.repeat(64)}`,
+          type: productNoteType(upgradedPackageId),
+          json: dualNoteFields(),
+        },
+      ],
+      { originalPackageId: PACKAGE_ID, quoteAssetDecimals: 6 },
+    );
+
+    expect(notes.map((note) => note.noteId)).toEqual([NOTE_ID]);
+  });
+
   it('parses owned Dual Investment notes from Sui v2 JSON content', () => {
     const notes = parseOwnedProductNotes(
       [
@@ -59,7 +80,7 @@ describe('Anker portfolio parser', () => {
           json: dualNoteFields(),
         },
       ],
-      { packageId: PACKAGE_ID, quoteAssetDecimals: 6 },
+      { originalPackageId: PACKAGE_ID, quoteAssetDecimals: 6 },
     );
 
     expect(notes).toHaveLength(1);
@@ -110,7 +131,7 @@ describe('Anker portfolio parser', () => {
           json: fields,
         },
       ],
-      { packageId: PACKAGE_ID, quoteAssetDecimals: 6 },
+      { originalPackageId: PACKAGE_ID, quoteAssetDecimals: 6 },
     );
 
     expect(notes[0]?.productId).toBe('target-buy-5');
@@ -128,7 +149,7 @@ describe('Anker portfolio parser', () => {
           },
         },
       ],
-      { packageId: PACKAGE_ID, quoteAssetDecimals: 6 },
+      { originalPackageId: PACKAGE_ID, quoteAssetDecimals: 6 },
     );
 
     expect(notes[0]).toMatchObject({
@@ -166,7 +187,7 @@ describe('Anker portfolio parser', () => {
           },
         },
       ],
-      { packageId: PACKAGE_ID, quoteAssetDecimals: 6 },
+      { originalPackageId: PACKAGE_ID, quoteAssetDecimals: 6 },
     );
 
     expect(notes).toEqual([]);
@@ -185,7 +206,7 @@ describe('Anker portfolio parser', () => {
     };
 
     expect(parseOwnedProductNotes([unknownProduct, unknownStatus], {
-      packageId: PACKAGE_ID,
+      originalPackageId: PACKAGE_ID,
       quoteAssetDecimals: 6,
     })).toEqual([]);
   });
@@ -202,7 +223,7 @@ describe('Anker portfolio parser', () => {
     };
 
     expect(parseOwnedProductNotes([malformedLegs], {
-      packageId: PACKAGE_ID,
+      originalPackageId: PACKAGE_ID,
       quoteAssetDecimals: 6,
     })).toEqual([]);
   });
@@ -218,7 +239,7 @@ describe('Anker portfolio parser', () => {
     };
 
     expect(parseOwnedProductNotes([invalidPrincipal], {
-      packageId: PACKAGE_ID,
+      originalPackageId: PACKAGE_ID,
       quoteAssetDecimals: 6,
     })).toEqual([]);
   });
@@ -228,7 +249,7 @@ describe('markProductNoteClaimed', () => {
   it('updates the claimed note immediately with the submitted payout and fee', () => {
     const [note] = parseOwnedProductNotes(
       [{ objectId: NOTE_ID, type: productNoteType(PACKAGE_ID), json: dualNoteFields() }],
-      { packageId: PACKAGE_ID, quoteAssetDecimals: 6 },
+      { originalPackageId: PACKAGE_ID, quoteAssetDecimals: 6 },
     );
 
     expect(

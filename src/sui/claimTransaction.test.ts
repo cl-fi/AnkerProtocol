@@ -14,6 +14,7 @@ const ACCOUNT_PACKAGE_ID = `0x${'7'.repeat(64)}`;
 
 const config: AnkerProtocolConfig = {
   packageId: ANKER_PACKAGE_ID,
+  originalPackageId: ANKER_PACKAGE_ID,
   registryId: `0x${'2'.repeat(64)}`,
   predictPackageId: PREDICT_PACKAGE_ID,
   poolVaultId: `0x${'4'.repeat(64)}`,

@@ -10,7 +10,13 @@ export interface AnkerProtocolFeeds {
 
 export interface AnkerProtocolConfig {
   network?: string;
+  /** Latest published package id — the target for move calls; changes on every upgrade. */
   packageId: string;
+  /**
+   * Original (v1) package id — anchors on-chain type identity for structs and
+   * events across upgrades; never changes. Use for type/event filters (ADR-0003).
+   */
+  originalPackageId: string;
   registryId: string;
   predictPackageId: string;
   /** 6-24 PoolVault shared object (replaces the 4-16 Predict object id). */
@@ -28,6 +34,7 @@ export interface AnkerProtocolConfig {
 export const DEFAULT_ANKER_CONFIG: AnkerProtocolConfig = {
   network: SUI_NETWORK,
   packageId: ANKER_PROTOCOL.packageId,
+  originalPackageId: ANKER_PROTOCOL.originalPackageId,
   registryId: ANKER_PROTOCOL.registryId,
   predictPackageId: DEEPBOOK_PREDICT.packageId,
   poolVaultId: DEEPBOOK_PREDICT.poolVaultId,

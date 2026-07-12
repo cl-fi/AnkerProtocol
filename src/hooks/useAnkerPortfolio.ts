@@ -12,10 +12,10 @@ import { DEFAULT_ANKER_CONFIG, type AnkerProtocolConfig } from '../sui/ankerTran
 export function useAnkerPortfolio(config: AnkerProtocolConfig = DEFAULT_ANKER_CONFIG) {
   const account = useCurrentAccount();
   const client = useCurrentClient();
-  const packageConfigured = config.packageId !== '0x0' && config.packageId.length > 0;
+  const packageConfigured = config.originalPackageId !== '0x0' && config.originalPackageId.length > 0;
 
   return useQuery<AnkerProductNoteRecord[]>({
-    queryKey: ['anker-portfolio', account?.address, config.packageId],
+    queryKey: ['anker-portfolio', account?.address, config.originalPackageId],
     enabled: Boolean(account?.address) && packageConfigured,
     queryFn: async () => {
       const objects: unknown[] = [];
@@ -24,7 +24,7 @@ export function useAnkerPortfolio(config: AnkerProtocolConfig = DEFAULT_ANKER_CO
       do {
         const page = await client.listOwnedObjects({
           owner: account!.address,
-          type: productNoteType(config.packageId),
+          type: productNoteType(config.originalPackageId),
           include: { json: true },
           cursor,
           limit: 50,
@@ -34,7 +34,7 @@ export function useAnkerPortfolio(config: AnkerProtocolConfig = DEFAULT_ANKER_CO
       } while (cursor);
 
       return parseOwnedProductNotes(objects, {
-        packageId: config.packageId,
+        originalPackageId: config.originalPackageId,
         quoteAssetDecimals: config.quoteAssetDecimals,
       });
     },

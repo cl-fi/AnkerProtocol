@@ -24,6 +24,7 @@ const DUSDC = `${`0x${'6'.repeat(64)}`}::dusdc::DUSDC`;
 
 const config: AnkerProtocolConfig = {
   packageId: ANKER_PACKAGE_ID,
+  originalPackageId: ANKER_PACKAGE_ID,
   registryId: ANKER_REGISTRY_ID,
   predictPackageId: PREDICT_PACKAGE_ID,
   poolVaultId: PREDICT_OBJECT_ID,

@@ -158,8 +158,9 @@ function applyProductRedeemed(entry: ProductNoteEventIndexEntry, event: ProductN
   assignBigint(entry, 'feeBaseUnits', parsed.fee_amount);
 }
 
-export function productNoteEventTypes(packageId: string) {
-  return PRODUCT_NOTE_EVENT_NAMES.map((name) => `${packageId}::product_note::${name}`);
+/** Event type identity pins to the original package id, not the latest upgrade (ADR-0003). */
+export function productNoteEventTypes(originalPackageId: string) {
+  return PRODUCT_NOTE_EVENT_NAMES.map((name) => `${originalPackageId}::product_note::${name}`);
 }
 
 export function buildProductNoteEventIndex(events: readonly unknown[]): ProductNoteEventIndex {

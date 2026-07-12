@@ -44,14 +44,16 @@ export interface AnkerProductNoteRecord {
 }
 
 export interface AnkerPortfolioConfig {
-  packageId: string;
+  /** Original (v1) package id — on-chain type identity survives upgrades (ADR-0003). */
+  originalPackageId: string;
   quoteAssetDecimals: number;
 }
 
 type UnknownRecord = Record<string, unknown>;
 
-export function productNoteType(packageId: string) {
-  return `${packageId}::product_note::ProductNote`;
+/** Type identity pins to the original package id, not the latest upgrade (ADR-0003). */
+export function productNoteType(originalPackageId: string) {
+  return `${originalPackageId}::product_note::ProductNote`;
 }
 
 function scaleForDecimals(decimals: number) {
@@ -183,7 +185,7 @@ export function parseOwnedProductNotes(
   objects: unknown[],
   config: AnkerPortfolioConfig,
 ): AnkerProductNoteRecord[] {
-  const noteType = productNoteType(config.packageId);
+  const noteType = productNoteType(config.originalPackageId);
 
   return objects.flatMap((object) => {
     if (getObjectType(object) !== noteType) return [];

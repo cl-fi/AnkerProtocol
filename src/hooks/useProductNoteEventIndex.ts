@@ -38,9 +38,9 @@ export function filterProductNoteEventIndex(index: ProductNoteEventIndex, noteId
   return { byNoteId, byOwner, byWrapperId };
 }
 
-export async function fetchProductNoteEventIndex(client: ProductNoteEventClient, packageId: string) {
+export async function fetchProductNoteEventIndex(client: ProductNoteEventClient, originalPackageId: string) {
   const eventsByType = await Promise.all(
-    productNoteEventTypes(packageId).map(async (eventType) => {
+    productNoteEventTypes(originalPackageId).map(async (eventType) => {
       const events: unknown[] = [];
       let cursor: string | null = null;
 
@@ -59,16 +59,16 @@ export async function fetchProductNoteEventIndex(client: ProductNoteEventClient,
 
 export function useProductNoteEventIndex(
   noteIds: readonly string[] | undefined,
-  packageId = DEFAULT_ANKER_CONFIG.packageId,
+  originalPackageId = DEFAULT_ANKER_CONFIG.originalPackageId,
   client: ProductNoteEventClient = graphqlProductNoteEventClient,
 ) {
   const sortedNoteIds = [...(noteIds ?? [])].sort();
 
   return useQuery({
-    queryKey: ['product-note-event-index', packageId, sortedNoteIds],
+    queryKey: ['product-note-event-index', originalPackageId, sortedNoteIds],
     queryFn: async () =>
-      filterProductNoteEventIndex(await fetchProductNoteEventIndex(client, packageId), sortedNoteIds),
-    enabled: configuredPackageId(packageId) && sortedNoteIds.length > 0,
+      filterProductNoteEventIndex(await fetchProductNoteEventIndex(client, originalPackageId), sortedNoteIds),
+    enabled: configuredPackageId(originalPackageId) && sortedNoteIds.length > 0,
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
