@@ -65,13 +65,29 @@ export function buildAutoFloorDualInvestmentInput(input: {
   };
 }
 
-export function displayTargetStepForMarket(market: Pick<OracleMarket, 'admissionTickSize'>) {
-  // Turbo markets expose admissionTickSize (~$1). Use $50 for browse UX; legacy stays at $500.
-  return typeof market.admissionTickSize === 'number' ? TURBO_DISPLAY_TARGET_STEP : DEFAULT_DISPLAY_TARGET_STEP;
+function isTurboBrowseMarket(
+  market: Pick<OracleMarket, 'admissionTickSize' | 'expiryMs'>,
+  nowMs = Date.now(),
+) {
+  // Hourly Turbo markets expose admissionTickSize (~$1) and are sub-day.
+  // Day-scale Expiry Markets (6-24) also expose admissionTickSize for the
+  // on-chain admission grid, but browse UX stays on the classic $500 ladder —
+  // same as Legacy Oracles (4-16), which leave admissionTickSize unset.
+  return typeof market.admissionTickSize === 'number' && isSubDayTenor(market.expiryMs, nowMs);
 }
 
-export function displayTargetRowsForMarket(market: Pick<OracleMarket, 'admissionTickSize'>) {
-  return typeof market.admissionTickSize === 'number' ? TURBO_DISPLAY_TARGET_ROWS : 8;
+export function displayTargetStepForMarket(
+  market: Pick<OracleMarket, 'admissionTickSize' | 'expiryMs'>,
+  nowMs = Date.now(),
+) {
+  return isTurboBrowseMarket(market, nowMs) ? TURBO_DISPLAY_TARGET_STEP : DEFAULT_DISPLAY_TARGET_STEP;
+}
+
+export function displayTargetRowsForMarket(
+  market: Pick<OracleMarket, 'admissionTickSize' | 'expiryMs'>,
+  nowMs = Date.now(),
+) {
+  return isTurboBrowseMarket(market, nowMs) ? TURBO_DISPLAY_TARGET_ROWS : 8;
 }
 
 export function periodReturnToBps(periodReturn: number) {

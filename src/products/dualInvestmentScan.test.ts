@@ -3,6 +3,8 @@ import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
 import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
 import {
   buildDualInvestmentScanInputs,
+  DEFAULT_DISPLAY_TARGET_STEP,
+  displayTargetStepForMarket,
   filterMeaningfulScanRows,
   isSubDayTenor,
   scanQuoteDisplayMetrics,
@@ -24,7 +26,35 @@ describe('buildDualInvestmentScanInputs', () => {
     expect(rows[0].floorPrice).toBe(66_500);
   });
 
-  it('uses $50 Turbo display steps when admission tick is present (not $1 admission grid)', () => {
+  it('keeps the classic $500 day-tenor ladder for live day-scale markets that expose admissionTickSize', () => {
+    // 6-24 day-scale Expiry Markets (and dayScaleFixtures) set admissionTickSize
+    // like Turbo; browse UX must still use the classic Dual Investment $500 grid,
+    // not Turbo's $50 — same ladder as legacy 4-16 day oracles.
+    const nowMs = Date.now();
+    const dayScaleMarket = {
+      ...lastKnownMarketSnapshot,
+      spot: 64_050.4,
+      minStrike: 1,
+      tickSize: 0.01,
+      admissionTickSize: 1,
+      expiryMs: nowMs + 3 * 86_400_000,
+    };
+
+    expect(isSubDayTenor(dayScaleMarket.expiryMs, nowMs)).toBe(false);
+    expect(displayTargetStepForMarket(dayScaleMarket, nowMs)).toBe(DEFAULT_DISPLAY_TARGET_STEP);
+
+    const rows = buildDualInvestmentScanInputs({
+      market: dayScaleMarket,
+      principal: 100,
+      targetRows: 3,
+    });
+
+    expect(DEFAULT_DISPLAY_TARGET_STEP).toBe(500);
+    expect(rows.map((row) => row.targetPrice)).toEqual([64_000, 63_500, 63_000]);
+  });
+
+  it('uses $50 Turbo display steps when admission tick is present on a sub-day tenor (not $1 admission grid)', () => {
+    const nowMs = Date.now();
     const rows = buildDualInvestmentScanInputs({
       market: {
         ...lastKnownMarketSnapshot,
@@ -32,6 +62,7 @@ describe('buildDualInvestmentScanInputs', () => {
         minStrike: 1,
         tickSize: 0.01,
         admissionTickSize: 1,
+        expiryMs: nowMs + 2 * 3_600_000,
       },
       principal: 100,
       targetRows: 3,
