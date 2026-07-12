@@ -30,6 +30,8 @@ interface TargetBuyExecutionPanelViewProps {
   managerId?: string;
   error?: string | null;
   digest?: string | null;
+  /** True once the digest belongs to a wait-confirmed subscribe (vs. account creation). */
+  subscribeConfirmed?: boolean;
   simulatedCostLabel?: string | null;
   locale?: Locale;
   onCreateManager: () => void;
@@ -48,6 +50,7 @@ export type TargetBuyExecutionState =
   | 'quote-expired'
   | 'awaiting-signature'
   | 'transaction-submitted'
+  | 'subscribe-confirmed'
   | 'transaction-failed';
 
 export function targetBuyExecutionViewModel({
@@ -58,10 +61,19 @@ export function targetBuyExecutionViewModel({
   managerId,
   error,
   digest,
+  subscribeConfirmed,
   locale = DEFAULT_LOCALE,
 }: Pick<
   TargetBuyExecutionPanelViewProps,
-  'hasAccount' | 'hasManager' | 'isLoadingManagers' | 'isPending' | 'managerId' | 'error' | 'digest' | 'locale'
+  | 'hasAccount'
+  | 'hasManager'
+  | 'isLoadingManagers'
+  | 'isPending'
+  | 'managerId'
+  | 'error'
+  | 'digest'
+  | 'subscribeConfirmed'
+  | 'locale'
 >) {
   const copy = copyForLocale(locale);
   if (!hasAccount) {
@@ -75,6 +87,9 @@ export function targetBuyExecutionViewModel({
       return { state: 'quote-expired' as const, status: copy.execution.status.quoteExpired };
     }
     return { state: 'transaction-failed' as const, status: copy.execution.status.transactionFailed };
+  }
+  if (digest && subscribeConfirmed) {
+    return { state: 'subscribe-confirmed' as const, status: copy.execution.status.subscribeConfirmed };
   }
   if (digest) {
     return { state: 'transaction-submitted' as const, status: copy.execution.status.submitted };
@@ -104,6 +119,7 @@ export function TargetBuyExecutionPanelView({
   managerId,
   error,
   digest,
+  subscribeConfirmed,
   simulatedCostLabel,
   locale = DEFAULT_LOCALE,
   onCreateManager,
@@ -119,6 +135,7 @@ export function TargetBuyExecutionPanelView({
     managerId,
     error,
     digest,
+    subscribeConfirmed,
     locale,
   });
 
@@ -181,8 +198,9 @@ export function TargetBuyExecutionPanelView({
       {simulatedCostLabel ? <p className="execution-message">{simulatedCostLabel}</p> : null}
       {quoteWarning && !isQuoteExecutable ? <p className="execution-error">{quoteWarning}</p> : null}
       {digest ? (
-        <p className="execution-message">
-          {copy.execution.transactionSubmittedPrefix} {shortId(digest)}
+        <p className={subscribeConfirmed ? 'execution-message execution-success' : 'execution-message'}>
+          {subscribeConfirmed ? copy.execution.subscribeConfirmedPrefix : copy.execution.transactionSubmittedPrefix}{' '}
+          {shortId(digest)}
           <a href={localizedPath(locale, '/app/dashboard')}>{copy.execution.viewDashboard}</a>
         </p>
       ) : null}
@@ -219,12 +237,14 @@ export function TargetBuyExecutionPanel({
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [digest, setDigest] = useState<string | null>(null);
+  const [subscribeConfirmed, setSubscribeConfirmed] = useState(false);
   const [simulatedCostLabel, setSimulatedCostLabel] = useState<string | null>(null);
 
   async function runTransaction(action: () => Promise<string>) {
     setIsPending(true);
     setError(null);
     setDigest(null);
+    setSubscribeConfirmed(false);
     try {
       const nextDigest = await action();
       setDigest(nextDigest);
@@ -286,6 +306,7 @@ export function TargetBuyExecutionPanel({
         quoteHash: prepared.quoteEnvelope.productHash,
         digest: nextDigest,
       });
+      setSubscribeConfirmed(true);
       return nextDigest;
     });
   }
@@ -301,6 +322,7 @@ export function TargetBuyExecutionPanel({
       managerId={manager?.managerId}
       error={error}
       digest={digest}
+      subscribeConfirmed={subscribeConfirmed}
       simulatedCostLabel={simulatedCostLabel}
       locale={locale}
       onCreateManager={handleCreateManager}

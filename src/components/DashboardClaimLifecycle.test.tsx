@@ -66,6 +66,23 @@ describe('ClaimActionView settlement lifecycle', () => {
     expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
   });
 
+  it('shows both outcomes while the direction is unknown: full dUSDC or BTC at the target price', () => {
+    render(
+      <ClaimActionView
+        note={noteFixture()}
+        nowMs={999}
+        marketState={undefined}
+        isPending={false}
+        onClaim={() => undefined}
+      />,
+    );
+
+    // deposit + reward − fee, and the same value converted at the chosen target price
+    expect(screen.getByText('~5.006708 dUSDC')).toBeVisible();
+    expect(screen.getByText('or ~0.00007644 BTC · after 0.000745 dUSDC fee')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
+  });
+
   it('shows the exact settled payout and fee before enabling one-click claim', () => {
     render(
       <ClaimActionView

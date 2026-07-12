@@ -100,14 +100,19 @@ export function ClaimActionView({
   const estimate = settlementEstimateFromResult(settlement);
   const claimed = action.lifecycle === 'claimed';
   const outcomeKnown = claimed || action.lifecycle === 'claimable';
+  // Until settlement fixes the direction, show both sides of the product:
+  // full dUSDC if BTC holds above target, or that value in BTC at the target if it converts.
+  const projectedDusdc = note.principal + note.coupon - estimate.feeAmount;
   const settledBelow = outcomeKnown && estimate.netPayout < note.principal;
+  const mode = settledBelow ? 'btc' : outcomeKnown ? 'dusdc' : 'projected';
+  const dusdcAmount = outcomeKnown ? estimate.netPayout : projectedDusdc;
   const amountLabel = claimed
     ? copy.dashboard.claim.youReceived
     : canClaim
       ? copy.dashboard.claim.youllReceive
       : copy.dashboard.claim.projectedPayout;
   const feeText = copy.dashboard.claim.fee(formatPreciseAmount(estimate.feeAmount, locale));
-  const btcAmount = note.targetPrice > 0 ? estimate.netPayout / note.targetPrice : 0;
+  const btcAmount = note.targetPrice > 0 ? dusdcAmount / note.targetPrice : 0;
   const statusText = demoMode && action.canClaim ? copy.demo.claimDisabled : action.status;
   const showStatus = action.lifecycle === 'awaiting_settle' || (demoMode && action.canClaim);
 
@@ -116,19 +121,23 @@ export function ClaimActionView({
       <div className="di-claim-info">
         {showStatus ? <span className="di-claim-status">{statusText}</span> : null}
         <span className="di-claim-label">{amountLabel}</span>
-        {settledBelow ? (
+        {mode === 'btc' ? (
           <>
             <strong className="di-claim-amount">~{formatBtcAmount(btcAmount, locale)} BTC</strong>
             <small className="di-claim-fee">
               {copy.dashboard.claim.onTestnetAfterFee(formatPreciseAmount(estimate.netPayout, locale), feeText)}
             </small>
           </>
+        ) : mode === 'projected' ? (
+          <>
+            <strong className="di-claim-amount">~{formatPreciseAmount(dusdcAmount, locale)} dUSDC</strong>
+            <small className="di-claim-fee">
+              {copy.dashboard.claim.orBtcAfterFee(formatBtcAmount(btcAmount, locale), feeText)}
+            </small>
+          </>
         ) : (
           <>
-            <strong className="di-claim-amount">
-              {outcomeKnown ? '' : '~'}
-              {formatPreciseAmount(estimate.netPayout, locale)} dUSDC
-            </strong>
+            <strong className="di-claim-amount">{formatPreciseAmount(dusdcAmount, locale)} dUSDC</strong>
             <small className="di-claim-fee">{copy.dashboard.claim.afterFee(feeText)}</small>
           </>
         )}
