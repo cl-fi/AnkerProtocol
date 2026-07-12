@@ -202,6 +202,11 @@ export function ClaimAction({
       await client.waitForTransaction({ digest: nextDigest });
       await queryClient.invalidateQueries({ queryKey: ['anker-portfolio', account.address] });
     } catch (nextError) {
+      // Wallets can reject after broadcasting (parse failures, timeouts), so the
+      // chain is the only authority on whether the claim landed — resync from it.
+      await queryClient
+        .invalidateQueries({ queryKey: ['anker-portfolio', account.address] })
+        .catch(() => undefined);
       setError(nextError instanceof Error ? nextError.message : copy.dashboard.claim.transactionFailed);
     } finally {
       setIsPending(false);
