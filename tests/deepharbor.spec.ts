@@ -18,8 +18,10 @@ async function expectDualInvestmentWorkspace(page: Page) {
   );
   await expect(tenor.locator('optgroup').nth(1)).toHaveAttribute('label', 'Hours — tradable now');
 
-  const reference = page.getByRole('region', { name: 'APR reference' });
-  await expect(reference.getByRole('heading', { name: 'Price & APR reference' })).toBeVisible();
+  // Day-scale copy vs sub-day yield copy — `isSubDayTenor` is wall-clock based, so a
+  // default day snapshot sitting on the 24h boundary can render either branch.
+  const reference = page.getByRole('region', { name: /^(APR reference|Per-period yield)$/ });
+  await expect(reference.getByRole('heading', { name: /^Price & (APR|yield) reference$/ })).toBeVisible();
   await expect(reference.getByRole('button', { name: 'Refresh' })).toBeVisible();
 
   await expect(page.getByRole('region', { name: 'Set your Buy Low' })).toBeVisible();
