@@ -2,10 +2,13 @@
   "network": "testnet",
   "chainId": "4c78adac",
   "publisher": "0xcc901a1629d5c1db4057fa175d94430315932bf774b47ddd7d14cbc16031d453",
-  "packageId": "0x281ef5e11fb96556602388e4d1db56b8b888518b5fe5f9aef69d4842228df1a9",
+  "packageId": "0x81c22159defb84b45965a54883196f9f21670b14c2f410e4b0b20d25e3fe14cc",
+  "originalPackageId": "0x281ef5e11fb96556602388e4d1db56b8b888518b5fe5f9aef69d4842228df1a9",
   "registryId": "0x5d495080d06c1ef3663b1f20654d497b40d0829732714e9d36facc9c11dfab5c",
   "adminCapId": "0xea1f89284ae01bfc22633fe3e7ce55bbef9638028dee7706b2c8d1c6ed743cdb",
   "upgradeCapId": "0xb9305a07fbe1b08c7b44e96c0cbda5e0db07524b1f615c498d24a5a742732721",
   "publishDigest": "4AbKGfmvTuBP98XPnC9ZqkzCc74ri4XEtgyGGgxvhrPm",
-  "publishedAtMs": 1783697765497
+  "publishedAtMs": 1783697765497,
+  "upgradeDigest": "DeCtmu7SyWbsudT5Xb7Y5TmpThNzQWZehxAcw6QWoXzT",
+  "upgradedAtMs": 1783790823075
 }

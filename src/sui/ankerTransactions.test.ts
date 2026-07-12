@@ -199,6 +199,7 @@ describe('Anker transaction builders', () => {
     expect(plan.floorPrice).toBe(61_000_000_000_000n);
     expect(new TextDecoder().decode(Uint8Array.from(plan.productIdBytes))).toBe(quoteEnvelope.productHash);
     expect(plan.calls).toEqual([
+      `${ANKER_PACKAGE_ID}::product_note::wrapper_balance`,
       `${ACCOUNT_PACKAGE_ID}::account::generate_auth`,
       `${ACCOUNT_PACKAGE_ID}::account::deposit_funds`,
       `${PREDICT_PACKAGE_ID}::expiry_market::load_live_pricer`,
@@ -206,7 +207,8 @@ describe('Anker transaction builders', () => {
       `${PREDICT_PACKAGE_ID}::expiry_market::mint_exact_quantity`,
       `${ACCOUNT_PACKAGE_ID}::account::generate_auth`,
       `${PREDICT_PACKAGE_ID}::expiry_market::mint_exact_quantity`,
-      `${ANKER_PACKAGE_ID}::product_note::new_dual_investment_note`,
+      `${ANKER_PACKAGE_ID}::product_note::wrapper_balance`,
+      `${ANKER_PACKAGE_ID}::product_note::new_dual_investment_note_verified`,
       'transferObjects',
     ]);
   });
@@ -225,7 +227,8 @@ describe('Anker transaction builders', () => {
     });
 
     expect(plan.topUpAmount).toBe(0n);
-    expect(plan.calls[0]).toBe(`${PREDICT_PACKAGE_ID}::expiry_market::load_live_pricer`);
+    expect(plan.calls[0]).toBe(`${ANKER_PACKAGE_ID}::product_note::wrapper_balance`);
+    expect(plan.calls[1]).toBe(`${PREDICT_PACKAGE_ID}::expiry_market::load_live_pricer`);
     expect(plan.calls).not.toContain(`${ACCOUNT_PACKAGE_ID}::account::deposit_funds`);
   });
 

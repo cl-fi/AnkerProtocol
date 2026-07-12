@@ -1,6 +1,9 @@
 module anker_protocol::product_note;
 
+use account::account::{Self, AccountWrapper};
 use sui::{
+    accumulator::AccumulatorRoot,
+    clock::Clock,
     coin::Coin,
     event,
     transfer,
@@ -20,6 +23,8 @@ const EFeeTooHigh: u64 = 0;
 const EInvalidLegVectors: u64 = 1;
 const ENotOwner: u64 = 2;
 const EAlreadyRedeemed: u64 = 3;
+const EBalanceDecreased: u64 = 4;
+const EInsufficientCoupon: u64 = 5;
 
 // === Structs ===
 
@@ -166,6 +171,65 @@ public fun new_dual_investment_note(
         order_ids,
         ctx,
     )
+}
+
+/// Same as `new_dual_investment_note`, except `coupon_amount` is derived on-chain
+/// from `balance_before`/`balance_after` (the wrapper's own `wrapper_balance` reads,
+/// taken immediately before the subscribe deposit and immediately after the last
+/// leg mint in the same PTB) instead of trusting a client-supplied estimate. Ties
+/// the note's guaranteed payout to what minting actually consumed, so a claim can
+/// never be asked to withdraw more than the account actually holds for this note.
+/// Kept as a separate function (rather than changing `new_dual_investment_note`'s
+/// signature in place) so upgrades stay compatible with notes minted before this.
+public fun new_dual_investment_note_verified(
+    registry: &Registry,
+    product_id: vector<u8>,
+    wrapper_id: ID,
+    oracle_id: ID,
+    expiry_ms: u64,
+    principal_amount: u64,
+    reserve_amount: u64,
+    balance_before: u64,
+    balance_after: u64,
+    target_price: u64,
+    floor_price: u64,
+    apr_bps: u64,
+    strikes: vector<u64>,
+    quantities: vector<u64>,
+    costs: vector<u64>,
+    order_ids: vector<u256>,
+    ctx: &mut TxContext,
+): ProductNote {
+    assert!(balance_after >= balance_before, EBalanceDecreased);
+    let net_deposited = balance_after - balance_before;
+    assert!(net_deposited >= reserve_amount, EInsufficientCoupon);
+    let coupon_amount = net_deposited - reserve_amount;
+    new_dual_investment_note(
+        registry,
+        product_id,
+        wrapper_id,
+        oracle_id,
+        expiry_ms,
+        principal_amount,
+        reserve_amount,
+        coupon_amount,
+        target_price,
+        floor_price,
+        apr_bps,
+        strikes,
+        quantities,
+        costs,
+        order_ids,
+        ctx,
+    )
+}
+
+/// Read the wrapper's total available `T` balance (stored + accumulator-pending).
+/// Called twice around a subscribe's deposit/mint sequence in the same PTB so
+/// `new_dual_investment_note_verified` can derive the real coupon from the delta
+/// instead of an off-chain, pre-trade cost estimate.
+public fun wrapper_balance<T>(wrapper: &AccountWrapper, root: &AccumulatorRoot, clock: &Clock): u64 {
+    account::balance<T>(account::load_account(wrapper), root, clock)
 }
 
 public fun new_shark_fin_note_with_mock_current_deposit(

@@ -4,6 +4,7 @@ edition = "2024.beta"
 version = "0.0.1"
 
 [dependencies]
+account = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/account", rev = "ec99cfaeaf065ab8e8ed998afc6749274cf79f55", published-at = "0xb9389eac8d59170ffd1427c1a66e5c8306263464fcc6615e825c1f5b3e15da3b", original-id = "0xb9389eac8d59170ffd1427c1a66e5c8306263464fcc6615e825c1f5b3e15da3b" }
 
 [addresses]
 anker_protocol = "0x0"

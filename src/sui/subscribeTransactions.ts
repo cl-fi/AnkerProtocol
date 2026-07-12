@@ -186,6 +186,14 @@ export function buildSubscribeDualInvestmentTransaction(input: {
   const accumulatorRoot = tx.object(config.accumulatorRoot);
   const clock = tx.object.clock();
 
+  const balanceTarget = target(config, 'product_note', 'wrapper_balance');
+  calls.push(balanceTarget);
+  const [balanceBefore] = tx.moveCall({
+    target: balanceTarget,
+    typeArguments: [config.quoteAssetType],
+    arguments: [wrapper, accumulatorRoot, clock],
+  });
+
   if (topUpAmount > 0n) {
     const authTarget = accountTarget(config, 'account', 'generate_auth');
     calls.push(authTarget);
@@ -254,7 +262,14 @@ export function buildSubscribeDualInvestmentTransaction(input: {
     });
   });
 
-  const noteTarget = target(config, 'product_note', 'new_dual_investment_note');
+  calls.push(balanceTarget);
+  const [balanceAfter] = tx.moveCall({
+    target: balanceTarget,
+    typeArguments: [config.quoteAssetType],
+    arguments: [wrapper, accumulatorRoot, clock],
+  });
+
+  const noteTarget = target(config, 'product_note', 'new_dual_investment_note_verified');
   calls.push(noteTarget);
   const note = tx.moveCall({
     target: noteTarget,
@@ -266,7 +281,8 @@ export function buildSubscribeDualInvestmentTransaction(input: {
       tx.pure.u64(input.quote.oracle.expiryMs),
       tx.pure.u64(depositAmount),
       tx.pure.u64(toQuoteBaseUnits(input.quote.reserve, config.quoteAssetDecimals, 'Quote reserve')),
-      tx.pure.u64(toQuoteBaseUnits(input.quote.coupon, config.quoteAssetDecimals, 'Quote coupon')),
+      balanceBefore,
+      balanceAfter,
       tx.pure.u64(targetPrice),
       tx.pure.u64(floorPrice),
       tx.pure.u64(toBpsU64(input.quote.apr, 'Quote APR')),

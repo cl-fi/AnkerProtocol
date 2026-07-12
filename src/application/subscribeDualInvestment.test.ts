@@ -161,7 +161,7 @@ describe('buildSubscribeDualInvestmentApplicationPlan', () => {
     });
 
     expect(plan.managerId).toBe(MANAGER_ID);
-    expect(plan.transactionPlan.calls).toContain(`${ANKER_PACKAGE_ID}::product_note::new_dual_investment_note`);
+    expect(plan.transactionPlan.calls).toContain(`${ANKER_PACKAGE_ID}::product_note::new_dual_investment_note_verified`);
     expect(plan.transactionPlan.calls).toContain(`${PREDICT_PACKAGE_ID}::expiry_market::mint_exact_quantity`);
     expect(plan.quoteEnvelope.maxTotalCostBaseUnits).toBe(2_121_000n);
   });

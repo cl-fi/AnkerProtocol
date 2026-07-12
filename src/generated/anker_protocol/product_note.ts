@@ -166,6 +166,120 @@ export function newDualInvestmentNote(options: NewDualInvestmentNoteOptions) {
         arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
     });
 }
+export interface NewDualInvestmentNoteVerifiedArguments {
+    registry: RawTransactionArgument<string>;
+    productId: RawTransactionArgument<Array<number>>;
+    wrapperId: RawTransactionArgument<string>;
+    oracleId: RawTransactionArgument<string>;
+    expiryMs: RawTransactionArgument<number | bigint>;
+    principalAmount: RawTransactionArgument<number | bigint>;
+    reserveAmount: RawTransactionArgument<number | bigint>;
+    balanceBefore: RawTransactionArgument<number | bigint>;
+    balanceAfter: RawTransactionArgument<number | bigint>;
+    targetPrice: RawTransactionArgument<number | bigint>;
+    floorPrice: RawTransactionArgument<number | bigint>;
+    aprBps: RawTransactionArgument<number | bigint>;
+    strikes: RawTransactionArgument<Array<number | bigint>>;
+    quantities: RawTransactionArgument<Array<number | bigint>>;
+    costs: RawTransactionArgument<Array<number | bigint>>;
+    orderIds: RawTransactionArgument<Array<number | bigint>>;
+}
+export interface NewDualInvestmentNoteVerifiedOptions {
+    package?: string;
+    arguments: NewDualInvestmentNoteVerifiedArguments | [
+        registry: RawTransactionArgument<string>,
+        productId: RawTransactionArgument<Array<number>>,
+        wrapperId: RawTransactionArgument<string>,
+        oracleId: RawTransactionArgument<string>,
+        expiryMs: RawTransactionArgument<number | bigint>,
+        principalAmount: RawTransactionArgument<number | bigint>,
+        reserveAmount: RawTransactionArgument<number | bigint>,
+        balanceBefore: RawTransactionArgument<number | bigint>,
+        balanceAfter: RawTransactionArgument<number | bigint>,
+        targetPrice: RawTransactionArgument<number | bigint>,
+        floorPrice: RawTransactionArgument<number | bigint>,
+        aprBps: RawTransactionArgument<number | bigint>,
+        strikes: RawTransactionArgument<Array<number | bigint>>,
+        quantities: RawTransactionArgument<Array<number | bigint>>,
+        costs: RawTransactionArgument<Array<number | bigint>>,
+        orderIds: RawTransactionArgument<Array<number | bigint>>
+    ];
+}
+/**
+ * Same as `new_dual_investment_note`, except `coupon_amount` is derived on-chain
+ * from `balance_before`/`balance_after` (the wrapper's own `wrapper_balance`
+ * reads, taken immediately before the subscribe deposit and immediately after the
+ * last leg mint in the same PTB) instead of trusting a client-supplied estimate.
+ * Ties the note's guaranteed payout to what minting actually consumed, so a claim
+ * can never be asked to withdraw more than the account actually holds for this
+ * note. Kept as a separate function (rather than changing
+ * `new_dual_investment_note`'s signature in place) so upgrades stay compatible
+ * with notes minted before this.
+ */
+export function newDualInvestmentNoteVerified(options: NewDualInvestmentNoteVerifiedOptions) {
+    const packageAddress = options.package ?? '@local-pkg/anker-protocol';
+    const argumentsTypes = [
+        null,
+        'vector<u8>',
+        '0x2::object::ID',
+        '0x2::object::ID',
+        'u64',
+        'u64',
+        'u64',
+        'u64',
+        'u64',
+        'u64',
+        'u64',
+        'u64',
+        'vector<u64>',
+        'vector<u64>',
+        'vector<u64>',
+        'vector<u256>'
+    ] satisfies (string | null)[];
+    const parameterNames = ["registry", "productId", "wrapperId", "oracleId", "expiryMs", "principalAmount", "reserveAmount", "balanceBefore", "balanceAfter", "targetPrice", "floorPrice", "aprBps", "strikes", "quantities", "costs", "orderIds"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'product_note',
+        function: 'new_dual_investment_note_verified',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+    });
+}
+export interface WrapperBalanceArguments {
+    wrapper: RawTransactionArgument<string>;
+    root: RawTransactionArgument<string>;
+}
+export interface WrapperBalanceOptions {
+    package?: string;
+    arguments: WrapperBalanceArguments | [
+        wrapper: RawTransactionArgument<string>,
+        root: RawTransactionArgument<string>
+    ];
+    typeArguments: [
+        string
+    ];
+}
+/**
+ * Read the wrapper's total available `T` balance (stored + accumulator-pending).
+ * Called twice around a subscribe's deposit/mint sequence in the same PTB so
+ * `new_dual_investment_note_verified` can derive the real coupon from the delta
+ * instead of an off-chain, pre-trade cost estimate.
+ */
+export function wrapperBalance(options: WrapperBalanceOptions) {
+    const packageAddress = options.package ?? '@local-pkg/anker-protocol';
+    const argumentsTypes = [
+        null,
+        null,
+        '0x2::clock::Clock'
+    ] satisfies (string | null)[];
+    const parameterNames = ["wrapper", "root"];
+    return (tx: Transaction) => tx.moveCall({
+        package: packageAddress,
+        module: 'product_note',
+        function: 'wrapper_balance',
+        arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames),
+        typeArguments: options.typeArguments
+    });
+}
 export interface NewSharkFinNoteWithMockCurrentDepositArguments {
     registry: RawTransactionArgument<string>;
     productId: RawTransactionArgument<Array<number>>;

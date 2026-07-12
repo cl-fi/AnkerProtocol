@@ -155,7 +155,7 @@ describe('Dual Investment subscribe-to-settle lifecycle', () => {
 
     expect(subscribePlan.managerId).toBe(MANAGER_ID);
     expect(subscribePlan.transactionPlan.calls).toContain(
-      `${ANKER_PACKAGE_ID}::product_note::new_dual_investment_note`,
+      `${ANKER_PACKAGE_ID}::product_note::new_dual_investment_note_verified`,
     );
     expect(subscribePlan.transactionPlan.calls).toContain(
       `${PREDICT_PACKAGE_ID}::expiry_market::mint_exact_quantity`,

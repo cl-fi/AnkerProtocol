@@ -136,6 +136,108 @@ fun subscribe_rejects_order_ids_length_mismatch() {
 }
 
 #[test]
+fun verified_note_derives_coupon_from_real_balance_delta() {
+    let mut ctx = tx_context::dummy();
+    let (registry, admin_cap) = product_note::new_registry_for_testing(1_000, @0xA, &mut ctx);
+    let wrapper_id = object::id_from_address(@0xCAFE);
+    let oracle_id = object::id_from_address(@0xBEEF);
+
+    let note = product_note::new_dual_investment_note_verified(
+        &registry,
+        b"dual-target-buy-demo",
+        wrapper_id,
+        oracle_id,
+        1_781_683_200_000,
+        1_000_000_000,
+        610_000_000,
+        0,
+        630_000_000,
+        66_000_000_000,
+        61_000_000_000,
+        19_264,
+        vector[61_000_000_000],
+        vector[10_000_000],
+        vector[2_000_000],
+        vector[99u256],
+        &mut ctx,
+    );
+
+    assert_eq!(product_note::reserve_amount(&note), 610_000_000);
+    assert_eq!(product_note::coupon_amount(&note), 20_000_000);
+
+    destroy(note);
+    destroy(registry);
+    destroy(admin_cap);
+}
+
+#[test, expected_failure(abort_code = 5, location = anker_protocol::product_note)]
+fun verified_note_rejects_shortfall_that_cannot_cover_reserve() {
+    let mut ctx = tx_context::dummy();
+    let (registry, admin_cap) = product_note::new_registry_for_testing(1_000, @0xA, &mut ctx);
+    let wrapper_id = object::id_from_address(@0xCAFE);
+    let oracle_id = object::id_from_address(@0xBEEF);
+
+    // Mint slippage ate into principal enough that what's left (600_000_000)
+    // can no longer cover the promised reserve (610_000_000): subscribe must
+    // abort here instead of minting a note claim can never fully honor.
+    let note = product_note::new_dual_investment_note_verified(
+        &registry,
+        b"dual-target-buy-demo",
+        wrapper_id,
+        oracle_id,
+        1_781_683_200_000,
+        1_000_000_000,
+        610_000_000,
+        0,
+        600_000_000,
+        66_000_000_000,
+        61_000_000_000,
+        19_264,
+        vector[61_000_000_000],
+        vector[10_000_000],
+        vector[2_000_000],
+        vector[99u256],
+        &mut ctx,
+    );
+
+    destroy(note);
+    destroy(registry);
+    destroy(admin_cap);
+}
+
+#[test, expected_failure(abort_code = 4, location = anker_protocol::product_note)]
+fun verified_note_rejects_balance_that_decreased() {
+    let mut ctx = tx_context::dummy();
+    let (registry, admin_cap) = product_note::new_registry_for_testing(1_000, @0xA, &mut ctx);
+    let wrapper_id = object::id_from_address(@0xCAFE);
+    let oracle_id = object::id_from_address(@0xBEEF);
+
+    let note = product_note::new_dual_investment_note_verified(
+        &registry,
+        b"dual-target-buy-demo",
+        wrapper_id,
+        oracle_id,
+        1_781_683_200_000,
+        1_000_000_000,
+        610_000_000,
+        630_000_000,
+        0,
+        66_000_000_000,
+        61_000_000_000,
+        19_264,
+        vector[61_000_000_000],
+        vector[10_000_000],
+        vector[2_000_000],
+        vector[99u256],
+        &mut ctx,
+    );
+
+    destroy(note);
+    destroy(registry);
+    destroy(admin_cap);
+}
+
+#[test]
 fun redeem_marks_note_and_records_fee() {
     let mut ctx = tx_context::dummy();
     let (registry, admin_cap) = product_note::new_registry_for_testing(1_000, @0xA, &mut ctx);
