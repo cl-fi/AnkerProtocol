@@ -14,7 +14,7 @@ _Avoid_: dual currency, DCI, 双币盈 (Binance brand name — use only when cit
 Principal-protected range product: enhanced coupon if price stays inside a bound, base coupon otherwise.
 
 **Tenor (期限)**:
-Time from subscription to expiry of a product. Dual Investment tenors run from hourly (1h–3h) to day-scale (1d–14d); day-scale is the primary offering, and hourly stays tradable even when day-scale live markets are unavailable. A market's tenor group is fixed by its span at creation (birth tenor) and never changes as expiry approaches; a day-scale market that decays below one day remaining stays a day-scale offering while it can still quote.
+Time from subscription to expiry of a product. Dual Investment tenors run from hourly to day-scale (1d–14d); day-scale is the primary offering, and hourly stays tradable even when day-scale live markets are unavailable. A market's shelf follows its remaining tenor: at least a day remaining sells on the day shelf, under a day on the hourly shelf — a day-born market that decays below one day is offered as an hourly product (per-period yield, like its shelf-mates) while it can still quote. Minute-level tenors are never offered.
 _Avoid_: duration, term, expiry length
 
 ### Lifecycle
@@ -41,7 +41,7 @@ _Avoid_: redeem (reserved for the Predict-level leg operation), withdraw
 ### Benchmarking
 
 **Benchmark (基准)**:
-The comparable Binance Dual Investment product for an Anker quote row: same target price, nearest settlement time. Surfaced as the "nearest-expiry Binance APR" (最近到期 Binance APR), always shown with the Benchmark's own settlement time and tenor; the settlement offset is disclosed alongside Edge — never used to suppress a comparison.
+The comparable Binance Dual Investment product for an Anker quote row: same target price, nearest settlement time, and currently on sale — a halted product is no benchmark, exactly as if it did not exist. Surfaced as the "nearest-expiry Binance APR" (最近到期 Binance APR), always shown with the Benchmark's own settlement time and tenor; the settlement offset is disclosed alongside Edge — never used to suppress a comparison.
 _Avoid_: competitor quote, reference product, same-day match (retired rule — calendar-date matching rejected fairer nearest matches)
 
 **Edge (领先幅度)**:
