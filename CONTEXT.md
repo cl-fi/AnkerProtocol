@@ -14,7 +14,7 @@ _Avoid_: dual currency, DCI, 双币盈 (Binance brand name — use only when cit
 Principal-protected range product: enhanced coupon if price stays inside a bound, base coupon otherwise.
 
 **Tenor (期限)**:
-Time from subscription to expiry of a product. Dual Investment tenors run from hourly (1h–3h) to day-scale (1d–14d); day-scale is the primary offering, and hourly stays tradable even when day-scale live markets are unavailable.
+Time from subscription to expiry of a product. Dual Investment tenors run from hourly (1h–3h) to day-scale (1d–14d); day-scale is the primary offering, and hourly stays tradable even when day-scale live markets are unavailable. A market's tenor group is fixed by its span at creation (birth tenor) and never changes as expiry approaches; a day-scale market that decays below one day remaining stays a day-scale offering while it can still quote.
 _Avoid_: duration, term, expiry length
 
 ### Lifecycle
@@ -37,6 +37,26 @@ The moment the underlying expiry market fixes its settlement price after expiry.
 **Claim (领取)**:
 The user (or a keeper on their behalf) redeems the settled legs and withdraws principal plus payout, closing the Note.
 _Avoid_: redeem (reserved for the Predict-level leg operation), withdraw
+
+### Benchmarking
+
+**Benchmark (基准)**:
+The comparable Binance Dual Investment product for an Anker quote row: same target price, nearest settlement time. Surfaced as the "nearest-expiry Binance APR" (最近到期 Binance APR), always shown with the Benchmark's own settlement time and tenor; the settlement offset is disclosed alongside Edge — never used to suppress a comparison.
+_Avoid_: competitor quote, reference product, same-day match (retired rule — calendar-date matching rejected fairer nearest matches)
+
+**Edge (领先幅度)**:
+Anker net APR minus Benchmark APR for the same matched row, in percentage points; positive means Anker leads. Defined only where a Benchmark match exists.
+_Avoid_: spread, premium
+
+**Benchmark Sample (基准采样)**:
+One recorded comparison for one day-tenor ladder row at one instant: the Anker quote, the Benchmark result (or its absence), and the data-source condition at that moment.
+_Avoid_: snapshot / 快照 (reserved for the day-browse fallback photograph)
+
+**Run (采样轮)**:
+One scheduled sweep that records Benchmark Samples across the whole day-tenor ladder. Degraded or failed sweeps are recorded as such, never silently skipped.
+
+**Benchmark Recorder (基准记录器)**:
+The subsystem that executes Runs and persists Benchmark Samples, feeding the analytics page and internal monitoring.
 
 ### Upstream (DeepBook Predict)
 
