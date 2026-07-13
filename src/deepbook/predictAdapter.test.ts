@@ -105,7 +105,7 @@ describe('PredictAdapter market discovery', () => {
       vi.unstubAllGlobals();
     });
 
-    it('requests enough rows that live Turbo markets are not paged out by 1m test markets', async () => {
+    it('requests active markets so day-scale rows are not paged out by hourly churn', async () => {
       const requestedUrls: string[] = [];
       const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
         requestedUrls.push(String(input));
@@ -116,7 +116,7 @@ describe('PredictAdapter market discovery', () => {
       await createPredictAdapter().discoverMarkets();
 
       expect(requestedUrls).toHaveLength(1);
-      expect(requestedUrls[0]).toContain('/markets?limit=500');
+      expect(requestedUrls[0]).toContain('/markets?limit=500&active=true');
     });
   });
 });

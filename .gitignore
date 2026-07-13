@@ -12,6 +12,8 @@ contracts/**/build/
 contracts/**/package_summaries/
 .agents/
 .claude/
+.cursor/plans/
+*.plan.md
 
 # presentation material — kept local only, never synced
 docs/presentation/

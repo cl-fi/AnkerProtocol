@@ -23,12 +23,13 @@ export interface ExpiryMarketSummary {
 }
 
 /**
- * `/markets` defaults to the 50 most recent rows. The shared testnet also runs a
- * 1-minute test cadence (~60 markets/hour) that floods that page, pushing live
- * Turbo 1h markets (3h lifetime, so up to 3 alive at once) out of the default
- * window. 500 rows covers ~8h of creations with margin.
+ * `/markets` without filters returns recent `market_created` events; 1m/5m/1h
+ * churn fills that window and ages day-scale creations out within hours.
+ * `active=true` returns the current unexpired market set instead. limit=500 is
+ * only a safety cap on that filtered list.
  */
 const MARKETS_PAGE_LIMIT = 500;
+const MARKETS_DISCOVERY_PATH = `/markets?limit=${MARKETS_PAGE_LIMIT}&active=true`;
 
 export interface PredictAdapter {
   discoverMarkets(input?: { nowMs?: number }): Promise<ExpiryMarketSummary[]>;
@@ -168,7 +169,7 @@ export function createPredictAdapter(input?: {
 }): PredictAdapter {
   const group = input?.group ?? 'hourly';
   const fetchMarkets =
-    input?.fetchMarkets ?? (() => fetchPredictJson<unknown>(`/markets?limit=${MARKETS_PAGE_LIMIT}`));
+    input?.fetchMarkets ?? (() => fetchPredictJson<unknown>(MARKETS_DISCOVERY_PATH));
 
   return {
     async discoverMarkets({ nowMs = Date.now() } = {}) {
@@ -215,7 +216,7 @@ export function createPredictAdapter(input?: {
 /** Unfiltered `/markets` parse — callers apply tenor-group filters. */
 export async function fetchAllExpiryMarketSummaries(
   fetchMarkets: () => Promise<unknown> = () =>
-    fetchPredictJson<unknown>(`/markets?limit=${MARKETS_PAGE_LIMIT}`),
+    fetchPredictJson<unknown>(MARKETS_DISCOVERY_PATH),
 ): Promise<ExpiryMarketSummary[]> {
   return parseExpiryMarketRows(await fetchMarkets());
 }
