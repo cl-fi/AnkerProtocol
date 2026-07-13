@@ -27,7 +27,7 @@ const geistMono = localFont({
   display: 'swap',
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://127.0.0.1:3000';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.ankerprotocol.xyz';
 
 type LocaleParams = { locale: string };
 
