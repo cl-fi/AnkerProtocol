@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
           market: OracleMarket;
           productOracles: Array<{ oracle_id: string; expiry: number; group: string; source: string }>;
           selectedOracleId?: string;
-          selectedSource: 'live' | 'legacy' | 'snapshot';
+          selectedSource: 'live' | 'snapshot';
           snapshot?: { capturedAtMs: number; binanceProducts: BinanceDualInvestmentProduct[] };
         };
       }
@@ -521,14 +521,16 @@ describe('DualInvestmentPage', () => {
     expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
   });
 
-  it('shows a disabled Awaiting-migration action for Legacy Oracle rows and never verifies', async () => {
+  it('never verifies snapshot rows — the disabled action is the state', async () => {
+    const capturedAtMs = Date.UTC(2026, 6, 12, 14, 58);
     const market = marketFixture();
     mocks.marketData = {
       data: {
         market,
-        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs, group: 'day', source: 'legacy' }],
+        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs, group: 'day', source: 'snapshot' }],
         selectedOracleId: market.oracleId,
-        selectedSource: 'legacy',
+        selectedSource: 'snapshot',
+        snapshot: { capturedAtMs, binanceProducts: [] },
       },
     };
 
@@ -539,11 +541,7 @@ describe('DualInvestmentPage', () => {
     });
 
     expect(mocks.buildVerifiedDualInvestmentQuote).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Awaiting migration' })).toBeDisabled();
-    expect(screen.getByText(/retired 4-16 deployment/)).toBeVisible();
-    // Legacy data is live — no snapshot banner, hero badge stays Live.
-    expect(screen.queryByText('Market snapshot')).not.toBeInTheDocument();
-    expect(screen.getByText('Live')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Temporarily unavailable' })).toBeDisabled();
   });
 
   it('renders snapshot rows as a frozen photograph: banner, Snapshot badge, frozen benchmark', () => {
@@ -564,7 +562,7 @@ describe('DualInvestmentPage', () => {
     expect(screen.getByText('Market snapshot')).toBeVisible();
     expect(screen.getByText(/frozen photograph of real market data/)).toBeVisible();
     expect(screen.getByText(/Snapshot · as of/)).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Awaiting migration' })).toBeDisabled();
-    expect(screen.getByText('Historical snapshot — browse only.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Temporarily unavailable' })).toBeDisabled();
+    expect(screen.getByText(/historical snapshot, browse only/)).toBeVisible();
   });
 });

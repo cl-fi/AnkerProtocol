@@ -71,7 +71,7 @@ export function DirectionPairBar({
   const dayRows = productOracles.filter((oracle) => oracle.group === 'day');
   const hourlyRows = productOracles.filter((oracle) => oracle.group !== 'day');
   const dayGroupLabel =
-    dayRows[0]?.source === 'live' ? copy.migration.dayGroupLive : copy.migration.dayGroupAwaiting;
+    dayRows[0]?.source === 'live' ? copy.dayFallback.dayGroupLive : copy.dayFallback.dayGroupSnapshot;
   const showSparseTenorsHint = hourlyRows.length > 0 && hourlyRows.length < EXPECTED_HOURLY_TENORS;
 
   const renderOption = (oracle: CuratedOracleListItem) => (
@@ -122,7 +122,7 @@ export function DirectionPairBar({
           >
             {dayRows.length > 0 ? <optgroup label={dayGroupLabel}>{dayRows.map(renderOption)}</optgroup> : null}
             {hourlyRows.length > 0 ? (
-              <optgroup label={copy.migration.hourlyGroup}>{hourlyRows.map(renderOption)}</optgroup>
+              <optgroup label={copy.dayFallback.hourlyGroup}>{hourlyRows.map(renderOption)}</optgroup>
             ) : null}
           </select>
         </label>

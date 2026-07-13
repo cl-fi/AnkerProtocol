@@ -23,24 +23,17 @@ const ORACLE_JSON = {
 describe('legacyOracleToListItem', () => {
   const state = parseLegacyOracleObject(ORACLE_JSON)!;
 
-  it('tags Legacy Oracle rows as day-group legacy rows with an embedded browse market', () => {
-    const nowMs = 1_783_867_000_000;
-    const row = legacyOracleToListItem(state, { nowMs, source: 'legacy' });
-
-    expect(row.group).toBe('day');
-    expect(row.source).toBe('legacy');
-    expect(row.productReady).toBe(true);
-    expect(row.timeToExpiryMs).toBe(state.expiryMs - nowMs);
-    expect(row.market?.svi).toEqual(state.svi);
-    expect(row.market?.spot).toBeCloseTo(64_012.3, 1);
-  });
-
-  it('freezes snapshot rows on the capture clock (photograph model)', () => {
+  it('tags snapshot rows as day-group rows with an embedded browse market, frozen on the capture clock', () => {
     const capturedAtMs = 1_783_000_000_000;
     const row = legacyOracleToListItem(state, { nowMs: capturedAtMs, source: 'snapshot' });
 
+    expect(row.group).toBe('day');
     expect(row.source).toBe('snapshot');
+    expect(row.productReady).toBe(true);
+    // Photograph model: the countdown freezes at the capture instant.
     expect(row.timeToExpiryMs).toBe(state.expiryMs - capturedAtMs);
+    expect(row.market?.svi).toEqual(state.svi);
+    expect(row.market?.spot).toBeCloseTo(64_012.3, 1);
   });
 });
 

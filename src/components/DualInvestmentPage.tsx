@@ -48,7 +48,6 @@ export function DualInvestmentPage({
   const selectedSource = marketQuery.data?.selectedSource;
   const snapshot = marketQuery.data?.snapshot;
   const isSnapshotRow = selectedSource === 'snapshot';
-  const isLegacyRow = selectedSource === 'legacy';
   // Photograph model: snapshot rows freeze every clock at the capture instant.
   const frozenNowMs = isSnapshotRow ? snapshot?.capturedAtMs : undefined;
   const capturedAtLabel = snapshot ? format.time(snapshot.capturedAtMs) : '';
@@ -87,7 +86,7 @@ export function DualInvestmentPage({
   const seededOracleRef = useRef<string | undefined>();
 
   const sourceLabel = isSnapshotRow
-    ? `${copy.common.snapshot} · ${copy.migration.snapshotAsOf(capturedAtLabel)}`
+    ? `${copy.common.snapshot} · ${copy.dayFallback.snapshotAsOf(capturedAtLabel)}`
     : copy.common.live;
 
   // Seed the default Buy Low target once per oracle (nearest grid step below spot).
@@ -152,7 +151,7 @@ export function DualInvestmentPage({
   }, []);
 
   // Debounced verification whenever the inputs settle on a new combination.
-  // Demo mode and non-tradable rows (Legacy Oracle / Snapshot) stay on the local SVI estimate.
+  // Demo mode and non-tradable rows (Snapshot) stay on the local SVI estimate.
   useEffect(() => {
     if (!tradingEnabled) return undefined;
     if (!market || !effectiveInput || !currentKey || verifiedKey === currentKey) return undefined;
@@ -182,12 +181,10 @@ export function DualInvestmentPage({
       ? estimateQuote.coupon / estimateQuote.principal
       : null;
 
-  // Awaiting-migration rows: the disabled button is the state (Q8) — copy explains why.
-  const disabledAction = isLegacyRow
-    ? { label: copy.migration.awaitingMigration, note: copy.migration.legacySubscribeNote }
-    : isSnapshotRow
-      ? { label: copy.migration.awaitingMigration, note: copy.migration.snapshotSubscribeNote }
-      : undefined;
+  // Snapshot rows: the disabled button is the state (Q8) — copy explains why.
+  const disabledAction = isSnapshotRow
+    ? { label: copy.dayFallback.temporarilyUnavailable, note: copy.dayFallback.snapshotSubscribeNote }
+    : undefined;
 
   const handleSelectPreset = useCallback((input: DualInvestmentInput) => {
     setTargetPrice(input.targetPrice);

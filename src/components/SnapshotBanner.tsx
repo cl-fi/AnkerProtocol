@@ -5,8 +5,8 @@ import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 
 /**
  * Snapshot-tier banner (CONTEXT: Snapshot — photograph model). Shown only when
- * day rows come from the committed capture; Legacy Oracle rows are live data
- * and deliberately show no banner.
+ * day rows come from the committed capture, i.e. live day-scale Expiry Markets
+ * are temporarily unreachable (ADR-0004).
  */
 export function SnapshotBanner({
   locale = DEFAULT_LOCALE,
@@ -23,8 +23,8 @@ export function SnapshotBanner({
     <aside className="demo-banner degradation-banner" role="status">
       <Camera size={16} aria-hidden="true" />
       <p>
-        <strong>{copy.migration.snapshotBannerTitle}</strong>
-        <span>{copy.migration.snapshotBannerBody(capturedAtLabel)}</span>
+        <strong>{copy.dayFallback.snapshotBannerTitle}</strong>
+        <span>{copy.dayFallback.snapshotBannerBody(capturedAtLabel)}</span>
       </p>
     </aside>
   );

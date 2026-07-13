@@ -1,6 +1,5 @@
 import { fetchAllExpiryMarketSummaries } from '../deepbook/predictAdapter';
 import {
-  fetchLegacyDayOracles,
   legacyOracleToMarket,
   type LegacyOracleState,
 } from '../deepbook/legacyOracles';
@@ -34,9 +33,9 @@ export interface CuratedOracleListItem extends PredictOracleListItem {
   productReady: boolean;
   timeToExpiryMs: number;
   reason?: string;
-  /** Row-level provenance (CONTEXT: Legacy Oracle, Snapshot). Only 'live' rows are tradable. */
+  /** Row-level provenance (CONTEXT: Snapshot). Only 'live' rows are tradable. */
   source: TenorSource;
-  /** Embedded browse market for rows the 6-24 indexer cannot serve (legacy / snapshot). */
+  /** Embedded browse market for rows the 6-24 indexer cannot serve (snapshot). */
   market?: OracleMarket;
 }
 
@@ -98,10 +97,10 @@ export function curateBtcOracles(
   return [...bestByKey.values()].sort((a, b) => a.expiry - b.expiry);
 }
 
-/** Day tenor row backed by a Legacy Oracle or the Snapshot; browse state embedded. */
+/** Day tenor row backed by the Snapshot; browse state embedded. */
 export function legacyOracleToListItem(
   state: LegacyOracleState,
-  input: { nowMs: number; source: Extract<TenorSource, 'legacy' | 'snapshot'> },
+  input: { nowMs: number; source: Extract<TenorSource, 'snapshot'> },
 ): CuratedOracleListItem {
   const market = legacyOracleToMarket(state);
   return {
@@ -177,9 +176,10 @@ async function computeHourlyRows(nowMs: number): Promise<CuratedOracleListItem[]
 }
 
 /**
- * Day ladder: live 6-24 day-scale Expiry Markets → Legacy Oracles (4-16,
- * chain-direct) → committed Snapshot. Each tier self-retires the ones below it
- * with no code change; invented fixtures never appear here.
+ * Day ladder: live 6-24 day-scale Expiry Markets → committed Snapshot
+ * (ADR-0004). Live rows self-retire the Snapshot with no code change; error
+ * and empty discovery both fall to the same photograph. Invented fixtures
+ * never appear here.
  */
 async function computeDayRows(nowMs: number): Promise<{
   oracles: CuratedOracleListItem[];
@@ -196,18 +196,7 @@ async function computeDayRows(nowMs: number): Promise<{
       if (curated.length > 0) return { oracles: curated };
     }
   } catch {
-    // Live day discovery is expected to be empty/unreachable until upstream ships day cadences.
-  }
-
-  try {
-    const legacy = await fetchLegacyDayOracles(nowMs);
-    if (legacy.length > 0) {
-      return {
-        oracles: legacy.map((state) => legacyOracleToListItem(state, { nowMs, source: 'legacy' })),
-      };
-    }
-  } catch {
-    // Legacy oracles died — fall through to the committed Snapshot.
+    // Live day discovery down — fall through to the committed Snapshot.
   }
 
   const snapshot = loadDaySnapshot();

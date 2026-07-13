@@ -214,7 +214,7 @@ export function DualInvestmentConfirm({
   error?: string | null;
   demoMode?: boolean;
   subscribeDisabledMessage?: string;
-  /** Non-tradable rows (Legacy Oracle / Snapshot): disabled button whose label is the state. */
+  /** Non-tradable rows (Snapshot): disabled button whose label is the state. */
   disabledAction?: { label: string; note: string };
   locale?: Locale;
 }) {

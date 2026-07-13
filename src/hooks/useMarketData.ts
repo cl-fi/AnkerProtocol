@@ -61,7 +61,7 @@ export function useMarketData(selectedOracleId?: string) {
         };
       }
 
-      // Legacy / snapshot rows embed their browse market — the 6-24 indexer can't serve them.
+      // Snapshot rows embed their browse market — the 6-24 indexer can't serve them.
       if (selected.market) {
         return {
           market: selected.market,

@@ -12,12 +12,12 @@ export const DAY_MS = 86_400_000;
 export type TenorGroup = 'hourly' | 'day';
 
 /**
- * Row-level provenance of a tenor's market data (CONTEXT: Legacy Oracle, Snapshot).
+ * Row-level provenance of a tenor's market data (CONTEXT: Snapshot).
  * 'live' — a 6-24 Expiry Market, tradable.
- * 'legacy' — a still-updating 4-16 Legacy Oracle: live pricing, never tradable.
- * 'snapshot' — the committed photograph of Legacy Oracles + Binance benchmark.
+ * 'snapshot' — the committed photograph of Legacy Oracles + Binance benchmark;
+ * the only day fallback (ADR-0004), browse only.
  */
-export type TenorSource = 'live' | 'legacy' | 'snapshot';
+export type TenorSource = 'live' | 'snapshot';
 
 /**
  * Shared discovery, different filter: hourly = 1h cadence fingerprint and

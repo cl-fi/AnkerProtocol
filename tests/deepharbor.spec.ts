@@ -14,7 +14,7 @@ async function expectDualInvestmentWorkspace(page: Page) {
   await expect(tenor).toBeVisible();
   await expect(tenor.locator('optgroup').first()).toHaveAttribute(
     'label',
-    'Days — primary product · awaiting migration',
+    'Days — primary product · snapshot',
   );
   await expect(tenor.locator('optgroup').nth(1)).toHaveAttribute('label', 'Hours — tradable now');
 

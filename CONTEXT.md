@@ -14,7 +14,7 @@ _Avoid_: dual currency, DCI, 双币盈 (Binance brand name — use only when cit
 Principal-protected range product: enhanced coupon if price stays inside a bound, base coupon otherwise.
 
 **Tenor (期限)**:
-Time from subscription to expiry of a product. Dual Investment tenors run from hourly (1h–3h) to day-scale (1d–14d); day-scale is the primary offering, hourly exists as the live fallback while day-scale markets are unavailable upstream.
+Time from subscription to expiry of a product. Dual Investment tenors run from hourly (1h–3h) to day-scale (1d–14d); day-scale is the primary offering, and hourly stays tradable even when day-scale live markets are unavailable.
 _Avoid_: duration, term, expiry length
 
 ### Lifecycle
@@ -52,11 +52,11 @@ One DeepBook Predict market object for a single expiry timestamp, discovered fro
 _Avoid_: oracle market (pre-6-24 vocabulary), pool
 
 **Legacy Oracle (旧部署 oracle)**:
-A still-updating expiry oracle object on the retired 4-16 deployment, read directly from chain. Supplies live browse pricing (spot, forward, SVI) for day-scale tenors while the 6-24 deployment has no day-scale Expiry Markets; never tradable — subscribe stays disabled as "awaiting migration". Self-retires: once day-scale Expiry Markets are discovered live, they replace Legacy Oracles with no code change.
-_Avoid_: fixture (Legacy Oracle data is live, not canned), old market
+An expiry oracle object on the retired 4-16 deployment; its price feed stopped updating on 2026-07-12. No longer a market-data source: its prices had drifted far from the real market, so day browse never reads it live (ADR-0004). The term survives only to name the stored format of the Snapshot capture.
+_Avoid_: fixture (Snapshot data is real, not canned), old market, live tier (historical usage — it was once the mid ladder tier for day browse, removed for untrustworthy data)
 
 **Snapshot (行情快照)**:
-Real market data — Legacy Oracle states plus the matching Binance benchmark — captured at one recorded instant and committed to the repo. Rendered as a frozen photograph of that instant: countdowns, expiry dates, and the Binance comparison all display as of the capture time, under a visible "snapshot as of <time>" label. Used only when neither live Expiry Markets nor Legacy Oracles are available.
+Real market data — Legacy Oracle states plus the matching Binance benchmark — captured at one recorded instant and committed to the repo. Rendered as a frozen photograph of that instant: countdowns, expiry dates, and the Binance comparison all display as of the capture time, under a visible "snapshot as of <time>" label. The only fallback for day browse: showing the Snapshot means live day-scale Expiry Markets are temporarily unreachable.
 _Avoid_: fixture (invented data — allowed only in Demo Mode and tests, never as a product data source)
 
 **Demo Mode**:

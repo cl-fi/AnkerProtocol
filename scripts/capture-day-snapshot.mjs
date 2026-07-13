@@ -2,13 +2,16 @@
 /**
  * Capture the day-tenor Snapshot (CONTEXT: Snapshot — photograph model).
  *
- * Reads every still-updating Legacy Oracle on the retired 4-16 deployment plus
- * the Binance Dual Investment benchmark at the same instant, and writes the raw
- * payloads to src/server/daySnapshot.data.json. The runtime loader parses them
- * with the same parsers used for live Legacy Oracle reads, so the snapshot is
- * validated by the exact code path that displays it.
+ * Reads every Legacy Oracle on the retired 4-16 deployment plus the Binance
+ * Dual Investment benchmark at the same instant, and writes the raw payloads
+ * to src/server/daySnapshot.data.json. The runtime loader parses them with
+ * the same parsers, so the snapshot is validated by the exact code path that
+ * displays it.
  *
- * Re-run any time while the 4-16 oracles are alive to refresh the photograph:
+ * Block Scholes stopped pushing prices to the 4-16 oracles on 2026-07-12 —
+ * the committed snapshot was taken hours before that, so re-running this
+ * script yields near-identical data and there is little reason to. It is kept
+ * until a 6-24 capture path replaces it (the snapshot's long-term source).
  *   node scripts/capture-day-snapshot.mjs
  */
 import { writeFile } from 'node:fs/promises';

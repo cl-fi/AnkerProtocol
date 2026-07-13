@@ -88,7 +88,6 @@ describe('filterMarketsForTenorGroup', () => {
 describe('isTenorTradingEnabled', () => {
   it('trades only live 6-24 rows outside demo mode', () => {
     expect(isTenorTradingEnabled({ source: 'live', demoMode: false })).toBe(true);
-    expect(isTenorTradingEnabled({ source: 'legacy', demoMode: false })).toBe(false);
     expect(isTenorTradingEnabled({ source: 'snapshot', demoMode: false })).toBe(false);
     expect(isTenorTradingEnabled({ source: undefined, demoMode: false })).toBe(false);
     expect(isTenorTradingEnabled({ source: 'live', demoMode: true })).toBe(false);

@@ -86,20 +86,19 @@ export const enCopy = {
   demo: {
     bannerTitle: 'Demo data',
     bannerBody:
-      'DeepBook Predict testnet is being redeployed — Anker is showing sample market data while we migrate. On-chain transactions are temporarily disabled.',
-    subscribeDisabled: 'Demo mode — subscriptions reopen once the DeepBook Predict migration completes.',
-    claimDisabled: 'Demo mode — claims reopen once the DeepBook Predict migration completes.',
+      'The DeepBook Predict testnet deployment is unavailable — Anker is showing sample market data. On-chain transactions are temporarily disabled.',
+    subscribeDisabled: 'Demo mode — subscriptions reopen once the DeepBook Predict testnet is back.',
+    claimDisabled: 'Demo mode — claims reopen once the DeepBook Predict testnet is back.',
   },
-  migration: {
+  dayFallback: {
     snapshotBannerTitle: 'Market snapshot',
     snapshotBannerBody: (capturedAt: string) =>
-      `Day tenors show a frozen photograph of real market data captured ${capturedAt} — prices, countdowns, and the Binance benchmark are all as of that moment. Live day-scale markets return after the upstream migration.`,
-    awaitingMigration: 'Awaiting migration',
-    legacySubscribeNote:
-      "Day-tenor quotes are live from the retired 4-16 deployment's still-updating oracles while DeepBook Predict migrates to 6-24. Subscriptions open the moment day-scale Expiry Markets ship on the new deployment.",
-    snapshotSubscribeNote: 'Historical snapshot — browse only.',
+      `Day tenors show a frozen photograph of real market data captured ${capturedAt} — prices, countdowns, and the Binance benchmark are all as of that moment. Live day-scale markets are temporarily unreachable; this snapshot stands in until they return.`,
+    temporarilyUnavailable: 'Temporarily unavailable',
+    snapshotSubscribeNote:
+      'Live day markets are temporarily unreachable — historical snapshot, browse only. Subscriptions resume when they return.',
     snapshotAsOf: (capturedAt: string) => `as of ${capturedAt}`,
-    dayGroupAwaiting: 'Days — primary product · awaiting migration',
+    dayGroupSnapshot: 'Days — primary product · snapshot',
     dayGroupLive: 'Days',
     hourlyGroup: 'Hours — tradable now',
   },
@@ -378,20 +377,18 @@ export const zhCnCopy: AppCopy = {
   },
   demo: {
     bannerTitle: '演示数据',
-    bannerBody: 'DeepBook Predict 测试网正在重新部署，迁移期间 Anker 展示演示行情数据，链上交易暂时停用。',
-    subscribeDisabled: '演示模式：DeepBook Predict 迁移完成后将重新开放认购。',
-    claimDisabled: '演示模式：DeepBook Predict 迁移完成后将重新开放领取。',
+    bannerBody: 'DeepBook Predict 测试网部署暂不可用，期间 Anker 展示演示行情数据，链上交易暂时停用。',
+    subscribeDisabled: '演示模式：DeepBook Predict 测试网恢复后将重新开放认购。',
+    claimDisabled: '演示模式：DeepBook Predict 测试网恢复后将重新开放领取。',
   },
-  migration: {
+  dayFallback: {
     snapshotBannerTitle: '行情快照',
     snapshotBannerBody: (capturedAt: string) =>
-      `天级期限展示 ${capturedAt} 抓取的真实行情照片——价格、倒计时与 Binance 基准均冻结于该时刻。上游迁移完成后自动恢复实时日级市场。`,
-    awaitingMigration: '等待迁移',
-    legacySubscribeNote:
-      '天级期限的报价来自旧 4-16 部署仍在实时更新的 oracle（DeepBook Predict 正迁移至 6-24），为真实行情。新部署上线日级到期市场后即开放认购。',
-    snapshotSubscribeNote: '历史快照，仅供浏览。',
+      `天级期限展示 ${capturedAt} 抓取的真实行情照片——价格、倒计时与 Binance 基准均冻结于该时刻。天级实盘行情暂时不可达，本快照先行顶上，实盘恢复后自动切回。`,
+    temporarilyUnavailable: '暂不可用',
+    snapshotSubscribeNote: '天级实盘暂时不可达——历史快照，仅供浏览，实盘恢复后即可订阅。',
     snapshotAsOf: (capturedAt: string) => `截至 ${capturedAt}`,
-    dayGroupAwaiting: '按天 · 主产品 · 等待迁移',
+    dayGroupSnapshot: '按天 · 主产品 · 快照',
     dayGroupLive: '按天',
     hourlyGroup: '按小时 · 当前可交易',
   },

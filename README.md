@@ -293,7 +293,7 @@ NEXT_PUBLIC_SUI_NETWORK=testnet
 NEXT_PUBLIC_ANKER_DEMO_MODE=false
 ```
 
-`NEXT_PUBLIC_ANKER_DEMO_MODE=true` puts the app in demo-data mode: market data, quotes, and the manager list are served from deterministic fixtures, a demo banner is shown on every app page, and every transaction entry point is disabled (the transaction builders also refuse to build plans as a backstop). Use it while the DeepBook Predict testnet deployment the app targets is unavailable — e.g. during the current 4-16 → 6-24 migration. It's a build-time flag: redeploy after changing it. Never enable `ANKER_DETERMINISTIC_E2E` on Production.
+`NEXT_PUBLIC_ANKER_DEMO_MODE=true` puts the app in demo-data mode: market data, quotes, and the manager list are served from deterministic fixtures, a demo banner is shown on every app page, and every transaction entry point is disabled (the transaction builders also refuse to build plans as a backstop). Use it only when the DeepBook Predict testnet deployment the app targets is entirely unavailable — day tenors already degrade to the committed Snapshot on their own (ADR-0004), so this switch is for outages the Snapshot can't cover. It's a build-time flag: redeploy after changing it. Never enable `ANKER_DETERMINISTIC_E2E` on Production.
 
 The `/api/predict/[...path]` wrapper is intentionally narrow: it only proxies the Predict endpoints the app uses, with an 8s upstream timeout, a 1 MB response cap, cache headers, and a basic per-client rate limit.
 
