@@ -244,6 +244,7 @@ export function DualInvestmentPage({
             rows={scanQuery.data ?? []}
             binanceProducts={binanceProducts}
             binanceStatus={binanceStatus}
+            nowMs={frozenNowMs}
             activeTargetPrice={targetPrice}
             isFetching={scanQuery.isFetching}
             onSelect={handleSelectPreset}

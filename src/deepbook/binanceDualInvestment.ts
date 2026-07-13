@@ -146,30 +146,48 @@ export async function fetchBinanceDualInvestmentProducts(input: {
   return [...firstPage.products, ...restPages.flatMap((page) => page.products)];
 }
 
+export const MAX_SETTLEMENT_OFFSET_RATIO = 0.5;
+
+export type BinanceDualInvestmentMatchResult =
+  | {
+      kind: 'matched';
+      product: BinanceDualInvestmentProduct;
+      /** Signed offset: Binance settle − Anker settle. */
+      settlementOffsetMs: number;
+    }
+  | { kind: 'no_comparable_product' }
+  | { kind: 'no_product' };
+
 export function findBinanceDualInvestmentMatch(input: {
-  products: BinanceDualInvestmentProduct[];
+  products: readonly BinanceDualInvestmentProduct[];
   targetPrice: number;
   settlementTimeMs: number;
-}) {
+  /** Clock used to measure Anker tenor for the 50% offset sanity bound. */
+  nowMs?: number;
+}): BinanceDualInvestmentMatchResult {
   const targetPrice = Math.round(input.targetPrice);
-  const settlementDateKey = utcDateKey(input.settlementTimeMs);
-  const candidates = input.products.filter(
-    (product) =>
-      Math.round(product.strikePrice) === targetPrice &&
-      (product.settleTimeMs === input.settlementTimeMs || utcDateKey(product.settleTimeMs) === settlementDateKey),
-  );
+  const nowMs = input.nowMs ?? Date.now();
+  const ankerTenorMs = Math.max(0, input.settlementTimeMs - nowMs);
+  const candidates = input.products.filter((product) => Math.round(product.strikePrice) === targetPrice);
 
-  return candidates.sort((a, b) => {
-    const aExact = a.settleTimeMs === input.settlementTimeMs;
-    const bExact = b.settleTimeMs === input.settlementTimeMs;
-    if (aExact !== bExact) return aExact ? -1 : 1;
+  if (candidates.length === 0) {
+    return { kind: 'no_product' };
+  }
+
+  const nearest = [...candidates].sort((a, b) => {
+    const aOffset = Math.abs(a.settleTimeMs - input.settlementTimeMs);
+    const bOffset = Math.abs(b.settleTimeMs - input.settlementTimeMs);
+    if (aOffset !== bOffset) return aOffset - bOffset;
     if (a.canPurchase !== b.canPurchase) return a.canPurchase ? -1 : 1;
     const aApr = a.apr ?? -Infinity;
     const bApr = b.apr ?? -Infinity;
     return bApr - aApr;
-  })[0];
-}
+  })[0]!;
 
-function utcDateKey(timestampMs: number) {
-  return new Date(timestampMs).toISOString().slice(0, 10);
+  const settlementOffsetMs = nearest.settleTimeMs - input.settlementTimeMs;
+  if (Math.abs(settlementOffsetMs) > MAX_SETTLEMENT_OFFSET_RATIO * ankerTenorMs) {
+    return { kind: 'no_comparable_product' };
+  }
+
+  return { kind: 'matched', product: nearest, settlementOffsetMs };
 }

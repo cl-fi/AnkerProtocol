@@ -3,7 +3,11 @@
 import { RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import type { ChangeEvent, KeyboardEvent } from 'react';
-import { findBinanceDualInvestmentMatch, type BinanceDualInvestmentProduct } from '../deepbook/binanceDualInvestment';
+import {
+  findBinanceDualInvestmentMatch,
+  type BinanceDualInvestmentMatchResult,
+  type BinanceDualInvestmentProduct,
+} from '../deepbook/binanceDualInvestment';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
 import {
   displayTargetStepForMarket,
@@ -208,6 +212,7 @@ export function ReferenceTable({
   rows,
   binanceProducts = [],
   binanceStatus = 'ready',
+  nowMs,
   activeTargetPrice,
   isFetching,
   onSelect,
@@ -218,6 +223,8 @@ export function ReferenceTable({
   rows: DualInvestmentScanRow[];
   binanceProducts?: BinanceDualInvestmentProduct[];
   binanceStatus?: BinanceBenchmarkStatus;
+  /** Clock for remaining-tenor bound and snapshot freeze; defaults to live now. */
+  nowMs?: number;
   activeTargetPrice: number;
   isFetching: boolean;
   onSelect: (input: DualInvestmentInput) => void;
@@ -235,28 +242,38 @@ export function ReferenceTable({
     }
   };
 
-  function binanceAprDisplay(match: BinanceDualInvestmentProduct | undefined) {
+  function binanceAprDisplay(match: BinanceDualInvestmentMatchResult) {
     if (binanceStatus === 'loading') return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.loading };
     if (binanceStatus === 'error')
       return { className: 'muted-cell benchmark-status is-error', label: copy.dualInvestment.binanceStatus.fetchError };
-    if (!match) return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noProduct };
-    if (match.apr === null)
+    if (match.kind === 'no_product')
+      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noProduct };
+    if (match.kind === 'no_comparable_product')
+      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noComparableProduct };
+    if (match.product.apr === null)
       return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.aprUnavailable };
-    return { className: 'binance-apr', label: format.referenceApr(match.apr) };
+    return {
+      className: 'binance-apr',
+      label: format.referenceApr(match.product.apr),
+      detail: `${format.oracleTimestamp(match.product.settleTimeMs)} · ${copy.dualInvestment.binanceTenorDays(match.product.durationDays)}`,
+    };
   }
 
   function edgeDisplay(input: {
     displayApr: number | null;
-    match: BinanceDualInvestmentProduct | undefined;
+    match: BinanceDualInvestmentMatchResult;
   }) {
     if (input.displayApr === null) return { className: 'muted-cell benchmark-status', label: '--' };
     if (binanceStatus === 'loading') return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.waiting };
     if (binanceStatus === 'error')
       return { className: 'muted-cell benchmark-status is-error', label: copy.dualInvestment.binanceStatus.noBenchmark };
-    if (!input.match) return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noProduct };
-    if (input.match.apr === null)
+    if (input.match.kind === 'no_product')
+      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noProduct };
+    if (input.match.kind === 'no_comparable_product')
+      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noComparableProduct };
+    if (input.match.product.apr === null)
       return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noApr };
-    const edge = input.displayApr - input.match.apr;
+    const edge = input.displayApr - input.match.product.apr;
     return { className: `edge-cell ${edge >= 0 ? 'positive' : ''}`, label: formatEdge(edge, locale) };
   }
 
@@ -291,8 +308,9 @@ export function ReferenceTable({
                     products: binanceProducts,
                     targetPrice: row.input.targetPrice,
                     settlementTimeMs: market.expiryMs,
+                    nowMs,
                   })
-                : undefined;
+                : ({ kind: 'no_product' } as const);
               const binanceApr = binanceAprDisplay(binanceMatch);
               const edge = edgeDisplay({ displayApr: displayMetrics.apr, match: binanceMatch });
               const isActive = row.input.targetPrice === activeTargetPrice;
@@ -330,7 +348,14 @@ export function ReferenceTable({
                   </td>
                   {!subDay ? (
                     <td className={binanceApr.className} data-label={copy.dualInvestment.binanceApr}>
-                      {binanceApr.label}
+                      {'detail' in binanceApr && binanceApr.detail ? (
+                        <>
+                          <strong className="di-yield-primary">{binanceApr.label}</strong>
+                          <span className="di-ref-apr">{binanceApr.detail}</span>
+                        </>
+                      ) : (
+                        binanceApr.label
+                      )}
                     </td>
                   ) : null}
                   {!subDay ? (

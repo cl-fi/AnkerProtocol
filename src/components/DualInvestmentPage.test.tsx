@@ -283,10 +283,10 @@ describe('Dual Investment APR display', () => {
     expect(screen.getByRole('columnheader', { name: 'Per-period yield' })).toBeVisible();
     expect(screen.getByText('40 bps')).toBeVisible();
     expect(screen.getByText('Ref. APR ≈ 135.00%')).toBeVisible();
-    expect(screen.queryByRole('columnheader', { name: 'Binance APR' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'nearest-expiry Binance APR' })).not.toBeInTheDocument();
   });
 
-  it('shows matched Binance APR, edge, and benchmark methodology in the reference table', () => {
+  it('shows matched nearest-expiry Binance APR with settlement disclosure, edge, and methodology', () => {
     const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
     const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
     const rows: DualInvestmentScanRow[] = [
@@ -313,6 +313,7 @@ describe('Dual Investment APR display', () => {
         market={market}
         rows={rows}
         binanceProducts={binanceProducts}
+        nowMs={Date.UTC(2026, 7, 12)}
         activeTargetPrice={64_000}
         isFetching={false}
         onSelect={() => undefined}
@@ -320,14 +321,15 @@ describe('Dual Investment APR display', () => {
       />,
     );
 
-    expect(screen.getByRole('columnheader', { name: 'Binance APR' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'nearest-expiry Binance APR' })).toBeVisible();
     expect(screen.getByRole('columnheader', { name: 'Edge' })).toBeVisible();
     expect(screen.getByText('80.00%')).toBeVisible();
+    expect(screen.getByText(/1d/)).toBeVisible();
     expect(screen.getByText('+55.00 pts')).toBeVisible();
-    expect(screen.getByText(/BTCUSDC Dual Investment/i)).toBeVisible();
+    expect(screen.getByText(/nearest settlement/i)).toBeVisible();
   });
 
-  it('distinguishes missing Binance products from unavailable APR', () => {
+  it('distinguishes missing products, incomparable offsets, and unavailable APR', () => {
     const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
     const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
     const rows: DualInvestmentScanRow[] = [
@@ -341,6 +343,7 @@ describe('Dual Investment APR display', () => {
       <ReferenceTable
         market={market}
         rows={rows}
+        nowMs={Date.UTC(2026, 7, 12)}
         activeTargetPrice={64_000}
         isFetching={false}
         onSelect={() => undefined}
@@ -349,6 +352,32 @@ describe('Dual Investment APR display', () => {
     );
 
     expect(screen.getAllByText('No product')).toHaveLength(2);
+
+    rerender(
+      <ReferenceTable
+        market={market}
+        rows={rows}
+        binanceProducts={[
+          {
+            id: 'binance-too-far',
+            investmentAsset: 'USDC',
+            targetAsset: 'BTC',
+            strikePrice: 64_000,
+            settleTimeMs: Date.UTC(2026, 8, 10, 8),
+            apr: 0.5,
+            durationDays: 20,
+            canPurchase: true,
+          },
+        ]}
+        nowMs={Date.UTC(2026, 7, 20)}
+        activeTargetPrice={64_000}
+        isFetching={false}
+        onSelect={() => undefined}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    expect(screen.getAllByText('No comparable product')).toHaveLength(2);
 
     rerender(
       <ReferenceTable
@@ -366,6 +395,7 @@ describe('Dual Investment APR display', () => {
             canPurchase: true,
           },
         ]}
+        nowMs={Date.UTC(2026, 7, 12)}
         activeTargetPrice={64_000}
         isFetching={false}
         onSelect={() => undefined}
@@ -438,6 +468,7 @@ describe('Dual Investment APR display', () => {
 
     expect(screen.getByText('低买价格')).toBeVisible();
     expect(screen.getByRole('columnheader', { name: '预估 APR' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: '最近到期 Binance APR' })).toBeVisible();
     expect(screen.getByText('$64,000')).toBeVisible();
   });
 });
