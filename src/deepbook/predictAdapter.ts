@@ -1,6 +1,5 @@
 import { DEEPBOOK_PREDICT, PREDICT_SERVER_URL } from '../config/deepbook';
 import type { Transaction } from '@mysten/sui/transactions';
-import type { PredictCadenceConfig } from '../config/predictDeployment';
 import { filterMarketsForTenorGroup, type TenorGroup } from '../products/tenorMarkets';
 import { fromChainPrice } from '../products/units';
 
@@ -9,11 +8,6 @@ const FLOAT_SCALE = 1_000_000_000;
 export interface ExpiryMarketSummary {
   expiryMarketId: string;
   expiryMs: number;
-  /**
-   * Market-created checkpoint timestamp from the indexer (`checkpoint_timestamp_ms`).
-   * Used for immutable birth-tenor classification (ADR-0007); omit when unknown.
-   */
-  createdAtMs?: number;
   tickSize: number;
   admissionTickSize: number;
   maxExpiryAllocation: string;
@@ -94,10 +88,6 @@ export function parseExpiryMarketRows(payload: unknown): ExpiryMarketSummary[] {
     if (!isRecord(item)) return [];
     const expiryMarketId = asString(item.expiry_market_id);
     const expiryMs = asNumber(item.expiry);
-    // Reject null/'' → 0 from Number(); only positive checkpoints are birth timestamps.
-    const createdAtRaw = asNumber(item.checkpoint_timestamp_ms);
-    const createdAtMs =
-      createdAtRaw !== null && createdAtRaw > 0 ? createdAtRaw : undefined;
     const tickSizeRaw = asNumber(item.tick_size);
     const admissionTickSizeRaw = asNumber(item.admission_tick_size);
     const maxExpiryAllocation = asString(item.max_expiry_allocation);
@@ -130,7 +120,6 @@ export function parseExpiryMarketRows(payload: unknown): ExpiryMarketSummary[] {
       {
         expiryMarketId,
         expiryMs,
-        ...(createdAtMs !== undefined ? { createdAtMs } : {}),
         tickSize: fromChainPrice(tickSizeRaw),
         admissionTickSize: fromChainPrice(admissionTickSizeRaw),
         maxExpiryAllocation,
@@ -147,21 +136,6 @@ export function parseExpiryMarketRows(payload: unknown): ExpiryMarketSummary[] {
   });
 }
 
-export function filterExpiryMarketsByCadence(
-  markets: readonly ExpiryMarketSummary[],
-  cadence: Pick<PredictCadenceConfig, 'maxExpiryAllocation' | 'initialExpiryCash'>,
-  nowMs = Date.now(),
-): ExpiryMarketSummary[] {
-  return markets
-    .filter(
-      (market) =>
-        market.expiryMs > nowMs &&
-        market.maxExpiryAllocation === cadence.maxExpiryAllocation &&
-        market.initialExpiryCash === cadence.initialExpiryCash,
-    )
-    .sort((a, b) => a.expiryMs - b.expiryMs);
-}
-
 async function fetchPredictJson<T>(path: string): Promise<T> {
   const baseUrl = typeof window === 'undefined' ? PREDICT_SERVER_URL : '/api/predict';
   const response = await fetch(`${baseUrl}${path}`, { cache: 'no-store' });
@@ -173,8 +147,6 @@ async function fetchPredictJson<T>(path: string): Promise<T> {
 
 export function createPredictAdapter(input?: {
   fetchMarkets?: () => Promise<unknown>;
-  /** @deprecated Prefer group — kept for hourly cadence overrides in tests. */
-  cadence?: Pick<PredictCadenceConfig, 'maxExpiryAllocation' | 'initialExpiryCash'>;
   group?: TenorGroup;
 }): PredictAdapter {
   const group = input?.group ?? 'hourly';
@@ -184,10 +156,7 @@ export function createPredictAdapter(input?: {
   return {
     async discoverMarkets({ nowMs = Date.now() } = {}) {
       const rows = parseExpiryMarketRows(await fetchMarkets());
-      return filterMarketsForTenorGroup(rows, group, {
-        nowMs,
-        turboCadence: input?.cadence ?? DEEPBOOK_PREDICT.turboCadence,
-      });
+      return filterMarketsForTenorGroup(rows, group, { nowMs });
     },
     redeemLegs(redeemInput) {
       const market = redeemInput.tx.object(redeemInput.expiryMarketId);

@@ -1,16 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Transaction } from '@mysten/sui/transactions';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
-import {
-  createPredictAdapter,
-  filterExpiryMarketsByCadence,
-  parseExpiryMarketRows,
-} from './predictAdapter';
+import { createPredictAdapter, parseExpiryMarketRows } from './predictAdapter';
 
 const HOUR_ALLOC = DEEPBOOK_PREDICT.turboCadence.maxExpiryAllocation;
 const HOUR_CASH = DEEPBOOK_PREDICT.turboCadence.initialExpiryCash;
 const MINUTE_ALLOC = '50000000000';
 const MINUTE_CASH = '10000000000';
+const DAY_ALLOC = '999000000000';
+const DAY_CASH = '999000000000';
 
 function marketRow(input: {
   id: string;
@@ -48,11 +46,12 @@ describe('PredictAdapter market discovery', () => {
       }),
     ]);
 
+    // checkpoint_timestamp_ms stays in the raw payload but is not parsed:
+    // shelving follows remaining tenor (ADR-0007), so birth time is unused.
     expect(markets).toEqual([
       {
         expiryMarketId: '0xaaa',
         expiryMs: 1_800_000_000_000,
-        createdAtMs: 1_800_000_000_000 - 3_600_000,
         tickSize: 0.01,
         admissionTickSize: 1,
         maxExpiryAllocation: HOUR_ALLOC,
@@ -68,32 +67,27 @@ describe('PredictAdapter market discovery', () => {
     ]);
   });
 
-  it('omits createdAtMs when the market-created checkpoint timestamp is missing or null', () => {
-    const base = {
-      id: '0xbbb',
-      expiry: 1_800_000_000_000,
-      maxExpiryAllocation: HOUR_ALLOC,
-      initialExpiryCash: HOUR_CASH,
-    };
-    const missing = marketRow(base);
-    delete (missing as { checkpoint_timestamp_ms?: number }).checkpoint_timestamp_ms;
-    const nulled = { ...marketRow(base), checkpoint_timestamp_ms: null };
-
-    for (const row of [missing, nulled]) {
-      const [market] = parseExpiryMarketRows([row]);
-      expect(market?.expiryMarketId).toBe('0xbbb');
-      expect(market).not.toHaveProperty('createdAtMs');
-    }
-  });
-
-  it('keeps only the Turbo 1h cadence markets', () => {
+  it('shelves discovery by remaining tenor: hourly keeps decayed day rows, drops minute rows', async () => {
     const nowMs = 1_700_000_000_000;
-    const rows = parseExpiryMarketRows([
+    const dayMs = 86_400_000;
+    const payload = [
       marketRow({
         id: '0x1m',
         expiry: nowMs + 60_000,
         maxExpiryAllocation: MINUTE_ALLOC,
         initialExpiryCash: MINUTE_CASH,
+      }),
+      marketRow({
+        id: '0x1h-past',
+        expiry: nowMs - 1,
+        maxExpiryAllocation: HOUR_ALLOC,
+        initialExpiryCash: HOUR_CASH,
+      }),
+      marketRow({
+        id: '0xdecayed-day',
+        expiry: nowMs + 9 * 3_600_000,
+        maxExpiryAllocation: DAY_ALLOC,
+        initialExpiryCash: DAY_CASH,
       }),
       marketRow({
         id: '0x1h-a',
@@ -102,21 +96,19 @@ describe('PredictAdapter market discovery', () => {
         initialExpiryCash: HOUR_CASH,
       }),
       marketRow({
-        id: '0x1h-b',
-        expiry: nowMs + 7_200_000,
-        maxExpiryAllocation: HOUR_ALLOC,
-        initialExpiryCash: HOUR_CASH,
+        id: '0x3d',
+        expiry: nowMs + 3 * dayMs,
+        maxExpiryAllocation: DAY_ALLOC,
+        initialExpiryCash: DAY_CASH,
       }),
-      marketRow({
-        id: '0x1h-past',
-        expiry: nowMs - 1,
-        maxExpiryAllocation: HOUR_ALLOC,
-        initialExpiryCash: HOUR_CASH,
-      }),
-    ]);
+    ];
+    const fetchMarkets = async () => payload;
 
-    const turbo = filterExpiryMarketsByCadence(rows, DEEPBOOK_PREDICT.turboCadence, nowMs);
-    expect(turbo.map((market) => market.expiryMarketId)).toEqual(['0x1h-a', '0x1h-b']);
+    const hourly = await createPredictAdapter({ fetchMarkets }).discoverMarkets({ nowMs });
+    expect(hourly.map((market) => market.expiryMarketId)).toEqual(['0x1h-a', '0xdecayed-day']);
+
+    const day = await createPredictAdapter({ fetchMarkets, group: 'day' }).discoverMarkets({ nowMs });
+    expect(day.map((market) => market.expiryMarketId)).toEqual(['0x3d']);
   });
 
   describe('default /markets request', () => {

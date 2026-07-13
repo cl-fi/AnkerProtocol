@@ -7,7 +7,7 @@ import {
   predictAdapter,
   type ExpiryMarketSummary,
 } from './predictAdapter';
-import type { TenorGroup } from '../products/tenorMarkets';
+import { matchesCadenceFingerprint, type TenorGroup } from '../products/tenorMarkets';
 import {
   isOracleTimestampFresh,
   parsePythSpotObservation,
@@ -78,7 +78,9 @@ export function expiryMarketToListItem(
     tick_size: market.tickSize,
     admission_tick_size: market.admissionTickSize,
     status: 'active',
-    cadence: group === 'hourly' ? '1h' : undefined,
+    // The hourly shelf also carries decayed day markets (ADR-0007), so the
+    // schedule name comes from the market's cadence fingerprint, not the shelf.
+    cadence: matchesCadenceFingerprint(market, DEEPBOOK_PREDICT.turboCadence) ? '1h' : undefined,
     group,
   };
 }

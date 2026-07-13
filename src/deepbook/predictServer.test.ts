@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import statusFixture from '../test/fixtures/status.json';
+import type { ExpiryMarketSummary } from './predictAdapter';
 import {
+  expiryMarketToListItem,
   filterProductExpiryOracles,
   parsePredictPricingState,
   parseStatus,
@@ -24,6 +27,52 @@ function listItem(
     group: 'hourly',
   };
 }
+
+function marketSummary(input: {
+  id: string;
+  expiryMs: number;
+  maxExpiryAllocation: string;
+  initialExpiryCash: string;
+}): ExpiryMarketSummary {
+  return {
+    expiryMarketId: input.id,
+    expiryMs: input.expiryMs,
+    tickSize: 0.01,
+    admissionTickSize: 1,
+    maxExpiryAllocation: input.maxExpiryAllocation,
+    initialExpiryCash: input.initialExpiryCash,
+    packageId: DEEPBOOK_PREDICT.packageId,
+    poolVaultId: DEEPBOOK_PREDICT.poolVaultId,
+    propbookUnderlyingId: 1,
+    baseFee: 0.02,
+    minFee: 0.005,
+    minEntryProbability: 0.01,
+    maxEntryProbability: 0.99,
+  };
+}
+
+describe('expiryMarketToListItem', () => {
+  it('labels cadence by the market fingerprint, not the shelf it sells on', () => {
+    const trueHourly = marketSummary({
+      id: '0x1h',
+      expiryMs: 1_700_000_000_000,
+      maxExpiryAllocation: DEEPBOOK_PREDICT.turboCadence.maxExpiryAllocation,
+      initialExpiryCash: DEEPBOOK_PREDICT.turboCadence.initialExpiryCash,
+    });
+    // A decayed day market sells on the hourly shelf (ADR-0007) but is not
+    // a 1h-cadence market; claiming '1h' would misstate its schedule.
+    const decayedDay = marketSummary({
+      id: '0xdecayed-day',
+      expiryMs: 1_700_000_000_000,
+      maxExpiryAllocation: '999000000000',
+      initialExpiryCash: '999000000000',
+    });
+
+    expect(expiryMarketToListItem(trueHourly, 'hourly').cadence).toBe('1h');
+    expect(expiryMarketToListItem(decayedDay, 'hourly').cadence).toBeUndefined();
+    expect(expiryMarketToListItem(decayedDay, 'day').cadence).toBeUndefined();
+  });
+});
 
 describe('predictServer parsers', () => {
   it('parses server status freshness', () => {

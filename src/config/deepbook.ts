@@ -1,4 +1,4 @@
-import { PREDICT_DEPLOYMENT, turboCadence } from './predictDeployment';
+import { PREDICT_DEPLOYMENT, minuteCadences, turboCadence } from './predictDeployment';
 
 export type ProtocolNetwork = 'testnet';
 
@@ -26,6 +26,7 @@ export const DEEPBOOK_PREDICT = {
   accumulatorRoot: PREDICT_DEPLOYMENT.accumulatorRoot,
   feeds: PREDICT_DEPLOYMENT.feeds,
   turboCadence: turboCadence(PREDICT_DEPLOYMENT),
+  minuteCadences: minuteCadences(PREDICT_DEPLOYMENT),
   quoteAssetType: PREDICT_DEPLOYMENT.quoteAssetType,
   quoteAssetDecimals: PREDICT_DEPLOYMENT.quoteAssetDecimals,
   baseSpread: PREDICT_DEPLOYMENT.pricing.baseSpread,

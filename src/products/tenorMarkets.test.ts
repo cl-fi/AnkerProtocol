@@ -12,14 +12,12 @@ const HOUR_MS = 3_600_000;
 function market(input: {
   id: string;
   expiryMs: number;
-  createdAtMs?: number;
   maxExpiryAllocation?: string;
   initialExpiryCash?: string;
 }): ExpiryMarketSummary {
   return {
     expiryMarketId: input.id,
     expiryMs: input.expiryMs,
-    ...(input.createdAtMs !== undefined ? { createdAtMs: input.createdAtMs } : {}),
     tickSize: 0.01,
     admissionTickSize: 1,
     maxExpiryAllocation: input.maxExpiryAllocation ?? HOUR_ALLOC,
@@ -37,132 +35,91 @@ function market(input: {
 describe('filterMarketsForTenorGroup', () => {
   const nowMs = 1_700_000_000_000;
 
-  it('keeps hourly rows on the 1h cadence fingerprint with sub-day birth tenor', () => {
+  it('never shelves minute-cadence markets, and keeps day-remaining rows off the hourly shelf', () => {
     const markets = [
       market({
         id: '0x1m',
         expiryMs: nowMs + 60_000,
-        createdAtMs: nowMs - 60_000,
         maxExpiryAllocation: MINUTE_ALLOC,
         initialExpiryCash: MINUTE_CASH,
       }),
       market({
-        id: '0x1h',
-        expiryMs: nowMs + 3 * HOUR_MS,
-        createdAtMs: nowMs,
+        id: '0x5m',
+        expiryMs: nowMs + 5 * 60_000,
+        maxExpiryAllocation: MINUTE_ALLOC,
+        initialExpiryCash: MINUTE_CASH,
       }),
-      market({
-        id: '0x3d-same-fingerprint',
-        expiryMs: nowMs + 3 * DAY_MS,
-        createdAtMs: nowMs,
-      }),
-      market({
-        id: '0x3d',
-        expiryMs: nowMs + 3 * DAY_MS,
-        createdAtMs: nowMs,
-        maxExpiryAllocation: '999000000000',
-        initialExpiryCash: '999000000000',
-      }),
+      market({ id: '0x1h', expiryMs: nowMs + 3 * HOUR_MS }),
+      market({ id: '0x3d-1h-fingerprint', expiryMs: nowMs + 3 * DAY_MS }),
     ];
 
     expect(filterMarketsForTenorGroup(markets, 'hourly', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
       '0x1h',
     ]);
-  });
-
-  it('classifies a true hourly market born at 3.0h as hourly (ADR-0007)', () => {
-    const expiryMs = nowMs + 2 * HOUR_MS;
-    const markets = [
-      market({
-        id: '0xborn-3h',
-        expiryMs,
-        createdAtMs: expiryMs - 3 * HOUR_MS,
-      }),
-    ];
-
-    expect(filterMarketsForTenorGroup(markets, 'hourly', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
-      '0xborn-3h',
+    expect(filterMarketsForTenorGroup(markets, 'day', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
+      '0x3d-1h-fingerprint',
     ]);
-    expect(filterMarketsForTenorGroup(markets, 'day', { nowMs })).toEqual([]);
   });
 
-  it('keeps a day-born market off the hourly shelf even with 9.5h remaining (ADR-0007 regression)', () => {
-    // Live case: born 29.6h before expiry, 9.5h remaining — must stay day, never hourly.
-    const remainingMs = 9.5 * HOUR_MS;
-    const birthMs = 29.6 * HOUR_MS;
-    const expiryMs = nowMs + remainingMs;
+  it('moves a decayed day market (9.5h remaining) onto the hourly shelf (ADR-0007 regression)', () => {
+    // Live case: born 29.6h before expiry, 9.5h remaining — an intraday trade,
+    // sold beside the other per-period rows. Day-scale fingerprint on purpose:
+    // the hourly predicate is exclusion-based, not 1h-fingerprint inclusion.
+    const expiryMs = nowMs + 9.5 * HOUR_MS;
     const markets = [
       market({
         id: '0xdecayed-day',
         expiryMs,
-        createdAtMs: expiryMs - birthMs,
+        maxExpiryAllocation: '999000000000',
+        initialExpiryCash: '999000000000',
       }),
       market({
         id: '0xtrue-hourly',
         expiryMs: nowMs + 3 * HOUR_MS,
-        createdAtMs: nowMs,
       }),
     ];
 
     expect(filterMarketsForTenorGroup(markets, 'hourly', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
       '0xtrue-hourly',
-    ]);
-    expect(filterMarketsForTenorGroup(markets, 'day', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
       '0xdecayed-day',
     ]);
+    expect(filterMarketsForTenorGroup(markets, 'day', { nowMs })).toEqual([]);
   });
 
-  it('keeps day-born markets on the day shelf while unexpired, including sub-day remaining', () => {
+  it('lists only markets with at least one day remaining on the day shelf; the 24h line is exact', () => {
+    const dayScale = { maxExpiryAllocation: '999000000000', initialExpiryCash: '999000000000' };
     const markets = [
-      market({
-        id: '0x1h',
-        expiryMs: nowMs + HOUR_MS,
-        createdAtMs: nowMs,
-      }),
-      market({
-        id: '0xdecayed-day',
-        expiryMs: nowMs + DAY_MS - 1,
-        createdAtMs: nowMs - 2 * DAY_MS,
-      }),
-      market({
-        id: '0x1d',
-        expiryMs: nowMs + DAY_MS,
-        createdAtMs: nowMs - DAY_MS,
-        maxExpiryAllocation: '999000000000',
-        initialExpiryCash: '999000000000',
-      }),
-      market({
-        id: '0x7d',
-        expiryMs: nowMs + 7 * DAY_MS,
-        createdAtMs: nowMs,
-        maxExpiryAllocation: '999000000000',
-        initialExpiryCash: '999000000000',
-      }),
+      market({ id: '0x1h', expiryMs: nowMs + HOUR_MS }),
+      market({ id: '0xjust-under-1d', expiryMs: nowMs + DAY_MS - 1, ...dayScale }),
+      market({ id: '0x1d', expiryMs: nowMs + DAY_MS, ...dayScale }),
+      market({ id: '0x7d', expiryMs: nowMs + 7 * DAY_MS, ...dayScale }),
     ];
 
     expect(filterMarketsForTenorGroup(markets, 'day', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
-      '0xdecayed-day',
       '0x1d',
       '0x7d',
     ]);
+    expect(filterMarketsForTenorGroup(markets, 'hourly', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
+      '0x1h',
+      '0xjust-under-1d',
+    ]);
   });
 
-  it('falls back to remaining-tenor classification when creation timestamp is missing', () => {
+  it('sorts an hourly shelf spanning 1-23h by expiry and drops expired rows', () => {
+    const dayScale = { maxExpiryAllocation: '999000000000', initialExpiryCash: '999000000000' };
     const markets = [
-      market({ id: '0x9h-no-birth', expiryMs: nowMs + 9.5 * HOUR_MS }),
-      market({
-        id: '0x2d-no-birth',
-        expiryMs: nowMs + 2 * DAY_MS,
-        maxExpiryAllocation: '999000000000',
-        initialExpiryCash: '999000000000',
-      }),
+      market({ id: '0x23h', expiryMs: nowMs + 23 * HOUR_MS, ...dayScale }),
+      market({ id: '0x1h', expiryMs: nowMs + HOUR_MS }),
+      market({ id: '0xexpired', expiryMs: nowMs - HOUR_MS, ...dayScale }),
+      market({ id: '0x9h', expiryMs: nowMs + 9.5 * HOUR_MS, ...dayScale }),
+      market({ id: '0x4h', expiryMs: nowMs + 4 * HOUR_MS, ...dayScale }),
     ];
 
     expect(filterMarketsForTenorGroup(markets, 'hourly', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
-      '0x9h-no-birth',
-    ]);
-    expect(filterMarketsForTenorGroup(markets, 'day', { nowMs }).map((row) => row.expiryMarketId)).toEqual([
-      '0x2d-no-birth',
+      '0x1h',
+      '0x4h',
+      '0x9h',
+      '0x23h',
     ]);
   });
 });

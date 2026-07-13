@@ -1,9 +1,6 @@
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import type { PredictCadenceConfig } from '../config/predictDeployment';
-import {
-  filterExpiryMarketsByCadence,
-  type ExpiryMarketSummary,
-} from '../deepbook/predictAdapter';
+import type { ExpiryMarketSummary } from '../deepbook/predictAdapter';
 
 /** One calendar day — boundary between the hourly and day-scale tenor groups. */
 export const DAY_MS = 86_400_000;
@@ -19,43 +16,47 @@ export type TenorGroup = 'hourly' | 'day';
  */
 export type TenorSource = 'live' | 'snapshot';
 
-/**
- * Whether a market belongs on the hourly shelf (ADR-0007): birth tenor under
- * one day when `createdAtMs` is known; otherwise remaining-time fallback.
- */
-export function isHourlyShelfMarket(
-  market: Pick<ExpiryMarketSummary, 'expiryMs' | 'createdAtMs'>,
-  nowMs = Date.now(),
+type CadenceFingerprint = Pick<PredictCadenceConfig, 'maxExpiryAllocation' | 'initialExpiryCash'>;
+
+/** Markets carry no cadence name; the creation params identify the schedule. */
+export function matchesCadenceFingerprint(
+  market: Pick<ExpiryMarketSummary, 'maxExpiryAllocation' | 'initialExpiryCash'>,
+  cadence: CadenceFingerprint,
 ): boolean {
-  if (typeof market.createdAtMs === 'number' && Number.isFinite(market.createdAtMs)) {
-    return market.expiryMs - market.createdAtMs < DAY_MS;
-  }
-  return market.expiryMs - nowMs < DAY_MS;
+  return (
+    market.maxExpiryAllocation === cadence.maxExpiryAllocation &&
+    market.initialExpiryCash === cadence.initialExpiryCash
+  );
 }
 
 /**
- * Shared discovery, different filter: hourly = 1h cadence fingerprint and
- * hourly birth tenor (ADR-0007); day = day-scale birth, kept while unexpired.
+ * Shelving follows remaining tenor (ADR-0007): at least one day remaining
+ * sells on the day shelf; under one day on the hourly shelf, so a decayed
+ * day market migrates instead of vanishing. The hourly predicate is
+ * exclusion-based — sub-day remaining AND not minute-cadence (ADR-0002) —
+ * so day-born rows never depend on sharing the 1h cadence fingerprint.
  */
 export function filterMarketsForTenorGroup(
   markets: readonly ExpiryMarketSummary[],
   group: TenorGroup,
   options: {
     nowMs?: number;
-    turboCadence?: Pick<PredictCadenceConfig, 'maxExpiryAllocation' | 'initialExpiryCash'>;
+    minuteCadences?: readonly CadenceFingerprint[];
   } = {},
 ): ExpiryMarketSummary[] {
   const nowMs = options.nowMs ?? Date.now();
-  if (group === 'hourly') {
-    return filterExpiryMarketsByCadence(
-      markets,
-      options.turboCadence ?? DEEPBOOK_PREDICT.turboCadence,
-      nowMs,
-    ).filter((market) => isHourlyShelfMarket(market, nowMs));
-  }
+  const minuteCadences = options.minuteCadences ?? DEEPBOOK_PREDICT.minuteCadences;
 
   return markets
-    .filter((market) => market.expiryMs > nowMs && !isHourlyShelfMarket(market, nowMs))
+    .filter((market) => {
+      const remainingMs = market.expiryMs - nowMs;
+      if (group === 'day') return remainingMs >= DAY_MS;
+      return (
+        remainingMs > 0 &&
+        remainingMs < DAY_MS &&
+        !minuteCadences.some((cadence) => matchesCadenceFingerprint(market, cadence))
+      );
+    })
     .sort((a, b) => a.expiryMs - b.expiryMs);
 }
 

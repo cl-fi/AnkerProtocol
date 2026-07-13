@@ -178,3 +178,8 @@ export function turboCadence(config: PredictDeploymentConfig = PREDICT_DEPLOYMEN
   }
   return cadence;
 }
+
+/** Minute-scale cadences (1m/5m today) — never offered as products (ADR-0002). */
+export function minuteCadences(config: PredictDeploymentConfig = PREDICT_DEPLOYMENT): PredictCadenceConfig[] {
+  return config.cadences.filter((item) => /^\d+m$/.test(item.name));
+}
