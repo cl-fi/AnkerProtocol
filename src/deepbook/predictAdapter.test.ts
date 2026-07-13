@@ -52,6 +52,7 @@ describe('PredictAdapter market discovery', () => {
       {
         expiryMarketId: '0xaaa',
         expiryMs: 1_800_000_000_000,
+        createdAtMs: 1_800_000_000_000 - 3_600_000,
         tickSize: 0.01,
         admissionTickSize: 1,
         maxExpiryAllocation: HOUR_ALLOC,
@@ -65,6 +66,24 @@ describe('PredictAdapter market discovery', () => {
         maxEntryProbability: 0.99,
       },
     ]);
+  });
+
+  it('omits createdAtMs when the market-created checkpoint timestamp is missing or null', () => {
+    const base = {
+      id: '0xbbb',
+      expiry: 1_800_000_000_000,
+      maxExpiryAllocation: HOUR_ALLOC,
+      initialExpiryCash: HOUR_CASH,
+    };
+    const missing = marketRow(base);
+    delete (missing as { checkpoint_timestamp_ms?: number }).checkpoint_timestamp_ms;
+    const nulled = { ...marketRow(base), checkpoint_timestamp_ms: null };
+
+    for (const row of [missing, nulled]) {
+      const [market] = parseExpiryMarketRows([row]);
+      expect(market?.expiryMarketId).toBe('0xbbb');
+      expect(market).not.toHaveProperty('createdAtMs');
+    }
   });
 
   it('keeps only the Turbo 1h cadence markets', () => {

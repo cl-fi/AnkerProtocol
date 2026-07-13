@@ -20,8 +20,22 @@ export type TenorGroup = 'hourly' | 'day';
 export type TenorSource = 'live' | 'snapshot';
 
 /**
+ * Whether a market belongs on the hourly shelf (ADR-0007): birth tenor under
+ * one day when `createdAtMs` is known; otherwise remaining-time fallback.
+ */
+export function isHourlyShelfMarket(
+  market: Pick<ExpiryMarketSummary, 'expiryMs' | 'createdAtMs'>,
+  nowMs = Date.now(),
+): boolean {
+  if (typeof market.createdAtMs === 'number' && Number.isFinite(market.createdAtMs)) {
+    return market.expiryMs - market.createdAtMs < DAY_MS;
+  }
+  return market.expiryMs - nowMs < DAY_MS;
+}
+
+/**
  * Shared discovery, different filter: hourly = 1h cadence fingerprint and
- * sub-day expiry distance (ADR-0002); day = expiry at least one day away.
+ * hourly birth tenor (ADR-0007); day = day-scale birth, kept while unexpired.
  */
 export function filterMarketsForTenorGroup(
   markets: readonly ExpiryMarketSummary[],
@@ -37,11 +51,11 @@ export function filterMarketsForTenorGroup(
       markets,
       options.turboCadence ?? DEEPBOOK_PREDICT.turboCadence,
       nowMs,
-    ).filter((market) => market.expiryMs - nowMs < DAY_MS);
+    ).filter((market) => isHourlyShelfMarket(market, nowMs));
   }
 
   return markets
-    .filter((market) => market.expiryMs > nowMs && market.expiryMs - nowMs >= DAY_MS)
+    .filter((market) => market.expiryMs > nowMs && !isHourlyShelfMarket(market, nowMs))
     .sort((a, b) => a.expiryMs - b.expiryMs);
 }
 

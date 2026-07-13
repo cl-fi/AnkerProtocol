@@ -16,10 +16,12 @@ export const DAY_SCALE_FIXTURE_IDS = {
 function dayScaleSummary(input: {
   id: string;
   expiryMs: number;
+  createdAtMs: number;
 }): ExpiryMarketSummary {
   return {
     expiryMarketId: input.id,
     expiryMs: input.expiryMs,
+    createdAtMs: input.createdAtMs,
     tickSize: 0.01,
     admissionTickSize: 1,
     maxExpiryAllocation: DAY_SCALE_ALLOC,
@@ -37,9 +39,9 @@ function dayScaleSummary(input: {
 /** Day-scale Expiry Market summaries used when upstream has no day-scale markets. */
 export function dayScaleFixtureMarkets(nowMs = Date.now()): ExpiryMarketSummary[] {
   return [
-    dayScaleSummary({ id: DAY_SCALE_FIXTURE_IDS.d1, expiryMs: nowMs + 1 * DAY_MS }),
-    dayScaleSummary({ id: DAY_SCALE_FIXTURE_IDS.d3, expiryMs: nowMs + 3 * DAY_MS }),
-    dayScaleSummary({ id: DAY_SCALE_FIXTURE_IDS.d7, expiryMs: nowMs + 7 * DAY_MS }),
+    dayScaleSummary({ id: DAY_SCALE_FIXTURE_IDS.d1, expiryMs: nowMs + 1 * DAY_MS, createdAtMs: nowMs }),
+    dayScaleSummary({ id: DAY_SCALE_FIXTURE_IDS.d3, expiryMs: nowMs + 3 * DAY_MS, createdAtMs: nowMs }),
+    dayScaleSummary({ id: DAY_SCALE_FIXTURE_IDS.d7, expiryMs: nowMs + 7 * DAY_MS, createdAtMs: nowMs }),
   ];
 }
 

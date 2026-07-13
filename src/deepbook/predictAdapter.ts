@@ -9,6 +9,11 @@ const FLOAT_SCALE = 1_000_000_000;
 export interface ExpiryMarketSummary {
   expiryMarketId: string;
   expiryMs: number;
+  /**
+   * Market-created checkpoint timestamp from the indexer (`checkpoint_timestamp_ms`).
+   * Used for immutable birth-tenor classification (ADR-0007); omit when unknown.
+   */
+  createdAtMs?: number;
   tickSize: number;
   admissionTickSize: number;
   maxExpiryAllocation: string;
@@ -89,6 +94,10 @@ export function parseExpiryMarketRows(payload: unknown): ExpiryMarketSummary[] {
     if (!isRecord(item)) return [];
     const expiryMarketId = asString(item.expiry_market_id);
     const expiryMs = asNumber(item.expiry);
+    // Reject null/'' → 0 from Number(); only positive checkpoints are birth timestamps.
+    const createdAtRaw = asNumber(item.checkpoint_timestamp_ms);
+    const createdAtMs =
+      createdAtRaw !== null && createdAtRaw > 0 ? createdAtRaw : undefined;
     const tickSizeRaw = asNumber(item.tick_size);
     const admissionTickSizeRaw = asNumber(item.admission_tick_size);
     const maxExpiryAllocation = asString(item.max_expiry_allocation);
@@ -121,6 +130,7 @@ export function parseExpiryMarketRows(payload: unknown): ExpiryMarketSummary[] {
       {
         expiryMarketId,
         expiryMs,
+        ...(createdAtMs !== undefined ? { createdAtMs } : {}),
         tickSize: fromChainPrice(tickSizeRaw),
         admissionTickSize: fromChainPrice(admissionTickSizeRaw),
         maxExpiryAllocation,

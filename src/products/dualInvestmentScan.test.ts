@@ -190,6 +190,32 @@ describe('scanQuoteDisplayMetrics', () => {
       showApr: false,
     });
   });
+
+  it('renders a decayed day market (remaining < 1d) in per-period mode with APR hidden (ADR-0007)', () => {
+    const nowMs = Date.now();
+    const decayedDayOracle = {
+      ...lastKnownMarketSnapshot,
+      expiryMs: nowMs + 9.5 * 3_600_000,
+    };
+    expect(isSubDayTenor(decayedDayOracle.expiryMs, nowMs)).toBe(true);
+    expect(
+      scanQuoteDisplayMetrics({
+        quote: {
+          coupon: 0.02,
+          apr: 18.5,
+          totalLegCost: 0.2,
+          principal: 1,
+          oracle: decayedDayOracle,
+        },
+        nowMs,
+      }),
+    ).toMatchObject({
+      periodReturn: 0.02,
+      periodReturnBps: 200,
+      apr: null,
+      showApr: false,
+    });
+  });
 });
 
 describe('filterMeaningfulScanRows', () => {
@@ -240,5 +266,50 @@ describe('filterMeaningfulScanRows', () => {
     ]);
 
     expect(rows).toHaveLength(1);
+  });
+
+  it('prunes decayed day rows that cannot quote a meaningful positive coupon (ADR-0007)', () => {
+    const nowMs = Date.now();
+    const decayedDayOracle = {
+      ...lastKnownMarketSnapshot,
+      expiryMs: nowMs + 9.5 * 3_600_000,
+    };
+    const rows = filterMeaningfulScanRows(
+      [
+        {
+          input: { principal: 1, targetPrice: 64_000, floorPrice: 60_000, targetLegCount: 6 },
+          quote: {
+            coupon: 0.00005,
+            apr: 0.2,
+            totalLegCost: 0.1,
+            principal: 1,
+            oracle: decayedDayOracle,
+          } as never,
+        },
+        {
+          input: { principal: 1, targetPrice: 63_500, floorPrice: 59_500, targetLegCount: 6 },
+          quote: {
+            coupon: 0,
+            apr: 0,
+            totalLegCost: 0.1,
+            principal: 1,
+            oracle: decayedDayOracle,
+          } as never,
+        },
+        {
+          input: { principal: 1, targetPrice: 63_000, floorPrice: 59_000, targetLegCount: 6 },
+          quote: {
+            coupon: 0.0002,
+            apr: 0.8,
+            totalLegCost: 0.1,
+            principal: 1,
+            oracle: decayedDayOracle,
+          } as never,
+        },
+      ],
+      { nowMs },
+    );
+
+    expect(rows.map((row) => row.input.targetPrice)).toEqual([63_000]);
   });
 });
