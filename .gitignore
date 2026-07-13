@@ -15,6 +15,9 @@ contracts/**/package_summaries/
 .cursor/plans/
 *.plan.md
 
+# personal sprint notes — local only
+demo-day-sprint-plan.md
+
 # presentation material — kept local only, never synced
 docs/presentation/
 
