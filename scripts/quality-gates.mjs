@@ -42,6 +42,12 @@ const FORBIDDEN_PATTERNS = [
     pattern: /(?:BigInt\(Math\.max|Math\.max\(\s*[01]\s*,\s*Math\.round|Math\.max\(\s*0\s*,\s*Math\.round)/,
     message: 'Validate number-to-base-unit conversion before constructing bigint/u64 values.',
   },
+  {
+    ruleId: 'no-localhost-site-url-fallback',
+    pattern: /NEXT_PUBLIC_SITE_URL\s*\?\?\s*['"`]https?:\/\/(?:127\.0\.0\.1|localhost)/,
+    message:
+      'metadataBase / NEXT_PUBLIC_SITE_URL must not fall back to localhost; use https://www.ankerprotocol.xyz so Vercel builds without env still emit public OG/canonical URLs.',
+  },
 ];
 
 const TEST_ASSERTION_ALLOWLIST = [

@@ -39,4 +39,19 @@ describe('quality guardrails', () => {
 
     expect(findings.map((finding) => finding.ruleId)).toEqual(['no-live-shark-fin-product-path']);
   });
+
+  it('flags localhost NEXT_PUBLIC_SITE_URL fallbacks that would bake bad OG URLs', () => {
+    const findings = scanForbiddenPatterns([
+      {
+        filePath: 'app/[locale]/layout.tsx',
+        text: "const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://127.0.0.1:3000';",
+      },
+      {
+        filePath: 'app/[locale]/layout.tsx',
+        text: "const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.ankerprotocol.xyz';",
+      },
+    ]);
+
+    expect(findings.map((finding) => finding.ruleId)).toEqual(['no-localhost-site-url-fallback']);
+  });
 });

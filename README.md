@@ -280,19 +280,20 @@ npm run dev
 # → http://127.0.0.1:3000
 ```
 
-Environment variables are optional overrides — values fall back to committed testnet defaults in `src/config/*` and `contracts/anker_protocol/deployments/testnet.json`.
+Environment variables are optional overrides — see [`.env.example`](.env.example). Unset values fall back to committed testnet defaults in `src/config/*` and `contracts/anker_protocol/deployments/testnet.json` (package IDs, Predict wiring). DeepBook Predict package/object IDs come from the vendored deployment JSON, not from env.
+
+**Vercel:** set `NEXT_PUBLIC_SITE_URL=https://www.ankerprotocol.xyz` on Production and Preview so Open Graph / canonical URLs are not baked as localhost. Leave RPC, Predict, and Anker package overrides unset unless you intentionally need them — empty Vercel env is otherwise fine for the current testnet product. All `NEXT_PUBLIC_*` vars are build-time: change them, then Redeploy.
 
 ```text
+# Required on Vercel Production + Preview
+NEXT_PUBLIC_SITE_URL=https://www.ankerprotocol.xyz
+
+# Optional — defaults shown; prefer deployments/testnet.json for Anker IDs
 NEXT_PUBLIC_SUI_NETWORK=testnet
-NEXT_PUBLIC_DEEPBOOK_PREDICT_PACKAGE_ID=0xf5ea2b3749c65d6e56507cc35388719aadb28f9cab873696a2f8687f5c785138
-NEXT_PUBLIC_DEEPBOOK_PREDICT_OBJECT_ID=0xc8736204d12f0a7277c86388a68bf8a194b0a14c5538ad13f22cbd8e2a38028a
-NEXT_PUBLIC_ANKER_PACKAGE_ID=0xf8fc120ddb43b29bab88fb42588f94db9d1af34164969d2d76400f068c5a7640
-NEXT_PUBLIC_ANKER_REGISTRY_ID=0xf9d64b058a640f05a7f2c7ec3e289399c41124900f9e6dc73840cf96df7bb63c
-NEXT_PUBLIC_ANKER_ADMIN_CAP_ID=0xdb8b99921a44c216c5c864ddec9df21bfb4a09cc0d97287e4940e6be615c2478
 NEXT_PUBLIC_ANKER_DEMO_MODE=false
 ```
 
-`NEXT_PUBLIC_ANKER_DEMO_MODE=true` puts the app in demo-data mode: market data, quotes, and the manager list are served from deterministic fixtures, a demo banner is shown on every app page, and every transaction entry point is disabled (the transaction builders also refuse to build plans as a backstop). Use it while the DeepBook Predict testnet deployment the app targets is unavailable — e.g. during the current 4-16 → 6-24 migration. It's a build-time flag: redeploy after changing it.
+`NEXT_PUBLIC_ANKER_DEMO_MODE=true` puts the app in demo-data mode: market data, quotes, and the manager list are served from deterministic fixtures, a demo banner is shown on every app page, and every transaction entry point is disabled (the transaction builders also refuse to build plans as a backstop). Use it while the DeepBook Predict testnet deployment the app targets is unavailable — e.g. during the current 4-16 → 6-24 migration. It's a build-time flag: redeploy after changing it. Never enable `ANKER_DETERMINISTIC_E2E` on Production.
 
 The `/api/predict/[...path]` wrapper is intentionally narrow: it only proxies the Predict endpoints the app uses, with an 8s upstream timeout, a 1 MB response cap, cache headers, and a basic per-client rate limit.
 

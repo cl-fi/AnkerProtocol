@@ -25,3 +25,4 @@ docs/presentation/
 ds-bundle/
 .vercel
 .env*
+!.env.example
