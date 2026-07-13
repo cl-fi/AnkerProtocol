@@ -168,7 +168,11 @@ export function findBinanceDualInvestmentMatch(input: {
   const targetPrice = Math.round(input.targetPrice);
   const nowMs = input.nowMs ?? Date.now();
   const ankerTenorMs = Math.max(0, input.settlementTimeMs - nowMs);
-  const candidates = input.products.filter((product) => Math.round(product.strikePrice) === targetPrice);
+  // A halted product is no Benchmark (ADR-0006): canPurchase is a hard filter,
+  // so a stopped product falls through exactly like a missing one.
+  const candidates = input.products.filter(
+    (product) => product.canPurchase && Math.round(product.strikePrice) === targetPrice,
+  );
 
   if (candidates.length === 0) {
     return { kind: 'no_product' };
@@ -178,7 +182,6 @@ export function findBinanceDualInvestmentMatch(input: {
     const aOffset = Math.abs(a.settleTimeMs - input.settlementTimeMs);
     const bOffset = Math.abs(b.settleTimeMs - input.settlementTimeMs);
     if (aOffset !== bOffset) return aOffset - bOffset;
-    if (a.canPurchase !== b.canPurchase) return a.canPurchase ? -1 : 1;
     const aApr = a.apr ?? -Infinity;
     const bApr = b.apr ?? -Infinity;
     return bApr - aApr;

@@ -146,18 +146,40 @@ describe('findBinanceDualInvestmentMatch', () => {
     expect(match).toEqual({ kind: 'no_product' });
   });
 
-  it('prefers purchasable rows, then higher APR, among equally near settles', () => {
+  it('skips a halted product at the nearest settle and falls through to the next-nearest purchasable one', () => {
+    const ankerSettleMs = Date.UTC(2026, 5, 12, 8);
     const match = findBinanceDualInvestmentMatch({
       products: [
-        { ...baseProduct, id: 'higher-but-closed', apr: 0.6, canPurchase: false },
-        { ...baseProduct, id: 'lower-open', apr: 0.4, canPurchase: true },
+        { ...baseProduct, id: 'nearest-but-halted', apr: 0.6, canPurchase: false },
+        {
+          ...baseProduct,
+          id: 'farther-open',
+          settleTimeMs: ankerSettleMs + 32 * HOUR_MS,
+          apr: 0.4,
+          canPurchase: true,
+        },
       ],
+      targetPrice: 71_000,
+      settlementTimeMs: ankerSettleMs,
+      nowMs: ankerSettleMs - 10 * DAY_MS,
+    });
+
+    expect(match).toMatchObject({
+      kind: 'matched',
+      product: { id: 'farther-open' },
+      settlementOffsetMs: 32 * HOUR_MS,
+    });
+  });
+
+  it('returns no_product when every row at the target price is halted', () => {
+    const match = findBinanceDualInvestmentMatch({
+      products: [{ ...baseProduct, id: 'halted-only', canPurchase: false }],
       targetPrice: 71_000,
       settlementTimeMs: Date.UTC(2026, 5, 12, 8),
       nowMs: Date.UTC(2026, 5, 2, 8),
     });
 
-    expect(match).toMatchObject({ kind: 'matched', product: { id: 'lower-open' } });
+    expect(match).toEqual({ kind: 'no_product' });
   });
 
   it('keeps a matching product even when Binance does not expose APR', () => {

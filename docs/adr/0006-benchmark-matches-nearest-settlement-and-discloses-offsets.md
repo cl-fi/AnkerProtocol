@@ -9,6 +9,8 @@ Until 2026-07-13 the Benchmark matcher paired products by target price + same UT
 - **Same-calendar-date matching (status quo).** A calendar anchor with no economic meaning across tenors; kept only as the thing this ADR retires.
 - **No bound at all.** Pure disclosure, but a 1.4d product would eventually "match" a 46d product if short-dated listings vanished.
 
+Only products currently on sale qualify as Benchmark candidates: `canPurchase` is a hard filter, not a tie-breaker. Binance halts subscription some hours before settlement (empirically: products are still purchasable at ~15h lead; the exact cutoff will be mapped by the Recorder's samples), and a benchmark the user cannot actually buy is no benchmark — a halted product is treated exactly like a missing one, falling through to the next-nearest purchasable settlement or to "No comparable product".
+
 ## Consequences
 
 - The day shelf's APR-display floor (≥ 24h remaining) caps decay-driven offset at 8h/24h ≈ 33%, so the 50% bound can never fire from time passing alone — only from real gaps in Binance's grid.
