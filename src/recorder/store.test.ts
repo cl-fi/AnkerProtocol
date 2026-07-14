@@ -83,4 +83,18 @@ describe('BenchmarkRunStore idempotency', () => {
     expect(store.getRun(boundaryMs)?.samples).toHaveLength(2);
     expect(store.getRun(boundaryMs)?.run.durationMs).toBe(42);
   });
+
+  it('lists recent Runs newest-first with their Samples', async () => {
+    const store = createMemoryBenchmarkRunStore();
+    const older = sampleRun(Date.UTC(2026, 6, 14, 11, 45, 0));
+    const newer = sampleRun(Date.UTC(2026, 6, 14, 12, 0, 0));
+    await store.insertRunIfAbsent(older.run, older.samples);
+    await store.insertRunIfAbsent(newer.run, newer.samples);
+
+    const recent = await store.listRecentRuns(1);
+
+    expect(recent).toHaveLength(1);
+    expect(recent[0]?.run.boundaryMs).toBe(newer.run.boundaryMs);
+    expect(recent[0]?.samples).toHaveLength(2);
+  });
 });

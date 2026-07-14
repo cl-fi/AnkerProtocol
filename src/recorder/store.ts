@@ -1,11 +1,18 @@
 import type { BenchmarkRun, BenchmarkSample } from './buildBenchmarkRun';
 
+export interface RunWithSamples {
+  run: BenchmarkRun;
+  samples: readonly BenchmarkSample[];
+}
+
 export type InsertRunResult =
   | { outcome: 'inserted'; runId: string }
   | { outcome: 'already_exists'; runId: string };
 
 export interface BenchmarkRunStore {
   insertRunIfAbsent(run: BenchmarkRun, samples: readonly BenchmarkSample[]): Promise<InsertRunResult>;
+  /** Newest-first by boundary_ms, each with its Samples. */
+  listRecentRuns(limit: number): Promise<readonly RunWithSamples[]>;
 }
 
 interface StoredRun {
@@ -34,6 +41,16 @@ export function createMemoryBenchmarkRunStore(): BenchmarkRunStore & {
         samples: samples.map((sample) => ({ ...sample })),
       });
       return { outcome: 'inserted', runId };
+    },
+    async listRecentRuns(limit) {
+      if (limit <= 0) return [];
+      return [...byBoundary.values()]
+        .sort((a, b) => b.run.boundaryMs - a.run.boundaryMs)
+        .slice(0, limit)
+        .map((stored) => ({
+          run: { ...stored.run },
+          samples: stored.samples.map((sample) => ({ ...sample })),
+        }));
     },
     getRun(boundaryMs) {
       return byBoundary.get(boundaryMs);

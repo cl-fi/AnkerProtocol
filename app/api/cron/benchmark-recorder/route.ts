@@ -1,6 +1,7 @@
 import { authorizeCronRequest } from '../../../../src/recorder/cronAuth';
 import { ensureBenchmarkSchema } from '../../../../src/recorder/ensureSchema';
 import { executeBenchmarkSweep } from '../../../../src/recorder/executeBenchmarkSweep';
+import { createGitHubAlertIssuePosterFromEnv } from '../../../../src/recorder/githubAlertIssues';
 import { createNeonBenchmarkRunStore } from '../../../../src/recorder/neonStore';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,11 @@ export async function GET(request: Request) {
     // Marketplace DATABASE_URL cannot be pulled via CLI; first hit creates tables.
     await ensureBenchmarkSchema(databaseUrl);
     const store = createNeonBenchmarkRunStore(databaseUrl);
-    const result = await executeBenchmarkSweep({ store });
+    const alertPoster = createGitHubAlertIssuePosterFromEnv({
+      token: process.env.GITHUB_ALERTS_TOKEN,
+      repository: process.env.GITHUB_ALERTS_REPO,
+    });
+    const result = await executeBenchmarkSweep({ store, alertPoster });
     return Response.json({
       outcome: result.persist.outcome,
       runId: result.persist.runId,

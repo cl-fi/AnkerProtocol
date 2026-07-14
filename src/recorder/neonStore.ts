@@ -1,6 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
-import type { BenchmarkRun, BenchmarkSample } from './buildBenchmarkRun';
-import type { BenchmarkRunStore, InsertRunResult } from './store';
+import type { BenchmarkRun, BenchmarkRunStatus, BenchmarkSample, BenchmarkSampleSource, BenchmarkMatchStatus } from './buildBenchmarkRun';
+import type { BenchmarkRunStore, InsertRunResult, RunWithSamples } from './store';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -9,6 +9,9 @@ export function createNeonBenchmarkRunStore(databaseUrl: string): BenchmarkRunSt
   return {
     insertRunIfAbsent(run, samples) {
       return insertRunIfAbsentWithSql(sql, run, samples);
+    },
+    listRecentRuns(limit) {
+      return listRecentRunsWithSql(sql, limit);
     },
   };
 }
@@ -85,4 +88,106 @@ export async function insertRunIfAbsentWithSql(
   }
 
   return { outcome: 'inserted', runId };
+}
+
+interface RunRow {
+  id: string | number;
+  boundary_ms: string | number;
+  status: BenchmarkRunStatus;
+  duration_ms: number;
+  app_version: string;
+  source: BenchmarkSampleSource;
+}
+
+interface SampleRow {
+  run_id: string | number;
+  target_price: number;
+  spot: number;
+  coupon: number;
+  reserve: number;
+  legs_cost: number;
+  leg_count: number;
+  net_apr: number | null;
+  anker_settlement_ms: string | number;
+  benchmark_settlement_ms: string | number | null;
+  benchmark_apr: number | null;
+  benchmark_product_id: string | null;
+  match_status: BenchmarkMatchStatus;
+  source: BenchmarkSampleSource;
+  app_version: string;
+  headline_eligible: boolean;
+}
+
+export async function listRecentRunsWithSql(sql: Sql, limit: number): Promise<readonly RunWithSamples[]> {
+  if (limit <= 0) return [];
+
+  const runRows = (await sql`
+    SELECT id, boundary_ms, status, duration_ms, app_version, source
+    FROM benchmark_runs
+    ORDER BY boundary_ms DESC
+    LIMIT ${limit}
+  `) as RunRow[];
+
+  if (runRows.length === 0) return [];
+
+  const recent: RunWithSamples[] = [];
+  for (const row of runRows) {
+    const runId = String(row.id);
+    const sampleRows = (await sql`
+      SELECT
+        run_id,
+        target_price,
+        spot,
+        coupon,
+        reserve,
+        legs_cost,
+        leg_count,
+        net_apr,
+        anker_settlement_ms,
+        benchmark_settlement_ms,
+        benchmark_apr,
+        benchmark_product_id,
+        match_status,
+        source,
+        app_version,
+        headline_eligible
+      FROM benchmark_samples
+      WHERE run_id = ${runId}
+      ORDER BY id ASC
+    `) as SampleRow[];
+
+    recent.push({
+      run: {
+        boundaryMs: Number(row.boundary_ms),
+        status: row.status,
+        durationMs: row.duration_ms,
+        appVersion: row.app_version,
+        source: row.source,
+      },
+      samples: sampleRows.map(mapSampleRow),
+    });
+  }
+
+  return recent;
+}
+
+function mapSampleRow(row: SampleRow): BenchmarkSample {
+  return {
+    targetPrice: row.target_price,
+    spot: row.spot,
+    coupon: row.coupon,
+    reserve: row.reserve,
+    legsCost: row.legs_cost,
+    legCount: row.leg_count,
+    netApr: row.net_apr,
+    ankerSettlementMs: Number(row.anker_settlement_ms),
+    benchmarkSettlementMs:
+      row.benchmark_settlement_ms === null ? null : Number(row.benchmark_settlement_ms),
+    benchmarkApr: row.benchmark_apr,
+    benchmarkProductId: row.benchmark_product_id,
+    matchStatus: row.match_status,
+    source: row.source,
+    appVersion: row.app_version,
+    headlineEligible: row.headline_eligible,
+  };
 }
