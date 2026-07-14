@@ -3723,6 +3723,53 @@ dd {
   color: var(--ink-soft);
 }
 
+/* Edge Track controls — market dropdown + status badge, then the summary strip */
+.analytics-track-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.analytics-track-select .di-select-label {
+  white-space: nowrap;
+}
+
+.analytics-track-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border: var(--bw) solid rgba(32, 48, 77, 0.2);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+}
+
+.analytics-track-summary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.analytics-track-summary dt {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.analytics-track-summary dd {
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.95rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
 .analytics-methodology-intro {
   margin: 0 0 14px;
   color: var(--ink-soft);
@@ -3764,6 +3811,19 @@ dd {
     margin-left: -4px;
     margin-right: -4px;
     padding: 8px 0 0;
+  }
+
+  .analytics-track-select {
+    width: 100%;
+  }
+
+  .analytics-track-select select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .analytics-track-summary {
+    gap: 6px 18px;
   }
 }
 

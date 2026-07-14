@@ -85,7 +85,7 @@ export function AnalyticsPage({
 }) {
   const copy = copyForLocale(locale);
   const stats = load.kind === 'ready' ? load.stats : null;
-  const edgeSeries = load.kind === 'ready' ? load.edgeSeries : { series: [] };
+  const edgeTracks = load.kind === 'ready' ? load.edgeTracks : { tracks: [] };
   const showUnavailableBanner = load.kind === 'unavailable' || (stats !== null && stats.sampleCount === 0);
   const startDate = formatSampleStartDate(stats?.sampleStartMs ?? null, locale);
 
@@ -105,7 +105,7 @@ export function AnalyticsPage({
         <HeadlineStatsCards stats={stats} locale={locale} />
       </section>
 
-      <EdgeChart edgeSeries={edgeSeries} locale={locale} />
+      <EdgeChart edgeTracks={edgeTracks} locale={locale} />
 
       <section className="calculation-section analytics-methodology" aria-labelledby="analytics-methodology-title">
         <div className="section-heading">
@@ -117,6 +117,7 @@ export function AnalyticsPage({
           <li>{copy.analytics.methodologyMatching}</li>
           <li>{copy.analytics.methodologyFeeBasis}</li>
           <li>{copy.analytics.methodologyDenominator}</li>
+          <li>{copy.analytics.methodologyChart}</li>
           <li>
             {startDate
               ? copy.analytics.methodologyStartDate(startDate)

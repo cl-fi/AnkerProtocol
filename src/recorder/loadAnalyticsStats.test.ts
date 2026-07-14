@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { aggregateHeadlineStats } from './aggregateHeadlineStats';
-import { analyticsFixtureSamples } from './analyticsFixtures';
-import { buildEdgeSeries } from './buildEdgeSeries';
+import {
+  analyticsFixtureSamples,
+  FIXTURE_SETTLEMENT_1D_MS,
+  FIXTURE_SETTLEMENT_3D_MS,
+  FIXTURE_SETTLEMENT_7D_MS,
+} from './analyticsFixtures';
+import { buildEdgeTracks } from './buildEdgeTracks';
 
 describe('loadAnalyticsStats', () => {
   afterEach(() => {
@@ -20,18 +25,25 @@ describe('loadAnalyticsStats', () => {
       kind: 'ready',
       usingFixture: true,
       stats: aggregateHeadlineStats(samples),
-      edgeSeries: buildEdgeSeries(samples),
+      edgeTracks: buildEdgeTracks(samples),
     });
     if (result.kind === 'ready') {
-      expect(result.stats.sampleCount).toBe(4);
-      expect(result.stats.leadingPct).toBeCloseTo(0.75);
-      expect(result.stats.medianEdgePp).toBeCloseTo(0.1);
+      expect(result.stats.sampleCount).toBe(6);
+      expect(result.stats.leadingPct).toBeCloseTo(5 / 6);
+      expect(result.stats.medianEdgePp).toBeCloseTo(0.075);
       expect(result.stats.currentLeadingStreak).toBe(2);
-      expect(result.stats.ladderCoverage).toBeCloseTo(0.8);
-      expect(result.edgeSeries.series.map((s) => s.bucket)).toEqual(['1d', '3d', '7d']);
-      expect(result.edgeSeries.series.find((s) => s.bucket === '1d')!.points[0]!.edgePp).toBeCloseTo(
-        -0.05,
-      );
+      expect(result.stats.ladderCoverage).toBeCloseTo(6 / 7);
+      expect(result.edgeTracks.tracks.map((t) => t.settlementMs)).toEqual([
+        FIXTURE_SETTLEMENT_3D_MS,
+        FIXTURE_SETTLEMENT_7D_MS,
+        FIXTURE_SETTLEMENT_1D_MS,
+      ]);
+      expect(result.edgeTracks.tracks.map((t) => t.status)).toEqual([
+        'active',
+        'active',
+        'hourlyShelf',
+      ]);
+      expect(result.edgeTracks.tracks[2]!.points[0]!.medianEdgePp).toBeCloseTo(-0.05);
     }
   });
 

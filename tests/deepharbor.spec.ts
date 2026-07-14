@@ -123,34 +123,52 @@ test('renders the Analytics page with fixture headline stats, Edge chart, and me
   const stats = page.getByLabel('Headline statistics');
   await expect(stats).toBeVisible();
   await expect(stats.getByText('Samples')).toBeVisible();
-  await expect(stats.getByText('4', { exact: true })).toBeVisible();
-  await expect(stats.getByText('75%')).toBeVisible();
-  await expect(stats.getByText('+10.00 pts')).toBeVisible();
+  await expect(stats.getByText('6', { exact: true })).toBeVisible();
+  await expect(stats.getByText('83.3%')).toBeVisible();
+  await expect(stats.getByText('+7.50 pts')).toBeVisible();
   await expect(stats.locator('.analytics-stats > div').filter({ hasText: 'Leading streak' })).toContainText(
     '2',
   );
   await expect(stats.getByText('Runs')).toBeVisible();
-  await expect(stats.getByText('80%')).toBeVisible();
+  await expect(stats.getByText('85.7%')).toBeVisible();
 
-  const chart = page.getByRole('region', { name: 'Edge time series' });
+  const chart = page.getByRole('region', { name: 'Edge Track' });
   await expect(chart).toBeVisible();
   await expect(chart.getByRole('heading', { name: 'Edge over time' })).toBeVisible();
   await expect(chart.getByTestId('analytics-edge-chart')).toBeVisible();
-  await expect(chart.getByText('1d')).toBeVisible();
-  await expect(chart.getByText('3d')).toBeVisible();
-  await expect(chart.getByText('7d')).toBeVisible();
-  // Zero axis + negative scale (fixture includes a −5 pts 1d Edge).
-  await expect(chart.getByText('+0.00 pts')).toBeVisible();
-  await expect(chart.getByText('-7.50 pts')).toBeVisible();
+
+  // Market dropdown defaults to the nearest-expiry active market (Jul 16 · ≈3d).
+  const marketSelect = chart.getByRole('combobox', { name: 'Expiry Market' });
+  await expect(marketSelect).toBeVisible();
+  await expect(marketSelect).toHaveValue(String(Date.UTC(2026, 6, 16, 12, 0, 0)));
+  await expect(chart.getByText('Active', { exact: true })).toBeVisible();
+
+  // Selected-market summary strip: 4 rows, all leading, median +7.50 pts.
+  const summary = chart.getByTestId('analytics-track-summary');
+  await expect(summary.getByText('4', { exact: true })).toBeVisible();
+  await expect(summary.getByText('100%')).toBeVisible();
+  await expect(summary.getByText('+7.50 pts')).toBeVisible();
+
+  // Zero axis stays in frame; the Track band sits above it.
+  await expect(chart.getByText('0.00 pts', { exact: true })).toBeVisible();
   await expect(chart.getByText('0', { exact: true })).toBeVisible();
 
-  const firstDot = chart.locator('.recharts-line-dots circle').first();
-  await firstDot.hover();
+  // Hover the chart to surface the aggregated per-Run tooltip (no settlement offset).
+  await chart.getByTestId('analytics-edge-chart').hover();
   const tooltip = chart.locator('.analytics-edge-tooltip');
   await expect(tooltip).toBeVisible();
+  await expect(tooltip.getByText(/ladder rows/)).toBeVisible();
+  await expect(tooltip.getByText('Median Edge')).toBeVisible();
+  await expect(tooltip.getByText('Min–max')).toBeVisible();
   await expect(tooltip.getByText('Anker net APR')).toBeVisible();
   await expect(tooltip.getByText('Nearest-expiry Binance APR')).toBeVisible();
-  await expect(tooltip.getByText('Settlement offset')).toBeVisible();
+  await expect(tooltip.getByText('Settlement offset')).toHaveCount(0);
+
+  // Switching to the ended 1d market (one matched Run) shows the insufficient notice.
+  await marketSelect.selectOption(String(Date.UTC(2026, 6, 14, 12, 15, 0)));
+  await expect(chart.getByText('Moved to hourly shelf')).toBeVisible();
+  await expect(chart.getByText(/appears after two matched Runs/)).toBeVisible();
+  await expect(chart.getByTestId('analytics-edge-chart')).toHaveCount(0);
 
   const methodology = page.getByRole('region', { name: 'Methodology' });
   await expect(methodology).toBeVisible();

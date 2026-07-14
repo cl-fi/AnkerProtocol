@@ -7,10 +7,14 @@ const BOUNDARY_B = ANALYTICS_FIXTURE_START_MS + 15 * 60 * 1000;
 const BOUNDARY_C = BOUNDARY_B + 15 * 60 * 1000;
 const HOUR_MS = 3_600_000;
 
+/** Fixture Expiry Markets — settlement instants are fixed; Runs drift, markets do not. */
+export const FIXTURE_SETTLEMENT_3D_MS = ANALYTICS_FIXTURE_START_MS + 3 * DAY_MS;
+export const FIXTURE_SETTLEMENT_7D_MS = ANALYTICS_FIXTURE_START_MS + 7 * DAY_MS;
+export const FIXTURE_SETTLEMENT_1D_MS = BOUNDARY_B + DAY_MS;
+
 function fixtureSample(
   overrides: Partial<TimestampedSample> & Pick<TimestampedSample, 'boundaryMs' | 'targetPrice'>,
 ): TimestampedSample {
-  const boundaryMs = overrides.boundaryMs;
   return {
     spot: 73_560,
     coupon: 0.12,
@@ -18,8 +22,8 @@ function fixtureSample(
     legsCost: 0.38,
     legCount: 6,
     netApr: 0.4,
-    ankerSettlementMs: boundaryMs + 3 * DAY_MS,
-    benchmarkSettlementMs: boundaryMs + 3 * DAY_MS + 8 * HOUR_MS,
+    ankerSettlementMs: FIXTURE_SETTLEMENT_3D_MS,
+    benchmarkSettlementMs: FIXTURE_SETTLEMENT_3D_MS + 8 * HOUR_MS,
     benchmarkApr: 0.3,
     benchmarkProductId: 'fixture-binance',
     matchStatus: 'matched',
@@ -32,12 +36,14 @@ function fixtureSample(
 
 /**
  * Deterministic Samples for fixture-mode Analytics.
- * Headline: 4 eligible (3 leading), median Edge +0.10, streak 2 Runs, coverage 4/5.
- * Chart: 1d (negative Edge), 3d, and 7d tenor series.
+ * Headline: 6 eligible (5 leading), median Edge +7.5 pts, streak 2 Runs, coverage 6/7.
+ * Edge Tracks: active 3d market (two Runs, two ladder rows each — real min–max band),
+ * active 7d market (one Run — insufficient-samples state), and an ended 1d market
+ * (hourly shelf) holding the negative Edge point.
  */
 export function analyticsFixtureSamples(): readonly TimestampedSample[] {
   return [
-    // Newest Run — edges +0.10 (3d), +0.10 (7d) → median +0.10
+    // 3d market, newest Run — edges +0.10 / +0.04
     fixtureSample({
       boundaryMs: BOUNDARY_C,
       targetPrice: 73_500,
@@ -46,13 +52,11 @@ export function analyticsFixtureSamples(): readonly TimestampedSample[] {
     }),
     fixtureSample({
       boundaryMs: BOUNDARY_C,
-      targetPrice: 73_000,
-      netApr: 0.4,
+      targetPrice: 72_800,
+      netApr: 0.34,
       benchmarkApr: 0.3,
-      ankerSettlementMs: BOUNDARY_C + 7 * DAY_MS,
-      benchmarkSettlementMs: BOUNDARY_C + 7 * DAY_MS + 8 * HOUR_MS,
     }),
-    // Prior Run — edges +0.20 (3d), −0.05 (1d) → median +0.075
+    // 3d market, prior Run — edges +0.20 / +0.05
     fixtureSample({
       boundaryMs: BOUNDARY_B,
       targetPrice: 73_500,
@@ -61,11 +65,27 @@ export function analyticsFixtureSamples(): readonly TimestampedSample[] {
     }),
     fixtureSample({
       boundaryMs: BOUNDARY_B,
+      targetPrice: 72_800,
+      netApr: 0.35,
+      benchmarkApr: 0.3,
+    }),
+    // 7d market, newest Run only — edge +0.10
+    fixtureSample({
+      boundaryMs: BOUNDARY_C,
+      targetPrice: 73_000,
+      netApr: 0.4,
+      benchmarkApr: 0.3,
+      ankerSettlementMs: FIXTURE_SETTLEMENT_7D_MS,
+      benchmarkSettlementMs: FIXTURE_SETTLEMENT_7D_MS + 8 * HOUR_MS,
+    }),
+    // 1d market, prior Run only (ended Track) — edge −0.05
+    fixtureSample({
+      boundaryMs: BOUNDARY_B,
       targetPrice: 72_500,
       netApr: 0.25,
       benchmarkApr: 0.3,
-      ankerSettlementMs: BOUNDARY_B + DAY_MS,
-      benchmarkSettlementMs: BOUNDARY_B + DAY_MS + 8 * HOUR_MS,
+      ankerSettlementMs: FIXTURE_SETTLEMENT_1D_MS,
+      benchmarkSettlementMs: FIXTURE_SETTLEMENT_1D_MS + 8 * HOUR_MS,
     }),
     // Unmatched — coverage only
     fixtureSample({

@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { aggregateHeadlineStats } from '../recorder/aggregateHeadlineStats';
 import { analyticsFixtureSamples } from '../recorder/analyticsFixtures';
-import { buildEdgeSeries } from '../recorder/buildEdgeSeries';
+import { buildEdgeTracks } from '../recorder/buildEdgeTracks';
 import { AnalyticsPage } from './AnalyticsPage';
 
 vi.mock('recharts', async () => {
@@ -20,7 +20,7 @@ const fixtureLoad = {
   kind: 'ready' as const,
   usingFixture: true,
   stats: aggregateHeadlineStats(samples),
-  edgeSeries: buildEdgeSeries(samples),
+  edgeTracks: buildEdgeTracks(samples),
 };
 
 describe('AnalyticsPage', () => {
@@ -34,14 +34,15 @@ describe('AnalyticsPage', () => {
     const stats = screen.getByLabelText('Headline statistics');
     expect(stats).toBeVisible();
     expect(within(stats).getByText('Samples')).toBeVisible();
-    expect(within(stats).getByText('4')).toBeVisible();
-    expect(within(stats).getByText('75%')).toBeVisible();
-    expect(within(stats).getByText('+10.00 pts')).toBeVisible();
+    expect(within(stats).getByText('6')).toBeVisible();
+    expect(within(stats).getByText('83.3%')).toBeVisible();
+    expect(within(stats).getByText('+7.50 pts')).toBeVisible();
     expect(within(stats).getByText('2')).toBeVisible();
-    expect(within(stats).getByText('80%')).toBeVisible();
+    expect(within(stats).getByText('85.7%')).toBeVisible();
 
-    expect(screen.getByRole('region', { name: 'Edge time series' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Edge Track' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Edge over time' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Expiry Market' })).toBeVisible();
 
     expect(screen.getByRole('heading', { name: 'Methodology' })).toBeVisible();
     expect(screen.getByText(/every 15 minutes/i)).toBeVisible();
@@ -49,6 +50,7 @@ describe('AnalyticsPage', () => {
     expect(screen.getByText(/net after protocol fee/i)).toBeVisible();
     expect(screen.getByText(/live-source matched Samples/i)).toBeVisible();
     expect(screen.getByText(/Failed Runs record no Samples/i)).toBeVisible();
+    expect(screen.getByText(/one Edge Track per Expiry Market/i)).toBeVisible();
     expect(screen.getByText(/Sample start date:/i)).toBeVisible();
     expect(screen.getByRole('link', { name: 'Source repository' })).toHaveAttribute(
       'href',

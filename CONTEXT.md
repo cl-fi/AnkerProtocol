@@ -48,6 +48,10 @@ _Avoid_: competitor quote, reference product, same-day match (retired rule — c
 Anker net APR minus Benchmark APR for the same matched row, in percentage points; positive means Anker leads. Defined only where a Benchmark match exists.
 _Avoid_: spread, premium
 
+**Edge Track (领先轨迹)**:
+One Expiry Market's Edge history: from its first Benchmark Sample until the market leaves the day shelf. Surfaced on the Analytics page one Track at a time — a median line with a min–max band across that market's ladder rows.
+_Avoid_: per-tenor line (retired chart grouping — a market's history jumped between remaining-tenor bucket lines), curve, series
+
 **Benchmark Sample (基准采样)**:
 One recorded comparison for one day-tenor ladder row at one instant: the Anker quote, the Benchmark result (or its absence), and the data-source condition at that moment.
 _Avoid_: snapshot / 快照 (reserved for the day-browse fallback photograph)

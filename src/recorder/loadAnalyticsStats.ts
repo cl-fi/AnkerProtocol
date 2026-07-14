@@ -5,16 +5,16 @@ import {
   type HeadlineStats,
 } from './aggregateHeadlineStats';
 import { analyticsFixtureSamples } from './analyticsFixtures';
-import { buildEdgeSeries, type EdgeSeries } from './buildEdgeSeries';
+import { buildEdgeTracks, type EdgeTracks } from './buildEdgeTracks';
 import { createNeonBenchmarkRunStore } from './neonStore';
 
 export type AnalyticsStatsLoad =
-  | { kind: 'ready'; stats: HeadlineStats; edgeSeries: EdgeSeries; usingFixture: boolean }
+  | { kind: 'ready'; stats: HeadlineStats; edgeTracks: EdgeTracks; usingFixture: boolean }
   | { kind: 'unavailable'; reason: 'not_configured' | 'load_failed' };
 
 /**
  * Loads Samples (fixture or Neon) and builds Analytics page inputs:
- * headline stats + Edge time series.
+ * headline stats + Edge Tracks.
  */
 export async function loadAnalyticsStats(): Promise<AnalyticsStatsLoad> {
   if (isFixtureDataMode()) {
@@ -22,7 +22,7 @@ export async function loadAnalyticsStats(): Promise<AnalyticsStatsLoad> {
     return {
       kind: 'ready',
       stats: aggregateHeadlineStats(samples),
-      edgeSeries: buildEdgeSeries(samples),
+      edgeTracks: buildEdgeTracks(samples),
       usingFixture: true,
     };
   }
@@ -42,7 +42,7 @@ export async function loadAnalyticsStats(): Promise<AnalyticsStatsLoad> {
     return {
       kind: 'ready',
       stats: aggregateHeadlineStats({ samples, runs }),
-      edgeSeries: buildEdgeSeries(samples),
+      edgeTracks: buildEdgeTracks(samples),
       usingFixture: false,
     };
   } catch {
