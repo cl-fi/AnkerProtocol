@@ -110,7 +110,9 @@ test('redirects legacy dashboard paths to the portfolio route in both locales', 
   await expect(page.getByRole('navigation', { name: '产品' }).getByRole('link', { name: '持仓' })).toBeVisible();
 });
 
-test('renders the Analytics page with fixture headline stats and methodology', async ({ page }) => {
+test('renders the Analytics page with fixture headline stats, Edge chart, and methodology', async ({
+  page,
+}) => {
   await page.goto('/analytics');
 
   await expect(page).toHaveURL(/\/en\/analytics$/);
@@ -129,6 +131,26 @@ test('renders the Analytics page with fixture headline stats and methodology', a
   );
   await expect(stats.getByText('Runs')).toBeVisible();
   await expect(stats.getByText('80%')).toBeVisible();
+
+  const chart = page.getByRole('region', { name: 'Edge time series' });
+  await expect(chart).toBeVisible();
+  await expect(chart.getByRole('heading', { name: 'Edge over time' })).toBeVisible();
+  await expect(chart.getByTestId('analytics-edge-chart')).toBeVisible();
+  await expect(chart.getByText('1d')).toBeVisible();
+  await expect(chart.getByText('3d')).toBeVisible();
+  await expect(chart.getByText('7d')).toBeVisible();
+  // Zero axis + negative scale (fixture includes a −5 pts 1d Edge).
+  await expect(chart.getByText('+0.00 pts')).toBeVisible();
+  await expect(chart.getByText('-7.50 pts')).toBeVisible();
+  await expect(chart.getByText('0', { exact: true })).toBeVisible();
+
+  const firstDot = chart.locator('.recharts-line-dots circle').first();
+  await firstDot.hover();
+  const tooltip = chart.locator('.analytics-edge-tooltip');
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip.getByText('Anker net APR')).toBeVisible();
+  await expect(tooltip.getByText('Nearest-expiry Binance APR')).toBeVisible();
+  await expect(tooltip.getByText('Settlement offset')).toBeVisible();
 
   const methodology = page.getByRole('region', { name: 'Methodology' });
   await expect(methodology).toBeVisible();
@@ -149,6 +171,7 @@ test('renders Chinese Analytics copy in fixture mode', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/zh-CN\/analytics$/);
   await expect(page.getByRole('heading', { name: '数据分析' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Edge 随时间变化' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '方法说明' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: '产品' }).getByRole('link', { name: '数据分析' })).toBeVisible();
 });

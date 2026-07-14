@@ -54,6 +54,15 @@ export function formatApr(value: number, locale: Locale) {
   return formatPercent(value, locale);
 }
 
+/** Edge in percentage points, e.g. "+10.00 pts" / "−5.00 pts". */
+export function formatEdgePts(value: number, locale: Locale) {
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${(value * 100).toLocaleString(numberLocale(locale), {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  })} pts`;
+}
+
 export function formatReferenceApr(value: number, locale: Locale) {
   return formatPercent(value, locale, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }

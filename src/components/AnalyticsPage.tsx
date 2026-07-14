@@ -1,18 +1,17 @@
 import type { HeadlineStats } from '../recorder/aggregateHeadlineStats';
 import type { AnalyticsStatsLoad } from '../recorder/loadAnalyticsStats';
-import { copyForLocale, DEFAULT_LOCALE, formatInteger, formatPercent, type Locale } from '../i18n';
+import {
+  copyForLocale,
+  DEFAULT_LOCALE,
+  formatEdgePts,
+  formatInteger,
+  formatPercent,
+  type Locale,
+} from '../i18n';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
+import { EdgeChart } from './EdgeChart';
 import { Stat, StatGroup } from '../ui';
-
-function formatEdgePts(value: number, locale: Locale) {
-  const sign = value > 0 ? '+' : '';
-  const numberLocale = locale === 'zh-CN' ? 'zh-CN' : 'en-US';
-  return `${sign}${(value * 100).toLocaleString(numberLocale, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  })} pts`;
-}
 
 function formatSampleStartDate(sampleStartMs: number | null, locale: Locale) {
   if (sampleStartMs === null) return null;
@@ -86,6 +85,7 @@ export function AnalyticsPage({
 }) {
   const copy = copyForLocale(locale);
   const stats = load.kind === 'ready' ? load.stats : null;
+  const edgeSeries = load.kind === 'ready' ? load.edgeSeries : { series: [] };
   const showUnavailableBanner = load.kind === 'unavailable' || (stats !== null && stats.sampleCount === 0);
   const startDate = formatSampleStartDate(stats?.sampleStartMs ?? null, locale);
 
@@ -104,6 +104,8 @@ export function AnalyticsPage({
         {showUnavailableBanner ? <p className="analytics-unavailable">{copy.analytics.unavailable}</p> : null}
         <HeadlineStatsCards stats={stats} locale={locale} />
       </section>
+
+      <EdgeChart edgeSeries={edgeSeries} locale={locale} />
 
       <section className="calculation-section analytics-methodology" aria-labelledby="analytics-methodology-title">
         <div className="section-heading">

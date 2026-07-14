@@ -5,20 +5,24 @@ import {
   type HeadlineStats,
 } from './aggregateHeadlineStats';
 import { analyticsFixtureSamples } from './analyticsFixtures';
+import { buildEdgeSeries, type EdgeSeries } from './buildEdgeSeries';
 import { createNeonBenchmarkRunStore } from './neonStore';
 
 export type AnalyticsStatsLoad =
-  | { kind: 'ready'; stats: HeadlineStats; usingFixture: boolean }
+  | { kind: 'ready'; stats: HeadlineStats; edgeSeries: EdgeSeries; usingFixture: boolean }
   | { kind: 'unavailable'; reason: 'not_configured' | 'load_failed' };
 
 /**
- * Loads Samples (fixture or Neon) and aggregates headline stats for the Analytics page.
+ * Loads Samples (fixture or Neon) and builds Analytics page inputs:
+ * headline stats + Edge time series.
  */
 export async function loadAnalyticsStats(): Promise<AnalyticsStatsLoad> {
   if (isFixtureDataMode()) {
+    const samples = analyticsFixtureSamples();
     return {
       kind: 'ready',
-      stats: aggregateHeadlineStats(analyticsFixtureSamples()),
+      stats: aggregateHeadlineStats(samples),
+      edgeSeries: buildEdgeSeries(samples),
       usingFixture: true,
     };
   }
@@ -38,6 +42,7 @@ export async function loadAnalyticsStats(): Promise<AnalyticsStatsLoad> {
     return {
       kind: 'ready',
       stats: aggregateHeadlineStats({ samples, runs }),
+      edgeSeries: buildEdgeSeries(samples),
       usingFixture: false,
     };
   } catch {

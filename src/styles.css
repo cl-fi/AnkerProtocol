@@ -3664,7 +3664,7 @@ dd {
   }
 }
 
-/* Analytics — five headline cards + methodology dictionary */
+/* Analytics — five headline cards + Edge chart + methodology dictionary */
 .analytics-stats {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -3674,6 +3674,53 @@ dd {
   color: var(--ink-soft);
   font-size: 0.95rem;
   line-height: 1.5;
+}
+
+.analytics-edge-chart .section-heading p {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.98rem;
+  line-height: 1.5;
+  max-width: 46rem;
+}
+
+.analytics-edge-chart-frame {
+  margin-top: 16px;
+  padding: 12px 8px 4px;
+  background: var(--paper);
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-hard-sm);
+  color: var(--ink);
+  min-height: 320px;
+}
+
+.analytics-edge-tooltip {
+  display: grid;
+  gap: 6px;
+  min-width: 12rem;
+  padding: 10px 12px;
+  background: var(--paper);
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-hard-sm);
+  color: var(--ink);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.analytics-edge-tooltip strong {
+  color: var(--navy);
+}
+
+.analytics-edge-tooltip div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analytics-edge-tooltip span {
+  color: var(--ink-soft);
 }
 
 .analytics-methodology-intro {
@@ -3711,6 +3758,12 @@ dd {
 @media (max-width: 720px) {
   .analytics-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-edge-chart-frame {
+    margin-left: -4px;
+    margin-right: -4px;
+    padding: 8px 0 0;
   }
 }
 

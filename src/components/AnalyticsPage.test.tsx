@@ -1,17 +1,30 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { aggregateHeadlineStats } from '../recorder/aggregateHeadlineStats';
 import { analyticsFixtureSamples } from '../recorder/analyticsFixtures';
+import { buildEdgeSeries } from '../recorder/buildEdgeSeries';
 import { AnalyticsPage } from './AnalyticsPage';
 
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual<typeof import('recharts')>('recharts');
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => (
+      <div style={{ width: 800, height: 320 }}>{children}</div>
+    ),
+  };
+});
+
+const samples = analyticsFixtureSamples();
 const fixtureLoad = {
   kind: 'ready' as const,
   usingFixture: true,
-  stats: aggregateHeadlineStats(analyticsFixtureSamples()),
+  stats: aggregateHeadlineStats(samples),
+  edgeSeries: buildEdgeSeries(samples),
 };
 
 describe('AnalyticsPage', () => {
-  it('renders headline stat cards and methodology in English', () => {
+  it('renders headline stats, Edge chart, and methodology in English', () => {
     render(<AnalyticsPage locale="en" load={fixtureLoad} />);
 
     expect(screen.getByRole('heading', { name: 'Analytics' })).toBeVisible();
@@ -26,6 +39,9 @@ describe('AnalyticsPage', () => {
     expect(within(stats).getByText('+10.00 pts')).toBeVisible();
     expect(within(stats).getByText('2')).toBeVisible();
     expect(within(stats).getByText('80%')).toBeVisible();
+
+    expect(screen.getByRole('region', { name: 'Edge time series' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Edge over time' })).toBeVisible();
 
     expect(screen.getByRole('heading', { name: 'Methodology' })).toBeVisible();
     expect(screen.getByText(/every 15 minutes/i)).toBeVisible();
@@ -47,6 +63,7 @@ describe('AnalyticsPage', () => {
     expect(
       within(screen.getByRole('navigation', { name: '产品' })).getByRole('link', { name: '数据分析' }),
     ).toHaveAttribute('href', '/zh-CN/analytics');
+    expect(screen.getByRole('heading', { name: 'Edge 随时间变化' })).toBeVisible();
     expect(screen.getByRole('heading', { name: '方法说明' })).toBeVisible();
     expect(screen.getByText(/每 15 分钟/)).toBeVisible();
     expect(screen.getByText(/50%/)).toBeVisible();
@@ -62,6 +79,7 @@ describe('AnalyticsPage', () => {
     expect(
       screen.getByText(/Benchmark Samples are not available yet/i),
     ).toBeVisible();
+    expect(screen.getByText(/No live-source matched Samples yet/i)).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Methodology' })).toBeVisible();
   });
 });

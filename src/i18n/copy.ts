@@ -294,6 +294,16 @@ export const enCopy = {
     emptyValue: '—',
     unavailable:
       'Benchmark Samples are not available yet. Headline statistics appear once the Recorder has stored live matches.',
+    chartLabel: 'Edge time series',
+    chartTitle: 'Edge over time',
+    chartSubtitle:
+      'Anker net APR minus nearest-expiry Binance APR, grouped by remaining tenor. Negative stretches plot below the zero axis.',
+    chartEmpty: 'No live-source matched Samples yet — the Edge chart appears once the Recorder has stored matches.',
+    chartZeroAxis: '0',
+    tenorBucket: (bucket: '1d' | '2d' | '3d' | '7d' | '14d') => bucket,
+    tooltipAnkerApr: 'Anker net APR',
+    tooltipBinanceApr: 'Nearest-expiry Binance APR',
+    tooltipSettlementOffset: 'Settlement offset',
     methodologyTitle: 'Methodology',
     methodologyIntro: 'How these figures are defined and what they include.',
     methodologyCadence:
@@ -613,6 +623,16 @@ export const zhCnCopy: AppCopy = {
     ladderCoverage: '阶梯覆盖率',
     emptyValue: '—',
     unavailable: '基准样本尚不可用。记录器存入实时匹配样本后，头条统计才会显示。',
+    chartLabel: 'Edge 时间序列',
+    chartTitle: 'Edge 随时间变化',
+    chartSubtitle:
+      'Anker 净 APR 减去最近到期 Binance APR，按剩余期限分组。负值区间绘制在零轴下方。',
+    chartEmpty: '尚无实时来源且已匹配的样本——记录器存入匹配样本后，Edge 图表才会显示。',
+    chartZeroAxis: '0',
+    tenorBucket: (bucket: '1d' | '2d' | '3d' | '7d' | '14d') => bucket,
+    tooltipAnkerApr: 'Anker 净 APR',
+    tooltipBinanceApr: '最近到期 Binance APR',
+    tooltipSettlementOffset: '结算偏移',
     methodologyTitle: '方法说明',
     methodologyIntro: '这些数字如何定义，以及它们包含什么。',
     methodologyCadence: '采样节奏：每 15 分钟一次。每一轮记录展示 APR 与基准对比的日期限阶梯行。',
