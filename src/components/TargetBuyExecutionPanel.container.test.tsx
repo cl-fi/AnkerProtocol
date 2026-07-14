@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
@@ -170,6 +170,21 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
     await waitFor(() =>
       expect(screen.getByText('Subscription confirmed. Your Note is in your Portfolio.')).toBeVisible(),
     );
+
+    // The success card pops with the confirmed terms and a portfolio CTA.
+    const dialog = screen.getByRole('dialog', { name: 'Subscription confirmed' });
+    expect(within(dialog).getByRole('link', { name: 'View Portfolio' })).toHaveAttribute(
+      'href',
+      '/en/app/portfolio',
+    );
+    expect(within(dialog).getByRole('link', { name: /View transaction/ })).toHaveAttribute(
+      'href',
+      'https://testnet.suivision.xyz/txblock/0xdigest',
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // The inline confirmation stays behind as the persistent record.
     expect(screen.getByText(/Subscription confirmed — your Note is live:/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'View Portfolio' })).toBeVisible();
   });

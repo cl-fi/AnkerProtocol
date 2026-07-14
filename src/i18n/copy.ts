@@ -15,6 +15,7 @@ export const enCopy = {
     unavailable: 'Unavailable',
     notIndexed: 'Not indexed',
     socialLinks: 'Social links',
+    close: 'Close',
     copyright: '©2026 Anker Protocol. All rights reserved',
   },
   metadata: {
@@ -280,6 +281,18 @@ export const enCopy = {
       submitting: 'Submitting…',
       submitted: 'Submitted',
       transactionFailed: 'Claim transaction failed.',
+      successDialog: {
+        title: 'Claim confirmed',
+        received: 'You received',
+        grossPayout: 'Gross payout',
+        performanceFee: 'Performance fee',
+        outcomeConverted: (settlement: string, target: string, btc: string) =>
+          `Settled at ${settlement} — your principal converted at the ${target} target (≈ ${btc} BTC), cash-settled in dUSDC on testnet.`,
+        outcomeReturned: (settlement: string) =>
+          `Settled at ${settlement} — your principal was returned in dUSDC, coupon included.`,
+        viewTransaction: 'View transaction',
+        done: 'Done',
+      },
     },
   },
   analytics: {
@@ -348,6 +361,16 @@ export const enCopy = {
     viewPortfolio: 'View Portfolio',
     transactionSubmittedPrefix: 'Transaction submitted:',
     subscribeConfirmedPrefix: 'Subscription confirmed — your Note is live:',
+    successDialog: {
+      title: 'Subscription confirmed',
+      intro: 'Your Note is live — it now appears in your Portfolio.',
+      principal: 'Principal',
+      targetPrice: 'Target price',
+      settlement: 'Settlement',
+      coupon: 'Coupon',
+      apr: 'APR',
+      viewTransaction: 'View transaction',
+    },
     status: {
       connectWallet: 'Connect wallet to subscribe',
       awaitingSignature: 'Awaiting wallet signature.',
@@ -382,6 +405,7 @@ export const zhCnCopy: AppCopy = {
     unavailable: '不可用',
     notIndexed: '未索引',
     socialLinks: '社交链接',
+    close: '关闭',
     copyright: '©2026 Anker Protocol. 保留所有权利',
   },
   metadata: {
@@ -626,6 +650,17 @@ export const zhCnCopy: AppCopy = {
       submitting: '提交中…',
       submitted: '已提交',
       transactionFailed: '领取交易失败。',
+      successDialog: {
+        title: '领取成功',
+        received: '你已收到',
+        grossPayout: '毛收益',
+        performanceFee: '绩效费',
+        outcomeConverted: (settlement: string, target: string, btc: string) =>
+          `结算价 ${settlement}：本金已按目标价 ${target} 转换（约 ${btc} BTC），测试网以 dUSDC 现金结算。`,
+        outcomeReturned: (settlement: string) => `结算价 ${settlement}：本金以 dUSDC 返还，票息照付。`,
+        viewTransaction: '查看交易',
+        done: '完成',
+      },
     },
   },
   analytics: {
@@ -689,6 +724,16 @@ export const zhCnCopy: AppCopy = {
     viewPortfolio: '查看持仓',
     transactionSubmittedPrefix: '交易已提交：',
     subscribeConfirmedPrefix: '订阅成功，产品凭证已入账：',
+    successDialog: {
+      title: '订阅成功',
+      intro: '产品凭证已生效，现已加入你的持仓。',
+      principal: '本金',
+      targetPrice: '目标价',
+      settlement: '结算时间',
+      coupon: '票息',
+      apr: 'APR',
+      viewTransaction: '查看交易',
+    },
     status: {
       connectWallet: '连接钱包以认购',
       awaitingSignature: '等待钱包签名。',

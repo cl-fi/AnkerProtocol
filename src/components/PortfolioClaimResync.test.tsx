@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
@@ -120,13 +120,20 @@ afterEach(() => {
 });
 
 describe('ClaimAction chain resync', () => {
-  it('flips the note to claimed after a successful claim', async () => {
+  it('flips the note to claimed and pops the success card after a successful claim', async () => {
     renderHarness();
     const button = await screen.findByRole('button', { name: 'Claim payout' });
     expect(button).toBeEnabled();
 
     fireEvent.click(button);
 
+    // The success card pops over the claimed note…
+    const dialog = await screen.findByRole('dialog', { name: 'Claim confirmed' });
+    expect(within(dialog).getByText('You received')).toBeVisible();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // …and the note card itself has flipped to the claimed state.
     await waitFor(() => expect(screen.getByText('You received')).toBeVisible());
     expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
     expect(chain.executions).toBe(1);
@@ -143,5 +150,7 @@ describe('ClaimAction chain resync', () => {
     // instead of leaving a claimable-looking, error-on-reclick note.
     await waitFor(() => expect(screen.getByText('You received')).toBeVisible());
     expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
+    // No success card on the error path — the wallet reported a failure.
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
