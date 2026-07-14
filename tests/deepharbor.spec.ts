@@ -85,13 +85,29 @@ test('supports selecting a Buy Low reference row and changing payoff smoothness'
   await expect.poll(() => advanced.locator('.leg-disclosure-row').count()).toBeGreaterThan(0);
 });
 
-test('renders the wallet dashboard entry point when disconnected', async ({ page }) => {
-  await page.goto('/app/dashboard');
+test('renders the wallet portfolio entry point when disconnected', async ({ page }) => {
+  await page.goto('/app/portfolio');
 
-  await expect(page.locator('main#wallet-dashboard')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page).toHaveURL(/\/en\/app\/portfolio$/);
+  await expect(page.locator('main#wallet-portfolio')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Products' }).getByRole('link', { name: 'Portfolio' })).toBeVisible();
   await expect(page.getByText('Connect your wallet to see your Notes.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+});
+
+test('redirects legacy dashboard paths to the portfolio route in both locales', async ({ page }) => {
+  await page.goto('/app/dashboard');
+  await expect(page).toHaveURL(/\/en\/app\/portfolio$/);
+  await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
+
+  await page.goto('/en/app/dashboard');
+  await expect(page).toHaveURL(/\/en\/app\/portfolio$/);
+
+  await page.goto('/zh-CN/app/dashboard');
+  await expect(page).toHaveURL(/\/zh-CN\/app\/portfolio$/);
+  await expect(page.getByRole('heading', { name: '持仓' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '产品' }).getByRole('link', { name: '持仓' })).toBeVisible();
 });
 
 test('normalizes legacy and disabled Sell High routes to the Buy Low workspace', async ({ page }) => {

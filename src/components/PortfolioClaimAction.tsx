@@ -12,7 +12,7 @@ import { markProductNoteClaimed, type AnkerProductNoteRecord } from '../sui/anke
 import { buildClaimDualInvestmentNoteTransaction } from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { preflightTransaction } from '../sui/transactionPreflight';
-import { formatBtcAmount, formatPreciseAmount, shortId, suiExplorerTxUrl } from './DashboardFormat';
+import { formatBtcAmount, formatPreciseAmount, shortId, suiExplorerTxUrl } from './PortfolioFormat';
 import { Button } from '../ui';
 
 export function claimActionViewModel({
@@ -33,15 +33,15 @@ export function claimActionViewModel({
   return {
     lifecycle,
     canClaim: lifecycle === 'claimable' && !isPending,
-    actionLabel: copy.dashboard.claim.claimPayout,
+    actionLabel: copy.portfolio.claim.claimPayout,
     status:
       lifecycle === 'claimed'
-        ? copy.dashboard.claim.alreadyClaimed
+        ? copy.portfolio.claim.alreadyClaimed
         : lifecycle === 'awaiting_settle'
-          ? copy.dashboard.claim.awaitingSettlement
+          ? copy.portfolio.claim.awaitingSettlement
           : lifecycle === 'claimable'
-            ? copy.dashboard.claim.readyClaim
-            : copy.dashboard.claim.opensAfterSettlement,
+            ? copy.portfolio.claim.readyClaim
+            : copy.portfolio.claim.opensAfterSettlement,
   };
 }
 
@@ -107,11 +107,11 @@ export function ClaimActionView({
   const mode = settledBelow ? 'btc' : outcomeKnown ? 'dusdc' : 'projected';
   const dusdcAmount = outcomeKnown ? estimate.netPayout : projectedDusdc;
   const amountLabel = claimed
-    ? copy.dashboard.claim.youReceived
+    ? copy.portfolio.claim.youReceived
     : canClaim
-      ? copy.dashboard.claim.youllReceive
-      : copy.dashboard.claim.projectedPayout;
-  const feeText = copy.dashboard.claim.fee(formatPreciseAmount(estimate.feeAmount, locale));
+      ? copy.portfolio.claim.youllReceive
+      : copy.portfolio.claim.projectedPayout;
+  const feeText = copy.portfolio.claim.fee(formatPreciseAmount(estimate.feeAmount, locale));
   const btcAmount = note.targetPrice > 0 ? dusdcAmount / note.targetPrice : 0;
   const statusText = demoMode && action.canClaim ? copy.demo.claimDisabled : action.status;
   const showStatus = action.lifecycle === 'awaiting_settle' || (demoMode && action.canClaim);
@@ -125,29 +125,29 @@ export function ClaimActionView({
           <>
             <strong className="di-claim-amount">~{formatBtcAmount(btcAmount, locale)} BTC</strong>
             <small className="di-claim-fee">
-              {copy.dashboard.claim.onTestnetAfterFee(formatPreciseAmount(estimate.netPayout, locale), feeText)}
+              {copy.portfolio.claim.onTestnetAfterFee(formatPreciseAmount(estimate.netPayout, locale), feeText)}
             </small>
           </>
         ) : mode === 'projected' ? (
           <>
             <strong className="di-claim-amount">~{formatPreciseAmount(dusdcAmount, locale)} dUSDC</strong>
             <small className="di-claim-fee">
-              {copy.dashboard.claim.orBtcAfterFee(formatBtcAmount(btcAmount, locale), feeText)}
+              {copy.portfolio.claim.orBtcAfterFee(formatBtcAmount(btcAmount, locale), feeText)}
             </small>
           </>
         ) : (
           <>
             <strong className="di-claim-amount">{formatPreciseAmount(dusdcAmount, locale)} dUSDC</strong>
-            <small className="di-claim-fee">{copy.dashboard.claim.afterFee(feeText)}</small>
+            <small className="di-claim-fee">{copy.portfolio.claim.afterFee(feeText)}</small>
           </>
         )}
       </div>
       <Button variant="primary" className="di-claim-button" disabled={!canClaim} onClick={onClaim}>
-        {isPending ? copy.dashboard.claim.submitting : action.actionLabel}
+        {isPending ? copy.portfolio.claim.submitting : action.actionLabel}
       </Button>
       {digest ? (
         <p className="execution-message">
-          {copy.dashboard.claim.submitted} —{' '}
+          {copy.portfolio.claim.submitted} —{' '}
           <a className="di-proof-link" href={suiExplorerTxUrl(digest)} target="_blank" rel="noreferrer">
             {shortId(digest)}
           </a>
@@ -216,7 +216,7 @@ export function ClaimAction({
       await queryClient
         .invalidateQueries({ queryKey: ['anker-portfolio', account.address] })
         .catch(() => undefined);
-      setError(nextError instanceof Error ? nextError.message : copy.dashboard.claim.transactionFailed);
+      setError(nextError instanceof Error ? nextError.message : copy.portfolio.claim.transactionFailed);
     } finally {
       setIsPending(false);
     }

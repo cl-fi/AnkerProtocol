@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
-import { ClaimActionView } from './DashboardClaimAction';
+import { ClaimActionView } from './PortfolioClaimAction';
 
 const MARKET_ID = `0x${'5'.repeat(64)}`;
 

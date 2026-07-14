@@ -10,8 +10,8 @@ import {
   SubscriptionDigestValue,
   depositedCashText,
   claimEstimateForNote,
-} from './DashboardPage';
-import { ProductNoteCard } from './DashboardProductNoteCard';
+} from './PortfolioPage';
+import { ProductNoteCard } from './PortfolioProductNoteCard';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 

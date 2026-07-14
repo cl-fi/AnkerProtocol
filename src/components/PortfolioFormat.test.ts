@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { suiExplorerObjectUrl, suiExplorerTxUrl } from './DashboardFormat';
+import { suiExplorerObjectUrl, suiExplorerTxUrl } from './PortfolioFormat';
 
 describe('Sui explorer links', () => {
   it('uses SuiVision testnet transaction links', () => {

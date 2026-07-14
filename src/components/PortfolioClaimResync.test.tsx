@@ -5,7 +5,7 @@ import type { PredictMarketState } from '../deepbook/predictMarketState';
 import { productNoteType } from '../sui/ankerPortfolio';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
-import { ClaimAction } from './DashboardClaimAction';
+import { ClaimAction } from './PortfolioClaimAction';
 
 const OWNER = `0x${'a'.repeat(64)}`;
 const NOTE_ID = `0x${'c'.repeat(64)}`;

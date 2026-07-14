@@ -168,10 +168,10 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
     expect(mocks.signAndExecuteTransaction).toHaveBeenCalledTimes(1);
 
     await waitFor(() =>
-      expect(screen.getByText('Subscription confirmed. Your Note is in your Dashboard.')).toBeVisible(),
+      expect(screen.getByText('Subscription confirmed. Your Note is in your Portfolio.')).toBeVisible(),
     );
     expect(screen.getByText(/Subscription confirmed — your Note is live:/)).toBeVisible();
-    expect(screen.getByRole('link', { name: 'View Dashboard' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'View Portfolio' })).toBeVisible();
   });
 
   it('shows a readable error and does not open the wallet when simulation fails', async () => {

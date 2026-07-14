@@ -89,7 +89,7 @@ The **floor price is not a user input.** Anker derives it from the Buy Low price
 7.  Create a wallet-owned product container (one tx) if you don't have one.
 8.  Subscribe with a wallet transaction.
 9.  Receive a ProductNote that records every term of the trade.
-10. Track it in the dashboard.
+10. Track it in the portfolio.
 11. Claim dUSDC after expiry.
 ```
 
@@ -123,7 +123,7 @@ gross_APR      = coupon / principal * 365 / days_to_expiry
 net_APR        = gross_APR * (1 - protocol_fee_bps / 10000)
 ```
 
-`net_APR` is the number shown everywhere: reference table, preview, confirmation panel, and dashboard. The dashboard computes each note's reward from the **fee snapshot stored in that ProductNote**, not a mutable current setting.
+`net_APR` is the number shown everywhere: reference table, preview, confirmation panel, and portfolio. The portfolio computes each note's reward from the **fee snapshot stored in that ProductNote**, not a mutable current setting.
 
 The quote model is layered for honesty:
 
@@ -139,7 +139,7 @@ Anker charges a **performance fee — a protocol fee on the coupon, default 1000
 
 - The fee lives in the on-chain **Registry** (`Registry.fee_bps`), administrable via `AdminCap`.
 - It's captured at claim time through `record_redeem_with_fee`, which routes the fee to the registry's fee recipient.
-- Each `ProductNote` stores its **own `fee_bps` snapshot**, so the dashboard computes each position's reward from the fee that applied at subscription.
+- Each `ProductNote` stores its **own `fee_bps` snapshot**, so the portfolio computes each position's reward from the fee that applied at subscription.
 
 The incentive alignment is the pitch: **Anker only earns when it actually sources a coupon for the user.** No coupon, no fee. Revenue scales directly with delivered value, and it's enforced on-chain rather than promised.
 
@@ -162,12 +162,12 @@ The incentive alignment is the pitch: **Anker only earns when it actually source
 
 This isn't a mockup — the full path works end to end on Sui testnet.
 
-- **Next.js app**: landing page, Dual Investment workspace, dashboard.
+- **Next.js app**: landing page, Dual Investment workspace, portfolio.
 - **Live BTC oracle discovery** via a narrow Predict API wrapper (8s timeout, 1 MB cap, cache headers, per-client rate limit; only proxies the endpoints the app uses).
 - **Product compiler**: Buy Low → Predict legs, with live `devInspect` quote previews and full risk fields (min payout, max loss, option budget, holding-period return, quote TTL, liquidity status, max-cost slippage).
 - **Live Binance benchmark** with `Est. APR / Binance APR / Edge` columns.
 - **Wallet flow**: create a PredictManager container → subscribe → mint a ProductNote.
-- **Event-indexed dashboard** with claim + settlement states and Sui explorer links.
+- **Event-indexed portfolio** with claim + settlement states and Sui explorer links.
 - **ProductNote Move package deployed on Sui testnet.**
 - **7 static lint guardrails** across frontend / contract / tests / scripts / README, plus CI: `lint → unit → move test → next build → playwright e2e` (fail-fast).
 
@@ -194,7 +194,7 @@ Quote previews are batched through Sui `devInspect`. Each leg returns strike, di
 
 **The ProductNote is the proof.** It's a Move object owned by the user's wallet that records principal, reserve, coupon, target/floor price, `apr_bps`, `fee_bps`, expiry, strikes, quantities, costs, status, and redeemed payout/fee. It is a wallet-owned **strategy receipt** — honestly, not yet a transferable or pooled vault share.
 
-**The dashboard reads the chain.** It's event-indexed (paginating ProductNote Move events by type, indexed by note / owner / manager) into lifecycle buckets — Ready to claim / Active / Completed — with a portfolio summary (Total deposited / Expected rewards / Open positions), product-container dUSDC balance and held legs, backing ratio, a **settlement-blocked safety state on partial backing**, and Sui explorer (`testnet.suivision.xyz`) links for every object and transaction. Claim redeems open legs before withdrawing dUSDC, or withdraws directly if the legs were already redeemed permissionlessly.
+**The portfolio reads the chain.** It's event-indexed (paginating ProductNote Move events by type, indexed by note / owner / manager) into lifecycle buckets — Ready to claim / Active / Completed — with a portfolio summary (Total deposited / Expected rewards / Open positions), product-container dUSDC balance and held legs, backing ratio, a **settlement-blocked safety state on partial backing**, and Sui explorer (`testnet.suivision.xyz`) links for every object and transaction. Claim redeems open legs before withdrawing dUSDC, or withdraws directly if the legs were already redeemed permissionlessly.
 
 ```mermaid
 flowchart LR
@@ -209,7 +209,7 @@ flowchart LR
   B --> H["Wallet Tx"]
   H --> I["PredictManager<br/>Product Container"]
   H --> J["Anker ProductNote"]
-  J --> K["Dashboard"]
+  J --> K["Portfolio"]
   I --> K
   K --> L["Claim dUSDC"]
 ```
@@ -267,7 +267,8 @@ The testnet contract is deliberately scoped: it records product terms, fee polic
 /                      Landing page
 /app                   Alias → same workspace page
 /app/dual-investment   BTC Buy Low Dual Investment (hourly + day tenors)
-/app/dashboard         Wallet ProductNote dashboard
+/app/portfolio         Wallet ProductNote portfolio
+/app/dashboard         Legacy redirect → /app/portfolio
 /app/multi-day         Legacy redirect → /app/dual-investment (merged page)
 /dual-investment       Legacy redirect → /app/dual-investment
 ```

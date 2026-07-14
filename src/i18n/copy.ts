@@ -4,7 +4,7 @@ export const enCopy = {
   common: {
     brand: 'Anker Protocol',
     connectWallet: 'Connect Wallet',
-    dashboard: 'Dashboard',
+    portfolio: 'Portfolio',
     dualInvestment: 'Dual Investment',
     buyLow: 'Buy Low',
     sellHigh: 'Sell High',
@@ -201,14 +201,14 @@ export const enCopy = {
       unavailable: 'Unavailable',
     },
   },
-  dashboard: {
+  portfolio: {
     filters: {
       all: 'All',
       ready: 'Ready to claim',
       active: 'Active',
       completed: 'Completed',
     },
-    title: 'Dashboard',
+    title: 'Portfolio',
     subtitle: "See your Notes, what they'll pay, and claim your cash once they settle.",
     refresh: 'Refresh',
     totalDeposited: 'Total deposited',
@@ -290,7 +290,7 @@ export const enCopy = {
     createProductContainer: 'Set up now',
     subscribeBuyLow: 'Subscribe Buy Low',
     subscribeHelp: 'Confirm in your wallet to lock in your reward.',
-    viewDashboard: 'View Dashboard',
+    viewPortfolio: 'View Portfolio',
     transactionSubmittedPrefix: 'Transaction submitted:',
     subscribeConfirmedPrefix: 'Subscription confirmed — your Note is live:',
     status: {
@@ -298,8 +298,8 @@ export const enCopy = {
       awaitingSignature: 'Awaiting wallet signature.',
       quoteExpired: 'Quote expired. Refresh pricing before signing.',
       transactionFailed: 'Transaction failed. Review the error and retry.',
-      submitted: 'Transaction submitted. Track it in your Dashboard.',
-      subscribeConfirmed: 'Subscription confirmed. Your Note is in your Dashboard.',
+      submitted: 'Transaction submitted. Track it in your Portfolio.',
+      subscribeConfirmed: 'Subscription confirmed. Your Note is in your Portfolio.',
       checkingManager: 'Checking your wallet setup...',
       managerRequired: 'Start with step 1 — finish the one-time setup.',
       ready: (managerId: string) => `Setup complete (${managerId}). Subscribe to finish.`,
@@ -316,7 +316,7 @@ export const zhCnCopy: AppCopy = {
   common: {
     brand: 'Anker Protocol',
     connectWallet: '连接钱包',
-    dashboard: '仪表盘',
+    portfolio: '持仓',
     dualInvestment: '双币赢',
     buyLow: '低买',
     sellHigh: '高卖',
@@ -493,14 +493,14 @@ export const zhCnCopy: AppCopy = {
       unavailable: '不可用',
     },
   },
-  dashboard: {
+  portfolio: {
     filters: {
       all: '全部',
       ready: '可领取',
       active: '进行中',
       completed: '已完成',
     },
-    title: '仪表盘',
+    title: '持仓',
     subtitle: '查看你的产品凭证、预期回款，并在结算后领取现金。',
     refresh: '刷新',
     totalDeposited: '总存入',
@@ -581,7 +581,7 @@ export const zhCnCopy: AppCopy = {
     createProductContainer: '立即开通',
     subscribeBuyLow: '认购低买',
     subscribeHelp: '在钱包中确认以锁定收益。',
-    viewDashboard: '查看仪表盘',
+    viewPortfolio: '查看持仓',
     transactionSubmittedPrefix: '交易已提交：',
     subscribeConfirmedPrefix: '订阅成功，产品凭证已入账：',
     status: {
@@ -589,8 +589,8 @@ export const zhCnCopy: AppCopy = {
       awaitingSignature: '等待钱包签名。',
       quoteExpired: '报价已过期。签名前请刷新价格。',
       transactionFailed: '交易失败。请检查错误并重试。',
-      submitted: '交易已提交。你可以在仪表盘中跟踪。',
-      subscribeConfirmed: '订阅成功。产品凭证已加入你的仪表盘。',
+      submitted: '交易已提交。你可以在持仓中跟踪。',
+      subscribeConfirmed: '订阅成功。产品凭证已加入你的持仓。',
       checkingManager: '正在检查开通状态...',
       managerRequired: '先完成第 1 步：一次性开通。',
       ready: (managerId: string) => `已开通（${managerId}）。认购即可完成。`,

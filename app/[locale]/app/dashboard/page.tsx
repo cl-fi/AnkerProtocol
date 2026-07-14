@@ -1,6 +1,7 @@
-import { DashboardPage } from '../../../../src/components/DashboardPage';
-import { normalizeLocale } from '../../../../src/i18n';
+import { redirect } from 'next/navigation';
+import { localizedPath, normalizeLocale } from '../../../../src/i18n';
 
+/** Holdings page renamed to Portfolio — keep old dashboard links alive. */
 export default function Page({ params }: { params: { locale: string } }) {
-  return <DashboardPage locale={normalizeLocale(params.locale)} />;
+  redirect(localizedPath(normalizeLocale(params.locale), '/app/portfolio'));
 }

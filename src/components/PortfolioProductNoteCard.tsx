@@ -14,7 +14,7 @@ import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 import { lifecycleForProductNote, type ProductNoteLifecycle } from '../sui/productNoteLifecycle';
 import { subscriptionDigestForQuote } from '../sui/subscriptionDigestStore';
-import { ClaimAction } from './DashboardClaimAction';
+import { ClaimAction } from './PortfolioClaimAction';
 import {
   formatAmount,
   formatApr,
@@ -26,7 +26,7 @@ import {
   shortId,
   suiExplorerObjectUrl,
   suiExplorerTxUrl,
-} from './DashboardFormat';
+} from './PortfolioFormat';
 import { Badge, Card, Disclosure, KeyValue, KeyValueList, Stat, StatGroup, type Tone } from '../ui';
 
 function ProofLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -44,11 +44,11 @@ export function noteStatusBadge(
 ): { label: string; tone: Tone } {
   const copy = copyForLocale(locale);
   if (note.status === 'redeemed' || lifecycle === 'claimed')
-    return { label: copy.dashboard.status.completed, tone: 'neutral' };
+    return { label: copy.portfolio.status.completed, tone: 'neutral' };
   if (lifecycle === 'claimable')
-    return { label: copy.dashboard.status.readyToClaim, tone: 'positive' };
-  if (lifecycle === 'awaiting_settle') return { label: copy.dashboard.status.settling, tone: 'positive' };
-  return { label: copy.dashboard.status.active, tone: 'warning' };
+    return { label: copy.portfolio.status.readyToClaim, tone: 'positive' };
+  if (lifecycle === 'awaiting_settle') return { label: copy.portfolio.status.settling, tone: 'positive' };
+  return { label: copy.portfolio.status.active, tone: 'warning' };
 }
 
 function useSubscriptionDigest(owner: string, quoteHash: string) {
@@ -106,7 +106,7 @@ export function AllocatedPositionsValue({
 
   return (
     <dd>
-      {copy.dashboard.card.indexedAllocated(
+      {copy.portfolio.card.indexedAllocated(
         entry.allocatedPositions.length,
         formatQuoteBaseUnits(quantityBaseUnits),
         formatQuoteBaseUnits(costBaseUnits),
@@ -189,20 +189,20 @@ export function ProductNoteCard({
     <Card as="article" className="di-position-card">
       <header className="di-position-head">
         <div className="di-position-title">
-          <h3>{isDual ? copy.dashboard.card.buyLowBtc : copy.dashboard.card.legacyProduct}</h3>
+          <h3>{isDual ? copy.portfolio.card.buyLowBtc : copy.portfolio.card.legacyProduct}</h3>
           {isDual ? <span className="di-position-strike">@ {formatPrice(note.targetPrice, locale)}</span> : null}
         </div>
         <Badge tone={status.tone}>{status.label}</Badge>
       </header>
 
       <StatGroup>
-        <Stat label={copy.dashboard.card.deposit} value={`${depositedCashText(note, eventIndexEntry)} dUSDC`} />
+        <Stat label={copy.portfolio.card.deposit} value={`${depositedCashText(note, eventIndexEntry)} dUSDC`} />
         <Stat
-          label={copy.dashboard.card.reward}
+          label={copy.portfolio.card.reward}
           value={`+${formatPreciseAmount(note.coupon, locale)} dUSDC`}
           sub={`${formatApr(rewardApr, locale)} APR`}
         />
-        <Stat label={copy.dashboard.card.settles} value={localizedSettlesText} />
+        <Stat label={copy.portfolio.card.settles} value={localizedSettlesText} />
       </StatGroup>
 
       {isDual ? (
@@ -210,28 +210,28 @@ export function ProductNoteCard({
           <ShieldCheck size={16} />
           <span className="di-position-outcome-text">
             <span className="di-position-outcome-main">
-              {copy.dashboard.card.outcomeMain(formatPrice(note.targetPrice, locale))}
+              {copy.portfolio.card.outcomeMain(formatPrice(note.targetPrice, locale))}
             </span>
-            <small>{copy.dashboard.card.outcomeTestnet}</small>
+            <small>{copy.portfolio.card.outcomeTestnet}</small>
           </span>
         </div>
       ) : null}
 
       <ClaimAction note={note} marketState={marketState} locale={locale} />
 
-      <Disclosure summary={copy.dashboard.card.onChainProof}>
+      <Disclosure summary={copy.portfolio.card.onChainProof}>
         <KeyValueList>
           <KeyValue
-            label={copy.dashboard.card.noteId}
+            label={copy.portfolio.card.noteId}
             value={<ProofLink href={suiExplorerObjectUrl(note.noteId)}>{shortId(note.noteId)}</ProofLink>}
           />
           <KeyValue
-            label={isDual ? copy.dashboard.card.quoteHash : copy.dashboard.card.productId}
+            label={isDual ? copy.portfolio.card.quoteHash : copy.portfolio.card.productId}
             value={note.productId || '--'}
           />
           {isDual ? (
             <div>
-              <span>{copy.dashboard.card.subscriptionTx}</span>
+              <span>{copy.portfolio.card.subscriptionTx}</span>
               <SubscriptionDigestValue
                 owner={note.owner}
                 quoteHash={note.productId}
@@ -242,33 +242,33 @@ export function ProductNoteCard({
           ) : null}
           {isDual ? (
             <div>
-              <span>{copy.dashboard.card.settlementTx}</span>
+              <span>{copy.portfolio.card.settlementTx}</span>
               <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} locale={locale} />
             </div>
           ) : null}
           <KeyValue
-            label={copy.dashboard.card.accountWrapper}
+            label={copy.portfolio.card.accountWrapper}
             value={<ProofLink href={suiExplorerObjectUrl(note.wrapperId)}>{shortId(note.wrapperId)}</ProofLink>}
           />
-          <KeyValue label={copy.dashboard.card.accountBalance} value={accountWrapperBalance} />
+          <KeyValue label={copy.portfolio.card.accountBalance} value={accountWrapperBalance} />
           <KeyValue
             label={copy.dualInvestment.oracle}
             value={<ProofLink href={suiExplorerObjectUrl(note.oracleId)}>{shortId(note.oracleId)}</ProofLink>}
           />
           {isDual ? (
             <div>
-              <span>{copy.dashboard.card.priceFeedUpdated}</span>
+              <span>{copy.portfolio.card.priceFeedUpdated}</span>
               <OracleLastUpdateValue oracleId={note.oracleId} locale={locale} />
             </div>
           ) : null}
           {isDual ? (
             <>
-              <KeyValue label={copy.dashboard.card.yourPrice} value={formatPrice(note.targetPrice, locale)} />
-              <KeyValue label={copy.dashboard.card.floor} value={formatPrice(note.floorPrice, locale)} />
-              <KeyValue label={copy.dashboard.card.reward} value={`${formatAmount(note.coupon, locale)} dUSDC`} />
-              <KeyValue label={copy.dashboard.card.settlement} value={copy.dashboard.card.cashSettled} />
+              <KeyValue label={copy.portfolio.card.yourPrice} value={formatPrice(note.targetPrice, locale)} />
+              <KeyValue label={copy.portfolio.card.floor} value={formatPrice(note.floorPrice, locale)} />
+              <KeyValue label={copy.portfolio.card.reward} value={`${formatAmount(note.coupon, locale)} dUSDC`} />
+              <KeyValue label={copy.portfolio.card.settlement} value={copy.portfolio.card.cashSettled} />
               <KeyValue
-                label={copy.dashboard.card.settlementPrice}
+                label={copy.portfolio.card.settlementPrice}
                 value={
                   marketState?.settlementPrice == null
                     ? copy.common.unavailable
@@ -276,14 +276,14 @@ export function ProductNoteCard({
                 }
               />
               <div>
-                <span>{copy.dashboard.card.payoutRange}</span>
+                <span>{copy.portfolio.card.payoutRange}</span>
                 <SettlementRangeValue note={note} locale={locale} />
               </div>
               <div>
-                <span>{copy.dashboard.card.allocatedPositions}</span>
+                <span>{copy.portfolio.card.allocatedPositions}</span>
                 <AllocatedPositionsValue entry={eventIndexEntry} locale={locale} />
               </div>
-              <KeyValue label={copy.dashboard.card.legs} value={note.legs.length} />
+              <KeyValue label={copy.portfolio.card.legs} value={note.legs.length} />
             </>
           ) : null}
         </KeyValueList>

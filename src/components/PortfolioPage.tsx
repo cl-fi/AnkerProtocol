@@ -13,8 +13,8 @@ import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
-import { formatAmount, formatPreciseAmount, shortId } from './DashboardFormat';
-import { ProductNoteCard } from './DashboardProductNoteCard';
+import { formatAmount, formatPreciseAmount, shortId } from './PortfolioFormat';
+import { ProductNoteCard } from './PortfolioProductNoteCard';
 import { Badge, Button, Card } from '../ui';
 
 type NoteFilter = 'all' | 'ready' | 'active' | 'completed';
@@ -22,7 +22,7 @@ type NoteBucket = Exclude<NoteFilter, 'all'>;
 
 const FILTER_TABS: { key: NoteFilter }[] = [{ key: 'all' }, { key: 'ready' }, { key: 'active' }, { key: 'completed' }];
 
-// Dashboard filter bucket derived from each Note plus its Expiry Market settlement state.
+// Portfolio filter bucket derived from each Note plus its Expiry Market settlement state.
 function noteBucket(
   note: Pick<AnkerProductNoteRecord, 'status' | 'oracleId' | 'expiryMs'>,
   marketState: PredictMarketState | undefined,
@@ -34,7 +34,7 @@ function noteBucket(
   return 'active';
 }
 
-export { ClaimActionView, claimActionViewModel, claimEstimateForNote } from './DashboardClaimAction';
+export { ClaimActionView, claimActionViewModel, claimEstimateForNote } from './PortfolioClaimAction';
 export {
   AllocatedPositionsValue,
   IndexedTransactionDigestValue,
@@ -43,9 +43,9 @@ export {
   SubscriptionDigestValue,
   depositedCashText,
   noteStatusBadge,
-} from './DashboardProductNoteCard';
+} from './PortfolioProductNoteCard';
 
-export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
+export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
   const copy = copyForLocale(locale);
   const account = useCurrentAccount();
   const portfolioQuery = useAnkerPortfolio();
@@ -85,17 +85,17 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
       : sortedNotes.filter((note) => noteBucket(note, marketStateFor(note), nowMs) === activeFilter);
 
   return (
-    <main className="dual-page" id="wallet-dashboard">
-      <AppHeader activeProduct="dashboard" locale={locale} />
+    <main className="dual-page" id="wallet-portfolio">
+      <AppHeader activeProduct="portfolio" locale={locale} />
 
       <section className="dual-hero calculation-hero">
         <div>
-          <h1>{copy.dashboard.title}</h1>
-          <p>{copy.dashboard.subtitle}</p>
+          <h1>{copy.portfolio.title}</h1>
+          <p>{copy.portfolio.subtitle}</p>
         </div>
         <Button variant="primary" onClick={() => void portfolioQuery.refetch()} disabled={!account}>
           <RefreshCw size={16} />
-          {copy.dashboard.refresh}
+          {copy.portfolio.refresh}
         </Button>
       </section>
 
@@ -103,17 +103,17 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
         <section className="calculation-section">
           <div className="di-portfolio">
             <div>
-              <span>{copy.dashboard.totalDeposited}</span>
+              <span>{copy.portfolio.totalDeposited}</span>
               <strong>{formatAmount(totalDeposited, locale)} dUSDC</strong>
             </div>
             <div>
-              <span>{copy.dashboard.expectedRewards}</span>
+              <span>{copy.portfolio.expectedRewards}</span>
               <strong>
                 +{formatPreciseAmount(expectedRewards, locale)} <em>dUSDC</em>
               </strong>
             </div>
             <div>
-              <span>{copy.dashboard.openNotes}</span>
+              <span>{copy.portfolio.openNotes}</span>
               <strong>{openNotes.length}</strong>
             </div>
           </div>
@@ -122,40 +122,40 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
 
       {!account ? (
         <section className="calculation-section">
-          <Card variant="empty">{copy.dashboard.connectWallet}</Card>
+          <Card variant="empty">{copy.portfolio.connectWallet}</Card>
         </section>
       ) : null}
 
       {!account ? null : !contractConfigured ? (
         <section className="calculation-section">
-          <Card variant="error">{copy.dashboard.contractNotConfigured}</Card>
+          <Card variant="error">{copy.portfolio.contractNotConfigured}</Card>
         </section>
       ) : portfolioQuery.isPending ? (
         <section className="calculation-section">
-          <Card variant="empty">{copy.dashboard.loadingNotes}</Card>
+          <Card variant="empty">{copy.portfolio.loadingNotes}</Card>
         </section>
       ) : portfolioQuery.error ? (
         <section className="calculation-section">
           <Card variant="error">
-            {portfolioQuery.error instanceof Error ? portfolioQuery.error.message : copy.dashboard.unableToLoadNotes}
+            {portfolioQuery.error instanceof Error ? portfolioQuery.error.message : copy.portfolio.unableToLoadNotes}
           </Card>
         </section>
       ) : notes.length === 0 ? (
         <section className="calculation-section">
           <Card variant="empty">
-            {copy.dashboard.noNotes(shortId(account.address))}
+            {copy.portfolio.noNotes(shortId(account.address))}
           </Card>
         </section>
       ) : (
         <section className="calculation-section">
           <div className="section-heading di-positions-heading">
-            <h2>{copy.dashboard.yourNotes}</h2>
+            <h2>{copy.portfolio.yourNotes}</h2>
             <Badge tone="positive">
-              {notes.length} {notes.length === 1 ? copy.dashboard.note : copy.dashboard.notes}
+              {notes.length} {notes.length === 1 ? copy.portfolio.note : copy.portfolio.notes}
             </Badge>
           </div>
           {showFilters ? (
-            <div className="di-position-filters" role="tablist" aria-label={copy.dashboard.filterLabel}>
+            <div className="di-position-filters" role="tablist" aria-label={copy.portfolio.filterLabel}>
               {FILTER_TABS.filter((tab) => tab.key === 'all' || counts[tab.key] > 0).map((tab) => (
                 <button
                   key={tab.key}
@@ -165,14 +165,14 @@ export function DashboardPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                   className={activeFilter === tab.key ? 'di-filter is-active' : 'di-filter'}
                   onClick={() => setFilter(tab.key)}
                 >
-                  {copy.dashboard.filters[tab.key]}
+                  {copy.portfolio.filters[tab.key]}
                   <em>{counts[tab.key]}</em>
                 </button>
               ))}
             </div>
           ) : null}
           {visibleNotes.length === 0 ? (
-            <Card variant="empty">{copy.dashboard.noNotesInView}</Card>
+            <Card variant="empty">{copy.portfolio.noNotesInView}</Card>
           ) : (
             <div className="detail-grid notes-grid">
               {visibleNotes.map((note) => (

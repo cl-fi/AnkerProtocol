@@ -79,7 +79,7 @@ describe('TargetBuyExecutionPanelView', () => {
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
   });
 
-  it('links to the dashboard after a subscribe transaction is submitted', () => {
+  it('links to the portfolio after a subscribe transaction is submitted', () => {
     render(
       <TargetBuyExecutionPanelView
         hasAccount
@@ -95,7 +95,7 @@ describe('TargetBuyExecutionPanelView', () => {
     );
 
     expect(screen.getByText('Transaction submitted: 0xdigest')).toBeVisible();
-    expect(screen.getByRole('link', { name: 'View Dashboard' })).toHaveAttribute('href', '/en/app/dashboard');
+    expect(screen.getByRole('link', { name: 'View Portfolio' })).toHaveAttribute('href', '/en/app/portfolio');
   });
 
   it('renders execution copy and links in Chinese', () => {
@@ -114,8 +114,8 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('交易已提交。你可以在仪表盘中跟踪。')).toBeVisible();
-    expect(screen.getByRole('link', { name: '查看仪表盘' })).toHaveAttribute('href', '/zh-CN/app/dashboard');
+    expect(screen.getByText('交易已提交。你可以在持仓中跟踪。')).toBeVisible();
+    expect(screen.getByRole('link', { name: '查看持仓' })).toHaveAttribute('href', '/zh-CN/app/portfolio');
   });
 
   it('surfaces the awaiting-signature execution state while a wallet transaction is pending', () => {

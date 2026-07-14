@@ -18,10 +18,10 @@ describe('i18n locale helpers', () => {
   });
 
   it('adds, strips, and switches locale prefixes', () => {
-    expect(localizedPath('en', '/app/dashboard')).toBe('/en/app/dashboard');
+    expect(localizedPath('en', '/app/portfolio')).toBe('/en/app/portfolio');
     expect(localizedPath('zh-CN', '/en/app/dual-investment')).toBe('/zh-CN/app/dual-investment');
-    expect(stripLocalePath('/zh-CN/app/dashboard')).toBe('/app/dashboard');
-    expect(switchLocalePath('/en/app/dashboard', 'zh-CN')).toBe('/zh-CN/app/dashboard');
+    expect(stripLocalePath('/zh-CN/app/portfolio')).toBe('/app/portfolio');
+    expect(switchLocalePath('/en/app/portfolio', 'zh-CN')).toBe('/zh-CN/app/portfolio');
   });
 
   it('uses USD symbols for price formatting in Chinese locale', () => {

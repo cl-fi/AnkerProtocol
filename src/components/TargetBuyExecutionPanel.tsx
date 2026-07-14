@@ -201,7 +201,7 @@ export function TargetBuyExecutionPanelView({
         <p className={subscribeConfirmed ? 'execution-message execution-success' : 'execution-message'}>
           {subscribeConfirmed ? copy.execution.subscribeConfirmedPrefix : copy.execution.transactionSubmittedPrefix}{' '}
           {shortId(digest)}
-          <a href={localizedPath(locale, '/app/dashboard')}>{copy.execution.viewDashboard}</a>
+          <a href={localizedPath(locale, '/app/portfolio')}>{copy.execution.viewPortfolio}</a>
         </p>
       ) : null}
       {error ? <p className="execution-error">{error}</p> : null}

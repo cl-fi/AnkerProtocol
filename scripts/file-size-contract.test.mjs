@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const MAX_LINES = [
   { file: 'src/components/DualInvestmentPage.tsx', max: 500 },
-  { file: 'src/components/DashboardPage.tsx', max: 500 },
+  { file: 'src/components/PortfolioPage.tsx', max: 500 },
   { file: 'src/sui/ankerTransactions.ts', max: 360 },
 ];
 

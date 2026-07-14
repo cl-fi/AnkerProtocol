@@ -6,7 +6,8 @@ const LEGACY_PATH_REDIRECTS: Record<string, string> = {
   '/': '/',
   '/app': '/app',
   '/app/dual-investment': '/app/dual-investment',
-  '/app/dashboard': '/app/dashboard',
+  '/app/portfolio': '/app/portfolio',
+  '/app/dashboard': '/app/portfolio',
   '/dual-investment': '/app/dual-investment',
 };
 
@@ -25,5 +26,13 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/app', '/app/dual-investment', '/app/dashboard', '/dual-investment', '/:locale(en|zh-CN)/:path*'],
+  matcher: [
+    '/',
+    '/app',
+    '/app/dual-investment',
+    '/app/portfolio',
+    '/app/dashboard',
+    '/dual-investment',
+    '/:locale(en|zh-CN)/:path*',
+  ],
 };

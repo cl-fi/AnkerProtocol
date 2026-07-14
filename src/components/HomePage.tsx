@@ -138,7 +138,7 @@ export function HomePage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
           <div>
             <h3>{copy.landing.footerProduct}</h3>
             <Link href={localizedPath(locale, '/app/dual-investment')}>{copy.common.dualInvestment}</Link>
-            <Link href={localizedPath(locale, '/app/dashboard')}>{copy.common.dashboard}</Link>
+            <Link href={localizedPath(locale, '/app/portfolio')}>{copy.common.portfolio}</Link>
           </div>
           <div>
             <h3>{copy.landing.footerBuild}</h3>
