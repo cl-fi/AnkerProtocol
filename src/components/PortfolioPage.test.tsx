@@ -90,6 +90,7 @@ describe('ProductNoteCard', () => {
     renderWithQuery(
       <ProductNoteCard
         note={note}
+        onClaimSuccess={() => {}}
       />,
     );
 

@@ -130,18 +130,25 @@ export function DualInvestmentPage({
     }
   }, [market, effectiveInput, frozenNowMs]);
 
-  const currentKey = useMemo(() => {
+  // Product identity only — do NOT include live oracle feed timestamps.
+  // Including spot/svi timestamps unmounted TargetBuyExecutionPanel (and its
+  // success-dialog state) every market poll (~15s), including mid-wallet-sign.
+  const productKey = useMemo(() => {
     if (!market || !effectiveInput) return null;
     return [
       market.oracleId,
-      market.spotTimestampMs,
-      market.sviTimestampMs,
       effectiveInput.principal,
       effectiveInput.targetPrice,
       effectiveInput.floorPrice,
       effectiveInput.targetLegCount,
     ].join(':');
   }, [market, effectiveInput]);
+
+  // Feed version used only to schedule background re-verify; never gates mount.
+  const marketTickKey = useMemo(() => {
+    if (!market) return null;
+    return `${market.spotTimestampMs}:${market.sviTimestampMs}`;
+  }, [market]);
 
   const runVerify = useCallback(async (productInput: DualInvestmentInput, key: string, oracle: OracleMarket) => {
     const id = verifyIdRef.current + 1;
@@ -161,28 +168,40 @@ export function DualInvestmentPage({
     }
   }, []);
 
-  // Debounced verification whenever the inputs settle on a new combination.
+  // Debounced verification whenever the product inputs settle on a new combination.
   // Demo mode and non-tradable rows (Snapshot) stay on the local SVI estimate.
   useEffect(() => {
     if (!tradingEnabled) return undefined;
-    if (!market || !effectiveInput || !currentKey || verifiedKey === currentKey) return undefined;
+    if (!market || !effectiveInput || !productKey || verifiedKey === productKey) return undefined;
     const handle = window.setTimeout(() => {
-      void runVerify(effectiveInput, currentKey, market);
+      void runVerify(effectiveInput, productKey, market);
     }, 450);
     return () => window.clearTimeout(handle);
-  }, [market, effectiveInput, currentKey, verifiedKey, runVerify, tradingEnabled]);
+  }, [market, effectiveInput, productKey, verifiedKey, runVerify, tradingEnabled]);
+
+  // Background refresh when the oracle feed moves — keeps the previous matched
+  // quote mounted so the subscribe panel / success dialog is not torn down.
+  useEffect(() => {
+    if (!tradingEnabled) return undefined;
+    if (!market || !effectiveInput || !productKey || !marketTickKey) return undefined;
+    if (verifiedKey !== productKey) return undefined;
+    const handle = window.setTimeout(() => {
+      void runVerify(effectiveInput, productKey, market);
+    }, 450);
+    return () => window.clearTimeout(handle);
+  }, [marketTickKey, market, effectiveInput, productKey, verifiedKey, runVerify, tradingEnabled]);
 
   // Keep the matched live quote fresh on the envelope TTL.
   useEffect(() => {
     if (!tradingEnabled) return undefined;
-    if (!market || !effectiveInput || !currentKey || verifiedKey !== currentKey) return undefined;
+    if (!market || !effectiveInput || !productKey || verifiedKey !== productKey) return undefined;
     const handle = window.setTimeout(() => {
-      void runVerify(effectiveInput, currentKey, market);
+      void runVerify(effectiveInput, productKey, market);
     }, DEFAULT_QUOTE_ENVELOPE_TTL_MS);
     return () => window.clearTimeout(handle);
-  }, [market, effectiveInput, currentKey, verifiedKey, verifiedQuote, runVerify, tradingEnabled]);
+  }, [market, effectiveInput, productKey, verifiedKey, verifiedQuote, runVerify, tradingEnabled]);
 
-  const matchedVerified = verifiedQuote && verifiedKey === currentKey ? verifiedQuote : null;
+  const matchedVerified = verifiedQuote && verifiedKey === productKey ? verifiedQuote : null;
   const displayQuote = matchedVerified ?? estimateQuote;
   const subscribeQuote = matchedVerified && matchedVerified.executable ? matchedVerified : null;
   const isEstimate = !matchedVerified;

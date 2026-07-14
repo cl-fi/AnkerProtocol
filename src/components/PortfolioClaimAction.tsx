@@ -14,7 +14,18 @@ import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { preflightTransaction } from '../sui/transactionPreflight';
 import { formatBtcAmount, formatPreciseAmount, shortId, suiExplorerTxUrl } from './PortfolioFormat';
 import { Button } from '../ui';
-import { ClaimSuccessDialog, type ClaimSuccessSummary } from './ClaimSuccessDialog';
+import type { ClaimSuccessSummary } from './ClaimSuccessDialog';
+
+/**
+ * Snapshot of a confirmed claim, reported upward so the success dialog can be
+ * rendered above the filtered note list: the optimistic claimed-state update
+ * moves the note to the "completed" bucket, which unmounts this card (and any
+ * local dialog state) when the user is on a filter tab.
+ */
+export interface ConfirmedClaim {
+  note: Pick<AnkerProductNoteRecord, 'principal' | 'targetPrice'>;
+  summary: ClaimSuccessSummary;
+}
 
 export function claimActionViewModel({
   note,
@@ -169,10 +180,12 @@ function transactionDigest(result: Awaited<ReturnType<ReturnType<typeof useDAppK
 export function ClaimAction({
   note,
   marketState,
+  onClaimSuccess,
   locale = DEFAULT_LOCALE,
 }: {
   note: AnkerProductNoteRecord;
   marketState?: PredictMarketState;
+  onClaimSuccess: (claim: ConfirmedClaim) => void;
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
@@ -183,7 +196,6 @@ export function ClaimAction({
   const [isPending, setIsPending] = useState(false);
   const [digest, setDigest] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<ClaimSuccessSummary | null>(null);
 
   async function handleClaim() {
     if (isDemoMode() || !account || note.productType !== 'dual-investment') return;
@@ -193,7 +205,6 @@ export function ClaimAction({
     setIsPending(true);
     setDigest(null);
     setError(null);
-    setSuccess(null);
     try {
       const settlement = settlementForProductNote(note, marketState.settlementPrice);
       const plan = buildClaimDualInvestmentNoteTransaction({
@@ -205,10 +216,13 @@ export function ClaimAction({
       const result = await dAppKit.signAndExecuteTransaction({ transaction: plan.tx });
       const nextDigest = transactionDigest(result);
       setDigest(nextDigest);
-      setSuccess({
-        digest: nextDigest,
-        ...settlementEstimateFromResult(settlement),
-        settlementPrice: marketState.settlementPrice,
+      onClaimSuccess({
+        note: { principal: note.principal, targetPrice: note.targetPrice },
+        summary: {
+          digest: nextDigest,
+          ...settlementEstimateFromResult(settlement),
+          settlementPrice: marketState.settlementPrice,
+        },
       });
 
       queryClient.setQueriesData<AnkerProductNoteRecord[]>(
@@ -231,19 +245,16 @@ export function ClaimAction({
   }
 
   return (
-    <>
-      <ClaimActionView
-        note={note}
-        nowMs={Date.now()}
-        marketState={marketState}
-        isPending={isPending}
-        digest={digest}
-        error={error}
-        demoMode={isDemoMode()}
-        locale={locale}
-        onClaim={handleClaim}
-      />
-      <ClaimSuccessDialog note={note} success={success} locale={locale} onClose={() => setSuccess(null)} />
-    </>
+    <ClaimActionView
+      note={note}
+      nowMs={Date.now()}
+      marketState={marketState}
+      isPending={isPending}
+      digest={digest}
+      error={error}
+      demoMode={isDemoMode()}
+      locale={locale}
+      onClaim={handleClaim}
+    />
   );
 }

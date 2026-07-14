@@ -14,7 +14,7 @@ import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 import { lifecycleForProductNote, type ProductNoteLifecycle } from '../sui/productNoteLifecycle';
 import { subscriptionDigestForQuote } from '../sui/subscriptionDigestStore';
-import { ClaimAction } from './PortfolioClaimAction';
+import { ClaimAction, type ConfirmedClaim } from './PortfolioClaimAction';
 import {
   formatAmount,
   formatApr,
@@ -160,11 +160,13 @@ export function ProductNoteCard({
   note,
   marketState,
   eventIndexEntry,
+  onClaimSuccess,
   locale = DEFAULT_LOCALE,
 }: {
   note: AnkerProductNoteRecord;
   marketState?: PredictMarketState;
   eventIndexEntry?: ProductNoteEventIndexEntry;
+  onClaimSuccess: (claim: ConfirmedClaim) => void;
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
@@ -217,7 +219,7 @@ export function ProductNoteCard({
         </div>
       ) : null}
 
-      <ClaimAction note={note} marketState={marketState} locale={locale} />
+      <ClaimAction note={note} marketState={marketState} onClaimSuccess={onClaimSuccess} locale={locale} />
 
       <Disclosure summary={copy.portfolio.card.onChainProof}>
         <KeyValueList>

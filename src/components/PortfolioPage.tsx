@@ -13,6 +13,8 @@ import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
+import { ClaimSuccessDialog } from './ClaimSuccessDialog';
+import type { ConfirmedClaim } from './PortfolioClaimAction';
 import { formatAmount, formatPreciseAmount, shortId } from './PortfolioFormat';
 import { ProductNoteCard } from './PortfolioProductNoteCard';
 import { Badge, Button, Card } from '../ui';
@@ -50,6 +52,10 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
   const account = useCurrentAccount();
   const portfolioQuery = useAnkerPortfolio();
   const [filter, setFilter] = useState<NoteFilter>('all');
+  // Claim success dialog state lives at page level: the optimistic claimed-state
+  // update moves the note out of the "ready" bucket, unmounting its card — any
+  // dialog state kept inside the card would be wiped before it could render.
+  const [confirmedClaim, setConfirmedClaim] = useState<ConfirmedClaim | null>(null);
   const contractConfigured = DEFAULT_ANKER_CONFIG.packageId !== '0x0' && DEFAULT_ANKER_CONFIG.packageId.length > 0;
   const notes = portfolioQuery.data ?? [];
   const marketStates = useProductNoteMarketStates(notes);
@@ -180,6 +186,7 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                   note={note}
                   marketState={marketStateFor(note)}
                   eventIndexEntry={productNoteEventIndexQuery.data?.byNoteId[note.noteId]}
+                  onClaimSuccess={setConfirmedClaim}
                   locale={locale}
                   key={note.noteId}
                 />
@@ -188,6 +195,14 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
           )}
         </section>
       )}
+      {confirmedClaim ? (
+        <ClaimSuccessDialog
+          note={confirmedClaim.note}
+          success={confirmedClaim.summary}
+          locale={locale}
+          onClose={() => setConfirmedClaim(null)}
+        />
+      ) : null}
       <AppFooter locale={locale} />
     </main>
   );

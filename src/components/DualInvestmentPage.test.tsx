@@ -232,6 +232,79 @@ describe('Dual Investment APR display', () => {
     expect(screen.queryByText('150% APR')).not.toBeInTheDocument();
   });
 
+  it('keeps the execution panel mounted when subscribeQuote briefly unmatches', async () => {
+    // Success dialog state is local to TargetBuyExecutionPanel — parent must not
+    // unmount it across live re-verify gaps for the same product inputs.
+    const quote = pageQuoteFixture({ coupon: 0.03 });
+    const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
+
+    const { rerender } = render(
+      <DualInvestmentConfirm
+        quote={quote}
+        productInput={productInput}
+        subscribeQuote={quote}
+        isVerifying={false}
+      />,
+    );
+    expect(screen.getByTestId('execution-panel')).toBeVisible();
+
+    rerender(
+      <DualInvestmentConfirm
+        quote={quote}
+        productInput={productInput}
+        subscribeQuote={null}
+        isVerifying={true}
+      />,
+    );
+    expect(screen.getByTestId('execution-panel')).toBeVisible();
+
+    // Changing product inputs without a new quote drops the sticky panel.
+    rerender(
+      <DualInvestmentConfirm
+        quote={quote}
+        productInput={{ ...productInput, targetPrice: 64_000 }}
+        subscribeQuote={null}
+        isVerifying={true}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
+  });
+
+  it('drops the sticky execution panel when the oracle changes under identical product inputs', async () => {
+    // The previous market's quote must not stay subscribable through the
+    // re-verify gap after switching oracles with coincidentally equal inputs.
+    const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
+    const quote = pageQuoteFixture({ productInput, coupon: 0.03 });
+
+    const { rerender } = render(
+      <DualInvestmentConfirm
+        quote={quote}
+        productInput={productInput}
+        subscribeQuote={quote}
+        isVerifying={false}
+      />,
+    );
+    expect(screen.getByTestId('execution-panel')).toBeVisible();
+
+    const otherMarket = marketFixture({ predictId: '0x8', oracleId: '0x9' });
+    const otherQuote = pageQuoteFixture({ market: otherMarket, productInput, coupon: 0.03 });
+    rerender(
+      <DualInvestmentConfirm
+        quote={otherQuote}
+        productInput={productInput}
+        subscribeQuote={null}
+        isVerifying={true}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
+  });
+
   it('shows period return with muted reference APR for Turbo sub-day tenors', () => {
     const market = marketFixture({ expiryMs: Date.now() + 2 * 3_600_000 });
     const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
@@ -564,6 +637,58 @@ describe('DualInvestmentPage', () => {
     expect(screen.getByTestId('execution-panel')).toBeVisible();
     // Once verified, the badge flips from Estimate to the live quote.
     expect(screen.getByText('Live quote')).toBeVisible();
+  });
+
+  it('keeps the subscribe panel mounted when oracle feed timestamps refresh', async () => {
+    // Regression: product keys used to include spot/svi timestamps, so every
+    // market poll (~15s) unmatched the verified quote, unmounted
+    // TargetBuyExecutionPanel, and wiped success-dialog state mid-wallet-sign.
+    const market = marketFixture({ spotTimestampMs: 1_000, sviTimestampMs: 1_000 });
+    mocks.marketData = {
+      data: {
+        market,
+        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs, group: 'hourly', source: 'live' }],
+        selectedOracleId: market.oracleId,
+        selectedSource: 'live',
+      },
+    };
+    mocks.buildVerifiedDualInvestmentQuote.mockImplementation(
+      ({ market: oracle, productInput }: { market: OracleMarket; productInput: DualInvestmentInput }) =>
+        pageQuoteFixture({ market: oracle, productInput, coupon: 0.03 }),
+    );
+
+    const { rerender } = render(<DualInvestmentPage />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(screen.getByTestId('execution-panel')).toBeVisible();
+    const callsAfterFirstVerify = mocks.buildVerifiedDualInvestmentQuote.mock.calls.length;
+
+    // Simulate a live market poll: same product, newer oracle feed timestamps.
+    const refreshed = marketFixture({ spotTimestampMs: 2_000, sviTimestampMs: 2_000 });
+    mocks.marketData = {
+      data: {
+        market: refreshed,
+        productOracles: [
+          { oracle_id: refreshed.oracleId, expiry: refreshed.expiryMs, group: 'hourly', source: 'live' },
+        ],
+        selectedOracleId: refreshed.oracleId,
+        selectedSource: 'live',
+      },
+    };
+    rerender(<DualInvestmentPage />);
+
+    // Panel must stay mounted through the feed tick (success dialog lives inside it).
+    expect(screen.getByTestId('execution-panel')).toBeVisible();
+    expect(screen.getByText('Live quote')).toBeVisible();
+
+    // Background re-verify still runs so prices stay fresh.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(mocks.buildVerifiedDualInvestmentQuote.mock.calls.length).toBeGreaterThan(callsAfterFirstVerify);
+    expect(screen.getByTestId('execution-panel')).toBeVisible();
   });
 
   it('surfaces a verification failure without blocking the estimate', async () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { isSubDayTenor } from '../products/dualInvestmentScan';
 import { netAprAfterCouponFee } from '../products/feePolicy';
@@ -9,6 +9,16 @@ import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
 import { Badge, Button, Card } from '../ui';
+
+/**
+ * Stable product identity — used to decide when sticky subscribe state may drop.
+ * Must include the market (oracleId), matching the page's productKey: without it,
+ * switching oracles with coincidentally identical inputs would keep the previous
+ * market's quote subscribable through the re-verify gap.
+ */
+function productIdentity(oracleId: string, input: DualInvestmentInput) {
+  return [oracleId, input.principal, input.targetPrice, input.floorPrice, input.targetLegCount].join(':');
+}
 
 function oldestQuoteTimestamp(quote: StructuredProductQuote) {
   return quote.legs.reduce(
@@ -228,6 +238,26 @@ export function DualInvestmentConfirm({
   const rewardMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
 
+  // Keep the last executable subscribe quote mounted across brief parent unmatches
+  // (live re-verify gaps). Success dialog state lives inside TargetBuyExecutionPanel,
+  // so unmounting it after a wallet confirm makes the modal never appear.
+  const inputIdentity = productIdentity(quote.oracle.oracleId, productInput);
+  const [stickySubscribeQuote, setStickySubscribeQuote] = useState(subscribeQuote);
+  const [stickyInputIdentity, setStickyInputIdentity] = useState(inputIdentity);
+
+  useEffect(() => {
+    if (inputIdentity !== stickyInputIdentity) {
+      setStickyInputIdentity(inputIdentity);
+      setStickySubscribeQuote(subscribeQuote);
+      return;
+    }
+    if (subscribeQuote) {
+      setStickySubscribeQuote(subscribeQuote);
+    }
+  }, [subscribeQuote, inputIdentity, stickyInputIdentity]);
+
+  const panelQuote = subscribeQuote ?? stickySubscribeQuote;
+
   return (
     <section className="di-confirm" aria-label={copy.dualInvestment.confirmLabel}>
       <div className="di-confirm-numbers">
@@ -259,8 +289,8 @@ export function DualInvestmentConfirm({
         </span>
       </div>
 
-      {subscribeQuote && !demoMode ? (
-        <TargetBuyExecutionPanel quote={subscribeQuote} productInput={productInput} locale={locale} />
+      {panelQuote && !demoMode ? (
+        <TargetBuyExecutionPanel quote={panelQuote} productInput={productInput} locale={locale} />
       ) : disabledAction ? (
         <div className="di-confirm-pending di-confirm-awaiting" aria-live="polite">
           <Button variant="primary" disabled>
