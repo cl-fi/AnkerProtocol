@@ -283,10 +283,10 @@ describe('Dual Investment APR display', () => {
     expect(screen.getByRole('columnheader', { name: 'Per-period yield' })).toBeVisible();
     expect(screen.getByText('40 bps')).toBeVisible();
     expect(screen.getByText('Ref. APR ≈ 135.00%')).toBeVisible();
-    expect(screen.queryByRole('columnheader', { name: 'nearest-expiry Binance APR' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Binance APR' })).not.toBeInTheDocument();
   });
 
-  it('shows matched nearest-expiry Binance APR with settlement disclosure, edge, and methodology', () => {
+  it('shows matched Binance APR with edge and methodology', () => {
     const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
     const productInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
     const rows: DualInvestmentScanRow[] = [
@@ -321,10 +321,9 @@ describe('Dual Investment APR display', () => {
       />,
     );
 
-    expect(screen.getByRole('columnheader', { name: 'nearest-expiry Binance APR' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Binance APR' })).toBeVisible();
     expect(screen.getByRole('columnheader', { name: 'Edge' })).toBeVisible();
     expect(screen.getByText('80.00%')).toBeVisible();
-    expect(screen.getByText(/1d/)).toBeVisible();
     expect(screen.getByText('+55.00 pts')).toBeVisible();
     expect(screen.getByText(/nearest settlement/i)).toBeVisible();
   });
@@ -468,7 +467,7 @@ describe('Dual Investment APR display', () => {
 
     expect(screen.getByText('低买价格')).toBeVisible();
     expect(screen.getByRole('columnheader', { name: '预估 APR' })).toBeVisible();
-    expect(screen.getByRole('columnheader', { name: '最近到期 Binance APR' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Binance APR' })).toBeVisible();
     expect(screen.getByText('$64,000')).toBeVisible();
   });
 });

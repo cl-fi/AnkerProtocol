@@ -255,7 +255,6 @@ export function ReferenceTable({
     return {
       className: 'binance-apr',
       label: format.referenceApr(match.product.apr),
-      detail: `${format.oracleTimestamp(match.product.settleTimeMs)} · ${copy.dualInvestment.binanceTenorDays(match.product.durationDays)}`,
     };
   }
 
@@ -348,14 +347,7 @@ export function ReferenceTable({
                   </td>
                   {!subDay ? (
                     <td className={binanceApr.className} data-label={copy.dualInvestment.binanceApr}>
-                      {'detail' in binanceApr && binanceApr.detail ? (
-                        <>
-                          <strong className="di-yield-primary">{binanceApr.label}</strong>
-                          <span className="di-ref-apr">{binanceApr.detail}</span>
-                        </>
-                      ) : (
-                        binanceApr.label
-                      )}
+                      {binanceApr.label}
                     </td>
                   ) : null}
                   {!subDay ? (
