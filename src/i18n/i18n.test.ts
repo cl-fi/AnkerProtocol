@@ -7,6 +7,7 @@ import {
   normalizeLocale,
   stripLocalePath,
   switchLocalePath,
+  utcOffsetLabel,
 } from './index';
 
 describe('i18n locale helpers', () => {
@@ -28,5 +29,15 @@ describe('i18n locale helpers', () => {
     const format = formattersForLocale('zh-CN');
 
     expect(format.usd(65_000)).toBe('$65,000');
+  });
+
+  // Tests pin TZ=Asia/Shanghai (vitest.config.ts), so the viewer offset is UTC+8.
+  it('annotates expiry and time labels with the viewer UTC offset', () => {
+    const format = formattersForLocale('en');
+    const settlementMs = Date.UTC(2026, 6, 16, 0, 0, 0); // Jul 16 00:00 UTC → Jul 16 08:00 local
+
+    expect(utcOffsetLabel(settlementMs)).toBe('UTC+8');
+    expect(format.expiry(settlementMs)).toMatch(/Jul 16, 08:00.*\(UTC\+8\)$/);
+    expect(format.time(settlementMs)).toBe(format.expiry(settlementMs));
   });
 });

@@ -212,7 +212,8 @@ describe('OracleLastUpdateValue', () => {
 
     renderWithQuery(<OracleLastUpdateValue oracleId="0xoracle" />);
 
-    expect(await screen.findByText('Jun 01, 01:02 AM')).toBeVisible();
+    // Jun 1 01:02 UTC rendered in the viewer's timezone (tests pin Asia/Shanghai).
+    expect(await screen.findByText('Jun 01, 09:02 AM (UTC+8)')).toBeVisible();
   });
 });
 

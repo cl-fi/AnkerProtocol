@@ -74,23 +74,32 @@ export function formatQuoteBaseUnits(value: bigint) {
   return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
+/**
+ * Viewer-timezone UTC-offset annotation for the given instant, e.g. "UTC+8",
+ * "UTC-5:30", or "UTC". Computed per-instant so DST transitions stay correct.
+ */
+export function utcOffsetLabel(value: number): string {
+  const offsetMinutes = -new Date(value).getTimezoneOffset();
+  if (offsetMinutes === 0) return 'UTC';
+  const sign = offsetMinutes > 0 ? '+' : '-';
+  const abs = Math.abs(offsetMinutes);
+  const minutes = abs % 60;
+  return `UTC${sign}${Math.floor(abs / 60)}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''}`;
+}
+
+/** Settlement instants display in the viewer's local timezone, annotated with the UTC offset. */
 export function formatExpiry(value: number, locale: Locale) {
-  return new Intl.DateTimeFormat(numberLocale(locale), {
+  const text = new Intl.DateTimeFormat(numberLocale(locale), {
     month: 'short',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
   }).format(value);
+  return `${text} (${utcOffsetLabel(value)})`;
 }
 
 export function formatOracleTimestamp(value: number, locale: Locale) {
-  return new Intl.DateTimeFormat(numberLocale(locale), {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  }).format(value);
+  return formatExpiry(value, locale);
 }
 
 export function formatChartDate(value: number, locale: Locale) {
@@ -102,12 +111,7 @@ export function formatChartDate(value: number, locale: Locale) {
 }
 
 export function formatTime(value: number, locale: Locale) {
-  return new Intl.DateTimeFormat(numberLocale(locale), {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(value);
+  return formatExpiry(value, locale);
 }
 
 export function formatTimeToExpiry(expiryMs: number, locale: Locale, nowMs = Date.now()) {

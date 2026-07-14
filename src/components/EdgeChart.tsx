@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Area,
   CartesianGrid,
@@ -19,6 +19,7 @@ import {
   formatApr,
   formatEdgePts,
   formatPercent,
+  utcOffsetLabel,
   type Locale,
 } from '../i18n';
 import { Badge, type Tone } from '../ui';
@@ -34,30 +35,48 @@ function numberLocale(locale: Locale) {
   return locale === 'zh-CN' ? 'zh-CN' : 'en-US';
 }
 
-function formatUtcInstant(ms: number, locale: Locale) {
+/** Viewer timezone for time labels: undefined = browser local, 'UTC' = pre-hydration fallback. */
+type DisplayTimeZone = 'UTC' | undefined;
+
+/**
+ * Server markup (and the first client render) must agree, but the server does not
+ * know the viewer's timezone — so both render UTC, then a post-hydration re-render
+ * switches every time label to the viewer's local timezone.
+ */
+function useDisplayTimeZone(): DisplayTimeZone {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  return hydrated ? undefined : 'UTC';
+}
+
+function offsetLabel(ms: number, timeZone: DisplayTimeZone) {
+  return timeZone === 'UTC' ? 'UTC' : utcOffsetLabel(ms);
+}
+
+function formatInstant(ms: number, locale: Locale, timeZone: DisplayTimeZone) {
   return new Date(ms).toLocaleString(numberLocale(locale), {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'UTC',
+    timeZone,
     hour12: false,
   });
 }
 
-function formatUtcDay(ms: number, locale: Locale) {
+function formatDayTick(ms: number, locale: Locale, timeZone: DisplayTimeZone) {
   return new Date(ms).toLocaleString(numberLocale(locale), {
     month: 'short',
     day: 'numeric',
-    timeZone: 'UTC',
+    timeZone,
   });
 }
 
-function formatUtcTime(ms: number, locale: Locale) {
+function formatTimeTick(ms: number, locale: Locale, timeZone: DisplayTimeZone) {
   return new Date(ms).toLocaleString(numberLocale(locale), {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'UTC',
+    timeZone,
     hour12: false,
   });
 }
@@ -68,11 +87,11 @@ function statusLabel(status: EdgeTrack['status'], copy: ReturnType<typeof copyFo
   return copy.analytics.statusExpired;
 }
 
-function trackOptionLabel(track: EdgeTrack, locale: Locale) {
+function trackOptionLabel(track: EdgeTrack, locale: Locale, timeZone: DisplayTimeZone) {
   const copy = copyForLocale(locale);
   const roundedDays = Math.round(track.summary.firstSeenRemainingMs / DAY_MS);
   const days = roundedDays < 1 ? 1 : roundedDays;
-  return `${formatUtcInstant(track.settlementMs, locale)} · ${copy.analytics.marketTenorApprox(days)}`;
+  return `${formatInstant(track.settlementMs, locale, timeZone)} (${offsetLabel(track.settlementMs, timeZone)}) · ${copy.analytics.marketTenorApprox(days)}`;
 }
 
 export function EdgeTrackTooltipContent({
@@ -86,7 +105,8 @@ export function EdgeTrackTooltipContent({
   return (
     <div className="analytics-edge-tooltip" role="status">
       <strong>
-        {formatUtcInstant(point.boundaryMs, locale)} · {copy.analytics.tooltipRows(point.rowCount)}
+        {formatInstant(point.boundaryMs, locale, undefined)} ({utcOffsetLabel(point.boundaryMs)}) ·{' '}
+        {copy.analytics.tooltipRows(point.rowCount)}
       </strong>
       <div>
         <span>{copy.analytics.medianEdge}</span>
@@ -110,7 +130,15 @@ export function EdgeTrackTooltipContent({
   );
 }
 
-function TrackSummaryStrip({ track, locale }: { track: EdgeTrack; locale: Locale }) {
+function TrackSummaryStrip({
+  track,
+  locale,
+  timeZone,
+}: {
+  track: EdgeTrack;
+  locale: Locale;
+  timeZone: DisplayTimeZone;
+}) {
   const copy = copyForLocale(locale);
   const { summary } = track;
   const entries: [string, string][] = [
@@ -129,7 +157,7 @@ function TrackSummaryStrip({ track, locale }: { track: EdgeTrack; locale: Locale
     ],
     [
       copy.analytics.trackWindow,
-      `${formatUtcInstant(summary.firstBoundaryMs, locale)} – ${formatUtcInstant(summary.lastBoundaryMs, locale)}`,
+      `${formatInstant(summary.firstBoundaryMs, locale, timeZone)} – ${formatInstant(summary.lastBoundaryMs, locale, timeZone)} (${offsetLabel(summary.lastBoundaryMs, timeZone)})`,
     ],
   ];
   return (
@@ -168,14 +196,22 @@ function yTicks([lo, hi]: [number, number]): number[] {
   return ticks;
 }
 
-function TrackChart({ track, locale }: { track: EdgeTrack; locale: Locale }) {
+function TrackChart({
+  track,
+  locale,
+  timeZone,
+}: {
+  track: EdgeTrack;
+  locale: Locale;
+  timeZone: DisplayTimeZone;
+}) {
   const copy = copyForLocale(locale);
   const spanMs =
     track.points[track.points.length - 1]!.boundaryMs - track.points[0]!.boundaryMs;
   const tickFormatter =
     spanMs < 48 * HOUR_MS
-      ? (value: number) => formatUtcTime(value, locale)
-      : (value: number) => formatUtcDay(value, locale);
+      ? (value: number) => formatTimeTick(value, locale, timeZone)
+      : (value: number) => formatDayTick(value, locale, timeZone);
   const domain = yDomain(track);
   const data = track.points.map((point) => ({
     ...point,
@@ -253,6 +289,7 @@ export function EdgeChart({
   locale: Locale;
 }) {
   const copy = copyForLocale(locale);
+  const timeZone = useDisplayTimeZone();
   const tracks = edgeTracks.tracks;
   const [selectedSettlementMs, setSelectedSettlementMs] = useState<number | null>(null);
   const selected =
@@ -262,7 +299,7 @@ export function EdgeChart({
 
   const renderOption = (track: EdgeTrack) => (
     <option key={track.settlementMs} value={track.settlementMs}>
-      {trackOptionLabel(track, locale)}
+      {trackOptionLabel(track, locale, timeZone)}
     </option>
   );
 
@@ -300,12 +337,12 @@ export function EdgeChart({
             <Badge tone={STATUS_TONE[selected.status]}>{statusLabel(selected.status, copy)}</Badge>
           </div>
 
-          <TrackSummaryStrip track={selected} locale={locale} />
+          <TrackSummaryStrip track={selected} locale={locale} timeZone={timeZone} />
 
           {selected.points.length < 2 ? (
             <p className="analytics-unavailable">{copy.analytics.trackInsufficient}</p>
           ) : (
-            <TrackChart track={selected} locale={locale} />
+            <TrackChart track={selected} locale={locale} timeZone={timeZone} />
           )}
         </>
       )}

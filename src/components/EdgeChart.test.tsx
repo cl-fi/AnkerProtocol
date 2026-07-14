@@ -26,9 +26,10 @@ describe('EdgeChart', () => {
     expect(screen.getByRole('heading', { name: 'Edge over time' })).toBeVisible();
     expect(screen.getByTestId('analytics-edge-chart')).toBeVisible();
 
-    // Default selection = first active track (Jul 16 settlement, ≈3d tenor).
+    // Default selection = first active track (Jul 16 12:00 UTC settlement, ≈3d tenor),
+    // shown in the viewer's timezone (tests pin Asia/Shanghai) with a UTC-offset annotation.
     const select = screen.getByRole('combobox', { name: 'Expiry Market' });
-    expect(select).toHaveDisplayValue(/Jul 16.*≈3d/);
+    expect(select).toHaveDisplayValue(/Jul 16, 20:00 \(UTC\+8\).*≈3d/);
     expect(screen.getByText('Active')).toBeVisible();
 
     // Selected-market summary strip: 4 rows, all leading, median +7.50 pts.
@@ -80,7 +81,8 @@ describe('EdgeTrackTooltipContent', () => {
       />,
     );
 
-    expect(screen.getByText(/2 ladder rows/i)).toBeVisible();
+    // Run time in the viewer's timezone (Jul 14 12:00 UTC → 20:00 in pinned Asia/Shanghai).
+    expect(screen.getByText(/Jul 14, 20:00 \(UTC\+8\) · 2 ladder rows/i)).toBeVisible();
     expect(screen.getByText('Median Edge')).toBeVisible();
     expect(screen.getByText('+12.50 pts')).toBeVisible();
     expect(screen.getByText('Min–max')).toBeVisible();
