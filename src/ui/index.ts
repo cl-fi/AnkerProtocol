@@ -8,6 +8,8 @@ export { Stat, StatGroup } from './Stat';
 export type { StatProps } from './Stat';
 export { KeyValue, KeyValueList } from './KeyValue';
 export type { KeyValueProps } from './KeyValue';
+export { Dialog } from './Dialog';
+export type { DialogProps } from './Dialog';
 export { Disclosure } from './Disclosure';
 export type { DisclosureProps } from './Disclosure';
 export { InputField } from './Field';

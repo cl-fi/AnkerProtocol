@@ -14,6 +14,7 @@ import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { preflightTransaction } from '../sui/transactionPreflight';
 import { formatBtcAmount, formatPreciseAmount, shortId, suiExplorerTxUrl } from './PortfolioFormat';
 import { Button } from '../ui';
+import { ClaimSuccessDialog, type ClaimSuccessSummary } from './ClaimSuccessDialog';
 
 export function claimActionViewModel({
   note,
@@ -182,6 +183,7 @@ export function ClaimAction({
   const [isPending, setIsPending] = useState(false);
   const [digest, setDigest] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<ClaimSuccessSummary | null>(null);
 
   async function handleClaim() {
     if (isDemoMode() || !account || note.productType !== 'dual-investment') return;
@@ -191,6 +193,7 @@ export function ClaimAction({
     setIsPending(true);
     setDigest(null);
     setError(null);
+    setSuccess(null);
     try {
       const settlement = settlementForProductNote(note, marketState.settlementPrice);
       const plan = buildClaimDualInvestmentNoteTransaction({
@@ -202,6 +205,11 @@ export function ClaimAction({
       const result = await dAppKit.signAndExecuteTransaction({ transaction: plan.tx });
       const nextDigest = transactionDigest(result);
       setDigest(nextDigest);
+      setSuccess({
+        digest: nextDigest,
+        ...settlementEstimateFromResult(settlement),
+        settlementPrice: marketState.settlementPrice,
+      });
 
       queryClient.setQueriesData<AnkerProductNoteRecord[]>(
         { queryKey: ['anker-portfolio', account.address] },
@@ -223,16 +231,19 @@ export function ClaimAction({
   }
 
   return (
-    <ClaimActionView
-      note={note}
-      nowMs={Date.now()}
-      marketState={marketState}
-      isPending={isPending}
-      digest={digest}
-      error={error}
-      demoMode={isDemoMode()}
-      locale={locale}
-      onClaim={handleClaim}
-    />
+    <>
+      <ClaimActionView
+        note={note}
+        nowMs={Date.now()}
+        marketState={marketState}
+        isPending={isPending}
+        digest={digest}
+        error={error}
+        demoMode={isDemoMode()}
+        locale={locale}
+        onClaim={handleClaim}
+      />
+      <ClaimSuccessDialog note={note} success={success} locale={locale} onClose={() => setSuccess(null)} />
+    </>
   );
 }

@@ -19,6 +19,7 @@ import type { DualInvestmentInput, StructuredProductQuote } from '../products/ty
 import { buildCreateAccountWrapperTransaction } from '../sui/accountTransactions';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
 import { Button, Card } from '../ui';
+import { SubscribeSuccessDialog } from './SubscribeSuccessDialog';
 
 interface TargetBuyExecutionPanelViewProps {
   hasAccount: boolean;
@@ -239,6 +240,7 @@ export function TargetBuyExecutionPanel({
   const [digest, setDigest] = useState<string | null>(null);
   const [subscribeConfirmed, setSubscribeConfirmed] = useState(false);
   const [simulatedCostLabel, setSimulatedCostLabel] = useState<string | null>(null);
+  const [successDigest, setSuccessDigest] = useState<string | null>(null);
 
   async function runTransaction(action: () => Promise<string>) {
     setIsPending(true);
@@ -307,26 +309,35 @@ export function TargetBuyExecutionPanel({
         digest: nextDigest,
       });
       setSubscribeConfirmed(true);
+      setSuccessDigest(nextDigest);
       return nextDigest;
     });
   }
 
   return (
-    <TargetBuyExecutionPanelView
-      hasAccount={Boolean(account)}
-      hasManager={Boolean(manager)}
-      isQuoteExecutable={quote.executable}
-      quoteWarning={quote.warning}
-      isLoadingManagers={(managersQuery.isPending || portfolioQuery.isPending) && Boolean(account)}
-      isPending={isPending}
-      managerId={manager?.managerId}
-      error={error}
-      digest={digest}
-      subscribeConfirmed={subscribeConfirmed}
-      simulatedCostLabel={simulatedCostLabel}
-      locale={locale}
-      onCreateManager={handleCreateManager}
-      onSubscribe={handleSubscribe}
-    />
+    <>
+      <TargetBuyExecutionPanelView
+        hasAccount={Boolean(account)}
+        hasManager={Boolean(manager)}
+        isQuoteExecutable={quote.executable}
+        quoteWarning={quote.warning}
+        isLoadingManagers={(managersQuery.isPending || portfolioQuery.isPending) && Boolean(account)}
+        isPending={isPending}
+        managerId={manager?.managerId}
+        error={error}
+        digest={digest}
+        subscribeConfirmed={subscribeConfirmed}
+        simulatedCostLabel={simulatedCostLabel}
+        locale={locale}
+        onCreateManager={handleCreateManager}
+        onSubscribe={handleSubscribe}
+      />
+      <SubscribeSuccessDialog
+        quote={quote}
+        digest={successDigest}
+        locale={locale}
+        onClose={() => setSuccessDigest(null)}
+      />
+    </>
   );
 }

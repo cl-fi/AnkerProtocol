@@ -4665,3 +4665,90 @@ dd {
     padding: 0 6px 4px;
   }
 }
+
+/* Confirmed inline record turns green (was previously identical to submitted) */
+.execution-success {
+  color: #3f9d5b;
+}
+
+/* Transaction success dialog (subscribe + claim) — content inside .anker-dialog */
+.success-dialog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.success-dialog-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: var(--bw-thick) solid var(--grass);
+  border-radius: 50%;
+  background: var(--grass-tint);
+  color: var(--grass);
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.success-dialog-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--navy);
+}
+
+.success-dialog-intro {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.success-dialog-product {
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.95rem;
+  font-weight: 850;
+}
+
+.success-dialog-hero {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 2rem;
+  line-height: 1.1;
+  color: var(--grass);
+}
+
+.success-dialog .success-dialog-terms {
+  width: 100%;
+  margin-top: 6px;
+  grid-template-columns: 1fr;
+  text-align: left;
+}
+
+.success-dialog-outcome {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.success-dialog-tx {
+  color: var(--gold-3);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.success-dialog-tx:hover {
+  text-decoration: underline;
+}
+
+.success-dialog-cta {
+  width: 100%;
+  margin-top: 6px;
+}
