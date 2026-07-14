@@ -83,6 +83,7 @@ export async function buildDualInvestmentScan(input: {
   const scanInputs = buildDualInvestmentScanInputs({
     market: input.market,
     principal: input.principal,
+    nowMs: input.nowMs,
   });
 
   const preparedRows = scanInputs.map((productInput) => {

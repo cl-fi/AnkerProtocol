@@ -11,6 +11,7 @@ import { useMarketData } from '../hooks/useMarketData';
 import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
+import { minQuotableTargetPrice } from '../products/dualInvestmentValidation';
 import { isTenorTradingEnabled } from '../products/tenorMarkets';
 import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '../products/types';
@@ -92,8 +93,11 @@ export function DualInvestmentPage({
   // Seed the default Buy Low target once per oracle (nearest grid step below spot).
   const defaultTarget = useMemo(() => {
     if (!market) return 0;
-    return buildDualInvestmentScanInputs({ market, principal: DEFAULT_PRINCIPAL })[0]?.targetPrice ?? 0;
-  }, [market]);
+    return (
+      buildDualInvestmentScanInputs({ market, principal: DEFAULT_PRINCIPAL, nowMs: frozenNowMs })[0]
+        ?.targetPrice ?? 0
+    );
+  }, [market, frozenNowMs]);
 
   useEffect(() => {
     const oracleId = market?.oracleId;
@@ -103,11 +107,18 @@ export function DualInvestmentPage({
     }
   }, [defaultTarget, market?.oracleId]);
 
+  // Lowest fillable Buy Low price — legs below it exceed Predict ask limits.
+  const minTargetPrice = useMemo(
+    () => (market ? minQuotableTargetPrice(market, frozenNowMs) : null),
+    [market, frozenNowMs],
+  );
+
   // Full product input (with auto floor) — null until the inputs make a valid Buy Low.
   const effectiveInput = useMemo<DualInvestmentInput | null>(() => {
     if (!market || !(principal > 0) || !(targetPrice > 0) || targetPrice >= market.spot) return null;
+    if (minTargetPrice !== null && targetPrice < minTargetPrice) return null;
     return buildAutoFloorDualInvestmentInput({ market, principal, targetPrice, targetLegCount: legCount });
-  }, [market, principal, targetPrice, legCount]);
+  }, [market, principal, targetPrice, legCount, minTargetPrice]);
 
   // Instant local estimate — drives the chart and headline numbers with no network round-trip.
   const estimateQuote = useMemo<StructuredProductQuote | null>(() => {
@@ -259,6 +270,8 @@ export function DualInvestmentPage({
             targetPrice={targetPrice}
             estimateApr={estimateApr}
             periodReturn={periodReturn}
+            minTargetPrice={minTargetPrice}
+            maxTargetPrice={defaultTarget > 0 ? defaultTarget : null}
             onPrincipalChange={setPrincipal}
             onTargetChange={setTargetPrice}
             locale={locale}

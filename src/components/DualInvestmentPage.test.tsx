@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DualInvestmentPage, QuoteRiskSummary } from './DualInvestmentPage';
 import { BuyLowControls, ReferenceTable } from './DualInvestmentQuoteSections';
@@ -516,6 +516,35 @@ describe('DualInvestmentPage', () => {
     expect(screen.queryByRole('button', { name: /Preview/i })).not.toBeInTheDocument();
     // Subscribe is gated until the background quote confirms.
     expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
+  });
+
+  it('bounds the Buy Low slider by the top reference row and the fillable minimum', () => {
+    render(<DualInvestmentPage />);
+
+    // Fixture market (spot 66,172, no SVI): fallback minimum is 70% of spot
+    // (46,320.4) aligned up to the $500 ladder grid; max is the top ladder row.
+    const slider = screen.getByRole('slider');
+    expect(slider).toHaveAttribute('min', '46500');
+    expect(slider).toHaveAttribute('max', '66000');
+    expect(slider).toHaveAttribute('step', '500');
+  });
+
+  it('flags hand-typed targets below the fillable minimum with a visible error', () => {
+    render(<DualInvestmentPage />);
+
+    const priceInput = screen.getByRole('spinbutton', { name: /Buy Low price/ });
+    fireEvent.change(priceInput, { target: { value: '10' } });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/Lowest fillable Buy Low price/);
+    // No fake legs: the overview returns to its empty state.
+    expect(
+      screen.getByText('Enter a Buy Low price below the current BTC price to preview your payout.'),
+    ).toBeVisible();
+
+    // Back inside the band the error clears and the estimate returns.
+    fireEvent.change(priceInput, { target: { value: '65500' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('Subscription Amount')).toBeVisible();
   });
 
   it('verifies in the background and unlocks the subscribe execution panel', async () => {

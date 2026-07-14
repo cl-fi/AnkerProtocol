@@ -1,6 +1,7 @@
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from './types';
 import { alignToGrid } from './strikeGrid';
 import { estimateTargetBuyFloorPrice } from './predictPricing';
+import { minQuotableTargetPrice } from './dualInvestmentValidation';
 import { netAprAfterCouponFee } from './feePolicy';
 
 /** Browse/UI target ladder for Turbo — not the on-chain admission grid (~$1). */
@@ -105,17 +106,26 @@ export function buildDualInvestmentScanInputs(input: {
   targetRows?: number;
   targetStep?: number;
   floorDistance?: number;
+  /** Frozen clock for Snapshot rows (photograph model). */
+  nowMs?: number;
 }): DualInvestmentInput[] {
-  const targetRows = input.targetRows ?? displayTargetRowsForMarket(input.market);
-  const targetStep = input.targetStep ?? displayTargetStepForMarket(input.market);
+  const targetRows = input.targetRows ?? displayTargetRowsForMarket(input.market, input.nowMs);
+  const targetStep = input.targetStep ?? displayTargetStepForMarket(input.market, input.nowMs);
   const floorDistance = input.floorDistance ?? 5_000;
   const targetLegCount = input.targetLegCount ?? 6;
   const roundedDownTarget = Math.floor(input.market.spot / targetStep) * targetStep;
   const startTarget =
     roundedDownTarget >= input.market.spot ? roundedDownTarget - targetStep : roundedDownTarget;
+  // Never offer rows whose legs could not fill within Predict ask limits.
+  const minQuotableTarget = minQuotableTargetPrice(input.market, input.nowMs);
 
   return Array.from({ length: targetRows }, (_, index) => startTarget - targetStep * index)
-    .filter((targetPrice) => targetPrice > input.market.minStrike && targetPrice < input.market.spot)
+    .filter(
+      (targetPrice) =>
+        targetPrice > input.market.minStrike &&
+        targetPrice < input.market.spot &&
+        targetPrice >= minQuotableTarget,
+    )
     .map((targetPrice) =>
       buildAutoFloorDualInvestmentInput({
         market: input.market,

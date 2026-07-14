@@ -155,6 +155,52 @@ export function estimateBinaryUpAskPrice(input: {
   return clamp(fairPrice + fee, 0, 1);
 }
 
+/**
+ * Deepest strike the market can genuinely quote: below it, the binary-up ask
+ * crosses the Predict max-ask clamp (maxAskPrice − buffer), so a mint at that
+ * strike could never fill at a meaningful price. Null when SVI is unavailable
+ * — callers must fall back to a coarser policy bound.
+ */
+export function estimateMinQuotableStrike(input: {
+  market: OracleMarket;
+  nowMs?: number;
+  maxAskPrice?: number;
+  boundBuffer?: number;
+}): number | null {
+  const { market } = input;
+  if (!market.svi || market.tickSize <= 0 || market.forward <= 0 || market.minStrike <= 0) {
+    return null;
+  }
+
+  const configuredMaxAsk =
+    input.maxAskPrice ?? market.predictPricing?.maxAskPrice ?? DEFAULT_MAX_PREDICT_ASK;
+  const upperAskBound = configuredMaxAsk - (input.boundBuffer ?? DEFAULT_BOUND_BUFFER);
+  const askAt = (strike: number) =>
+    estimateBinaryUpAskPrice({ market, strike, nowMs: input.nowMs });
+
+  const minStrikeAsk = askAt(market.minStrike);
+  if (minStrikeAsk === null) return null;
+  if (minStrikeAsk <= upperAskBound) return market.minStrike;
+
+  const atForwardAsk = askAt(market.forward);
+  if (atForwardAsk === null) return null;
+  if (atForwardAsk > upperAskBound) return market.forward;
+
+  let low = market.minStrike;
+  let high = market.forward;
+  for (let index = 0; index < MAX_LOCAL_SOLVE_STEPS; index += 1) {
+    const mid = (low + high) / 2;
+    const ask = askAt(mid);
+    if (ask === null) return null;
+    if (ask > upperAskBound) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  return alignUpToGrid(high, market.minStrike, market.tickSize);
+}
+
 export function estimateTargetBuyFloorPrice(input: {
   market: OracleMarket;
   targetPrice: number;

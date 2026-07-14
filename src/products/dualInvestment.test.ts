@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from './dualInvestment';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
+import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
 
 const nowMs = lastKnownMarketSnapshot.expiryMs - 7 * 86_400_000;
 
@@ -196,6 +197,42 @@ describe('compileDualInvestment', () => {
         { nowMs },
       ),
     ).toThrow('Floor price must be below target price');
+  });
+
+  it('rejects a target price far below spot on live markets whose min strike is one grid step', () => {
+    // Live day-scale markets expose minStrike = admissionTickSize (~$1), so the
+    // floor-vs-minStrike check cannot catch nonsense targets like 10 vs spot ~63,960.
+    // Without SVI the coarse spot-band fallback applies.
+    expect(() =>
+      buildDualInvestmentLegIntents(
+        {
+          principal: 1_000,
+          targetPrice: 10,
+          floorPrice: 1,
+          targetLegCount: 6,
+        },
+        { ...lastKnownMarketSnapshot, minStrike: 1, tickSize: 0.01, admissionTickSize: 1 },
+        { nowMs },
+      ),
+    ).toThrow('Target price must be within 30% of the current price');
+  });
+
+  it('rejects targets whose legs cannot fill inside the Predict ask clamp, even within 30% of spot', () => {
+    // Fixture market: spot ~73,264 with SVI. A 60,000 target is only ~18% below
+    // spot, but its legs would ask above the 0.99 − buffer clamp — unfillable.
+    const market = oracleMarketFromFixture();
+    expect(() =>
+      buildDualInvestmentLegIntents(
+        {
+          principal: 1_000,
+          targetPrice: 60_000,
+          floorPrice: 55_000,
+          targetLegCount: 6,
+        },
+        market,
+        { nowMs: market.spotTimestampMs },
+      ),
+    ).toThrow('within Predict ask limits');
   });
 
   it('rejects expired oracle markets', () => {

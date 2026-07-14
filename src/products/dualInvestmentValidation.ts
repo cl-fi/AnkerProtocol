@@ -1,12 +1,41 @@
 import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from './types';
+import { estimateMinQuotableStrike } from './predictPricing';
 
 const MAX_TARGET_LEG_COUNT = 32;
 const EPSILON = 0.000001;
+
+/**
+ * Coarse fallback bound for markets whose SVI cannot price the quotable band.
+ * Live markets expose minStrike = admissionTickSize (~$1), so without any
+ * spot-relative bound a target like 10 vs spot ~63,960 passes every strike
+ * check and the pricer's ask clamp manufactures a fake positive coupon.
+ */
+export const MAX_TARGET_BELOW_SPOT_RATIO = 0.3;
+
+function admissionStep(oracle: OracleMarket) {
+  return oracle.admissionTickSize && oracle.admissionTickSize > 0
+    ? oracle.admissionTickSize
+    : oracle.tickSize;
+}
+
+/**
+ * Lowest Buy Low target the market can actually fill: one admission step above
+ * the deepest strike whose ask fits inside the Predict max-ask clamp. Falls
+ * back to the coarse spot band when SVI is unavailable.
+ */
+export function minQuotableTargetPrice(oracle: OracleMarket, nowMs?: number) {
+  const minQuotableStrike = estimateMinQuotableStrike({ market: oracle, nowMs });
+  if (minQuotableStrike !== null) return minQuotableStrike + admissionStep(oracle);
+  return oracle.spot * (1 - MAX_TARGET_BELOW_SPOT_RATIO);
+}
 
 export type DualInvestmentValidationCode =
   | 'input-shape'
   | 'principal'
   | 'target-price'
+  | 'target-spot-band'
+  | 'target-quotable-band'
+  | 'floor-quotable-band'
   | 'floor-price'
   | 'price-order'
   | 'step-size'
@@ -109,6 +138,36 @@ export function validateDualInvestmentInput(
       floorPrice < options.oracle.minStrike
     ) {
       errors.push({ code: 'oracle-strike-range', message: 'Floor price must be on or above the oracle strike range.' });
+    }
+    const minQuotableStrike = estimateMinQuotableStrike({
+      market: options.oracle,
+      nowMs: options.nowMs,
+    });
+    if (minQuotableStrike !== null) {
+      const step = admissionStep(options.oracle);
+      if (targetPrice !== null && targetPrice < minQuotableStrike + step) {
+        errors.push({
+          code: 'target-quotable-band',
+          message: `Target price must be at least ${(minQuotableStrike + step).toLocaleString('en-US')} — deeper legs cannot fill within Predict ask limits.`,
+        });
+      }
+      // One-step tolerance: the auto floor rounds to the nearest admission grid point.
+      if (floorPrice !== null && floorPrice < minQuotableStrike - step) {
+        errors.push({
+          code: 'floor-quotable-band',
+          message: `Floor price must be at least ${minQuotableStrike.toLocaleString('en-US')} — deeper legs cannot fill within Predict ask limits.`,
+        });
+      }
+    } else if (
+      targetPrice !== null &&
+      Number.isFinite(options.oracle.spot) &&
+      options.oracle.spot > 0 &&
+      targetPrice < options.oracle.spot * (1 - MAX_TARGET_BELOW_SPOT_RATIO)
+    ) {
+      errors.push({
+        code: 'target-spot-band',
+        message: `Target price must be within ${MAX_TARGET_BELOW_SPOT_RATIO * 100}% of the current price.`,
+      });
     }
   }
 

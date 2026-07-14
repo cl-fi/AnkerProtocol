@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lastKnownMarketSnapshot } from '../deepbook/fixtures';
 import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
+import { estimateMinQuotableStrike } from './predictPricing';
 import {
   buildDualInvestmentScanInputs,
   DEFAULT_DISPLAY_TARGET_STEP,
@@ -24,6 +25,26 @@ describe('buildDualInvestmentScanInputs', () => {
     ]);
     expect(rows.every((row) => row.targetLegCount === 6)).toBe(true);
     expect(rows[0].floorPrice).toBe(66_500);
+  });
+
+  it('drops ladder rows below the SVI quotable band instead of offering unfillable targets', () => {
+    // SVI fixture market (spot ~73,264): 16 rows would reach ~65,500, but legs
+    // below the quotable band would ask above the Predict max-ask clamp.
+    const market = oracleMarketFromFixture();
+    const nowMs = market.spotTimestampMs;
+
+    const rows = buildDualInvestmentScanInputs({
+      market,
+      principal: 1_000,
+      targetRows: 16,
+      nowMs,
+    });
+    const minQuotable = estimateMinQuotableStrike({ market, nowMs });
+
+    expect(minQuotable).not.toBeNull();
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.length).toBeLessThan(16);
+    expect(rows.every((row) => row.targetPrice > (minQuotable as number))).toBe(true);
   });
 
   it('keeps the classic $500 day-tenor ladder for live day-scale markets that expose admissionTickSize', () => {

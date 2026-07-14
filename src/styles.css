@@ -4115,6 +4115,23 @@ dd {
   font-size: 0.74rem;
 }
 
+.di-target-slider {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--navy);
+}
+
+.di-target-error {
+  margin: 0;
+  padding: 8px 12px;
+  border: var(--bw) solid var(--coral);
+  border-radius: var(--r-sm);
+  background: var(--coral-tint);
+  color: #7a2d12;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .di-controls-apr {
   display: flex;
   align-items: baseline;

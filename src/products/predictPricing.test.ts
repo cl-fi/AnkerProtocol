@@ -4,6 +4,7 @@ import {
   DEFAULT_MIN_PREDICT_ASK,
   estimateBinaryUpAskPrice,
   estimateBinaryUpFairPrice,
+  estimateMinQuotableStrike,
   estimatePredictTradingFeeFromFairPrice,
   estimateTargetBuyFloorPrice,
 } from './predictPricing';
@@ -79,6 +80,31 @@ describe('estimateBinaryUpAskPrice', () => {
   it('saturates deep-ITM binary UP fair price near 1', () => {
     const market = marketFixture();
     expect(estimateBinaryUpFairPrice({ market, strike: market.minStrike })).toBeGreaterThan(0.99);
+  });
+});
+
+describe('estimateMinQuotableStrike', () => {
+  it('solves the deepest strike whose ask stays inside the Predict max-ask clamp', () => {
+    const market = marketFixture();
+    const nowMs = market.spotTimestampMs;
+
+    const minQuotable = estimateMinQuotableStrike({ market, nowMs });
+
+    expect(minQuotable).not.toBeNull();
+    expect(minQuotable as number).toBeGreaterThan(market.minStrike);
+    expect(minQuotable as number).toBeLessThan(market.forward);
+    // At the solved strike the ask fits the clamp; one rung deeper it no longer does.
+    expect(
+      estimateBinaryUpAskPrice({ market, strike: minQuotable as number, nowMs }) as number,
+    ).toBeLessThanOrEqual(0.985 + 1e-6);
+    expect(
+      estimateBinaryUpAskPrice({ market, strike: (minQuotable as number) - 100, nowMs }) as number,
+    ).toBeGreaterThan(0.985);
+  });
+
+  it('returns null when SVI parameters are unavailable', () => {
+    const { svi: _svi, ...market } = marketFixture();
+    expect(estimateMinQuotableStrike({ market })).toBeNull();
   });
 });
 

@@ -4,7 +4,13 @@ import type { QuoteProvider } from '../deepbook/quoteProvider';
 import { buildDualInvestmentLegIntents } from '../products/dualInvestment';
 import { DEFAULT_MIN_PREDICT_ASK } from '../products/predictPricing';
 import type { OracleMarket } from '../products/types';
-import { buildDualInvestmentScan, buildVerifiedDualInvestmentQuote } from './useDualInvestmentScan';
+import { buildAutoFloorDualInvestmentInput } from '../products/dualInvestmentScan';
+import { oracleMarketFromFixture } from '../test/oracleMarketFixture';
+import {
+  buildDualInvestmentScan,
+  buildIndicativeDualInvestmentQuote,
+  buildVerifiedDualInvestmentQuote,
+} from './useDualInvestmentScan';
 
 function futureMarket(): OracleMarket {
   return {
@@ -47,6 +53,42 @@ describe('buildDualInvestmentScan', () => {
     expect(
       rows.every((row) => row.quote?.legs.every((leg) => leg.askPrice >= DEFAULT_MIN_PREDICT_ASK)),
     ).toBe(true);
+  });
+});
+
+describe('buildIndicativeDualInvestmentQuote', () => {
+  it('rejects hand-typed targets far below spot instead of quoting clamp-priced legs', () => {
+    // Mirrors the Dual Invest page path: manual target -> auto floor -> indicative quote.
+    // Live markets set minStrike = admissionTickSize (~$1); without SVI the coarse
+    // spot-band fallback must reject a target of 10 against spot 73,500.
+    const market = { ...futureMarket(), minStrike: 1, tickSize: 0.01, admissionTickSize: 1 };
+    const productInput = buildAutoFloorDualInvestmentInput({
+      market,
+      principal: 1_000,
+      targetPrice: 10,
+      targetLegCount: 6,
+    });
+
+    expect(() => buildIndicativeDualInvestmentQuote({ market, productInput })).toThrow(
+      'Target price must be within 30% of the current price',
+    );
+  });
+
+  it('rejects targets below the SVI quotable band even when they pass the coarse spot band', () => {
+    // SVI fixture market: spot ~73,264. A 60,000 target is within 30% of spot but
+    // its legs would ask above the Predict max-ask clamp — they could never fill.
+    const market = oracleMarketFromFixture();
+    const nowMs = market.spotTimestampMs;
+    const productInput = buildAutoFloorDualInvestmentInput({
+      market,
+      principal: 1_000,
+      targetPrice: 60_000,
+      targetLegCount: 6,
+    });
+
+    expect(() => buildIndicativeDualInvestmentQuote({ market, productInput, nowMs })).toThrow(
+      'within Predict ask limits',
+    );
   });
 });
 

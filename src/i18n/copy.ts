@@ -120,6 +120,9 @@ export const enCopy = {
     setBuyLowLabel: 'Set your Buy Low',
     amount: 'Amount',
     buyLowPrice: 'Buy Low price',
+    buyLowPriceSlider: 'Buy Low price slider',
+    targetBelowFillable: (min: string) =>
+      `Lowest fillable Buy Low price is ${min} — legs below it cannot fill within Predict ask limits.`,
     below: 'below',
     estimatedReward: 'Estimated reward',
     periodReturn: 'Per-period yield',
@@ -464,6 +467,9 @@ export const zhCnCopy: AppCopy = {
     setBuyLowLabel: '设置低买',
     amount: '金额',
     buyLowPrice: '低买价格',
+    buyLowPriceSlider: '低买价格滑块',
+    targetBelowFillable: (min: string) =>
+      `最低可成交的低买价格为 ${min} —— 再低的腿无法在 Predict 报价上限内成交。`,
     below: '低于现价',
     estimatedReward: '预估收益',
     periodReturn: '单期收益',

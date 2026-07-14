@@ -142,6 +142,8 @@ export function BuyLowControls({
   targetPrice,
   estimateApr,
   periodReturn = null,
+  minTargetPrice = null,
+  maxTargetPrice = null,
   onPrincipalChange,
   onTargetChange,
   locale = DEFAULT_LOCALE,
@@ -151,6 +153,10 @@ export function BuyLowControls({
   targetPrice: number;
   estimateApr: number | null;
   periodReturn?: number | null;
+  /** Lowest fillable Buy Low price (legs below it exceed Predict ask limits). */
+  minTargetPrice?: number | null;
+  /** Top reference-ladder row — the slider's upper bound. */
+  maxTargetPrice?: number | null;
   onPrincipalChange: (value: number) => void;
   onTargetChange: (value: number) => void;
   locale?: Locale;
@@ -171,6 +177,12 @@ export function BuyLowControls({
       : '--';
   const referenceApr = subDay && estimateApr !== null ? netAprAfterCouponFee(estimateApr) : null;
   const targetStep = market ? displayTargetStepForMarket(market) : TURBO_DISPLAY_TARGET_STEP;
+  // Slider rungs stay on the display ladder grid, so its floor is the lowest
+  // fillable price rounded up to a rung.
+  const sliderMin = minTargetPrice !== null ? Math.ceil(minTargetPrice / targetStep) * targetStep : null;
+  const sliderMax = maxTargetPrice;
+  const showSlider = Boolean(market) && sliderMin !== null && sliderMax !== null && sliderMin <= sliderMax;
+  const targetTooLow = Boolean(market) && minTargetPrice !== null && targetPrice > 0 && targetPrice < minTargetPrice;
 
   return (
     <section className="di-controls" aria-label={copy.dualInvestment.setBuyLowLabel}>
@@ -187,13 +199,30 @@ export function BuyLowControls({
         <InputField
           label={copy.dualInvestment.buyLowPrice}
           suffix={belowSpot !== '--' ? `${belowSpot} ${copy.dualInvestment.below}` : 'BTC'}
-          min="1"
+          min={sliderMin !== null ? String(sliderMin) : '1'}
           step={String(targetStep)}
           type="number"
           value={targetPrice}
           onChange={updateNumber(onTargetChange)}
         />
       </div>
+      {showSlider ? (
+        <input
+          type="range"
+          className="di-target-slider"
+          aria-label={copy.dualInvestment.buyLowPriceSlider}
+          min={sliderMin as number}
+          max={sliderMax as number}
+          step={targetStep}
+          value={Math.min(Math.max(targetPrice, sliderMin as number), sliderMax as number)}
+          onChange={updateNumber(onTargetChange)}
+        />
+      ) : null}
+      {targetTooLow ? (
+        <p className="di-target-error" role="alert">
+          {copy.dualInvestment.targetBelowFillable(format.usd(minTargetPrice as number))}
+        </p>
+      ) : null}
       <div className="di-controls-apr">
         <span>{subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.estimatedReward}</span>
         <div className="di-controls-apr-values">
