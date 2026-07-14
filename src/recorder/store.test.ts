@@ -97,4 +97,19 @@ describe('BenchmarkRunStore idempotency', () => {
     expect(recent[0]?.run.boundaryMs).toBe(newer.run.boundaryMs);
     expect(recent[0]?.samples).toHaveLength(2);
   });
+
+  it('lists timestamped Samples newest Run first for Analytics aggregation', async () => {
+    const store = createMemoryBenchmarkRunStore();
+    const older = sampleRun(Date.UTC(2026, 6, 14, 11, 45, 0));
+    const newer = sampleRun(Date.UTC(2026, 6, 14, 12, 0, 0));
+    await store.insertRunIfAbsent(older.run, older.samples);
+    await store.insertRunIfAbsent(newer.run, newer.samples);
+
+    const samples = await store.listTimestampedSamples();
+
+    expect(samples).toHaveLength(4);
+    expect(samples[0]?.boundaryMs).toBe(newer.run.boundaryMs);
+    expect(samples[0]?.targetPrice).toBe(73_500);
+    expect(samples[2]?.boundaryMs).toBe(older.run.boundaryMs);
+  });
 });

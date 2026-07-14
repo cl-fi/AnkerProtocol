@@ -9,6 +9,7 @@ const LEGACY_PATH_REDIRECTS: Record<string, string> = {
   '/app/portfolio': '/app/portfolio',
   '/app/dashboard': '/app/portfolio',
   '/dual-investment': '/app/dual-investment',
+  '/analytics': '/analytics',
 };
 
 export function middleware(request: NextRequest) {
@@ -33,6 +34,7 @@ export const config = {
     '/app/portfolio',
     '/app/dashboard',
     '/dual-investment',
+    '/analytics',
     '/:locale(en|zh-CN)/:path*',
   ],
 };

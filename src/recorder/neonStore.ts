@@ -1,6 +1,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import type { BenchmarkRun, BenchmarkRunStatus, BenchmarkSample, BenchmarkSampleSource, BenchmarkMatchStatus } from './buildBenchmarkRun';
-import type { BenchmarkRunStore, InsertRunResult, RunWithSamples } from './store';
+import type { BenchmarkRunStore, InsertRunResult, RunWithSamples, TimestampedSample } from './store';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -12,6 +12,12 @@ export function createNeonBenchmarkRunStore(databaseUrl: string): BenchmarkRunSt
     },
     listRecentRuns(limit) {
       return listRecentRunsWithSql(sql, limit);
+    },
+    listAllRuns() {
+      return listAllRunsWithSql(sql);
+    },
+    listTimestampedSamples() {
+      return listTimestampedSamplesWithSql(sql);
     },
   };
 }
@@ -169,6 +175,57 @@ export async function listRecentRunsWithSql(sql: Sql, limit: number): Promise<re
   }
 
   return recent;
+}
+
+interface TimestampedSampleRow extends SampleRow {
+  boundary_ms: string | number;
+}
+
+export async function listAllRunsWithSql(sql: Sql): Promise<readonly BenchmarkRun[]> {
+  const runRows = (await sql`
+    SELECT id, boundary_ms, status, duration_ms, app_version, source
+    FROM benchmark_runs
+    ORDER BY boundary_ms DESC
+  `) as RunRow[];
+
+  return runRows.map((row) => ({
+    boundaryMs: Number(row.boundary_ms),
+    status: row.status,
+    durationMs: row.duration_ms,
+    appVersion: row.app_version,
+    source: row.source,
+  }));
+}
+
+export async function listTimestampedSamplesWithSql(sql: Sql): Promise<readonly TimestampedSample[]> {
+  const rows = (await sql`
+    SELECT
+      r.boundary_ms,
+      s.run_id,
+      s.target_price,
+      s.spot,
+      s.coupon,
+      s.reserve,
+      s.legs_cost,
+      s.leg_count,
+      s.net_apr,
+      s.anker_settlement_ms,
+      s.benchmark_settlement_ms,
+      s.benchmark_apr,
+      s.benchmark_product_id,
+      s.match_status,
+      s.source,
+      s.app_version,
+      s.headline_eligible
+    FROM benchmark_samples s
+    INNER JOIN benchmark_runs r ON r.id = s.run_id
+    ORDER BY r.boundary_ms DESC, s.id ASC
+  `) as TimestampedSampleRow[];
+
+  return rows.map((row) => ({
+    ...mapSampleRow(row),
+    boundaryMs: Number(row.boundary_ms),
+  }));
 }
 
 function mapSampleRow(row: SampleRow): BenchmarkSample {

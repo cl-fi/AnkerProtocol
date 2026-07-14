@@ -29,5 +29,6 @@ describe('HomePage', () => {
     expect(screen.getByRole('heading', { name: '让收益稳稳靠岸。' })).toBeVisible();
     expect(screen.getAllByRole('link', { name: '启动应用' })[0]).toHaveAttribute('href', '/zh-CN/app');
     expect(screen.getByRole('link', { name: '双币赢' })).toHaveAttribute('href', '/zh-CN/app/dual-investment');
+    expect(screen.getByRole('link', { name: '数据分析' })).toHaveAttribute('href', '/zh-CN/analytics');
   });
 });

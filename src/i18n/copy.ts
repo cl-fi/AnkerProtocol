@@ -6,6 +6,7 @@ export const enCopy = {
     connectWallet: 'Connect Wallet',
     portfolio: 'Portfolio',
     dualInvestment: 'Dual Investment',
+    analytics: 'Analytics',
     buyLow: 'Buy Low',
     sellHigh: 'Sell High',
     live: 'Live',
@@ -279,6 +280,35 @@ export const enCopy = {
       transactionFailed: 'Claim transaction failed.',
     },
   },
+  analytics: {
+    title: 'Analytics',
+    subtitle:
+      'Headline statistics from the Benchmark Recorder — how often Anker net APR leads the nearest-expiry Binance Benchmark.',
+    statsLabel: 'Headline statistics',
+    sampleCount: 'Samples',
+    leadingPct: '% of time leading',
+    medianEdge: 'Median Edge',
+    leadingStreak: 'Leading streak',
+    leadingStreakUnit: 'Runs',
+    ladderCoverage: 'Ladder coverage',
+    emptyValue: '—',
+    unavailable:
+      'Benchmark Samples are not available yet. Headline statistics appear once the Recorder has stored live matches.',
+    methodologyTitle: 'Methodology',
+    methodologyIntro: 'How these figures are defined and what they include.',
+    methodologyCadence:
+      'Sampling cadence: every 15 minutes. Each Run records day-shelf ladder rows that display APR and a Benchmark comparison.',
+    methodologyMatching:
+      'Matching rule: same target price and nearest Binance settlement time. Offsets are disclosed on the product page. When the settlement offset exceeds 50% of the Anker tenor, the row is recorded as no comparable product.',
+    methodologyFeeBasis:
+      'Fee basis: Anker APR is net after protocol fee (same net APR shown on the product page).',
+    methodologyDenominator:
+      'Denominator: headline statistics count only live-source matched Samples. Snapshot-fallback and unmatched rows are excluded from headline figures but included in ladder coverage. Failed Runs record no Samples, so they never enter headline figures or coverage.',
+    methodologyStartDate: (date: string) => `Sample start date: ${date}.`,
+    methodologyStartPending: 'Sample start date: pending — no Samples stored yet.',
+    methodologyRepo: 'Source repository',
+    methodologyRepoUrl: 'https://github.com/cl-fi/AnkerProtocol',
+  },
   execution: {
     onChainSubscribe: 'On-chain Subscribe',
     suiTestnet: 'Sui testnet',
@@ -318,6 +348,7 @@ export const zhCnCopy: AppCopy = {
     connectWallet: '连接钱包',
     portfolio: '持仓',
     dualInvestment: '双币赢',
+    analytics: '数据分析',
     buyLow: '低买',
     sellHigh: '高卖',
     live: '实时',
@@ -569,6 +600,31 @@ export const zhCnCopy: AppCopy = {
       submitted: '已提交',
       transactionFailed: '领取交易失败。',
     },
+  },
+  analytics: {
+    title: '数据分析',
+    subtitle: '来自基准记录器的头条统计——Anker 净 APR 领先最近到期 Binance 基准的频率。',
+    statsLabel: '头条统计',
+    sampleCount: '样本数',
+    leadingPct: '领先时间占比',
+    medianEdge: '中位 Edge',
+    leadingStreak: '当前领先连续',
+    leadingStreakUnit: '轮',
+    ladderCoverage: '阶梯覆盖率',
+    emptyValue: '—',
+    unavailable: '基准样本尚不可用。记录器存入实时匹配样本后，头条统计才会显示。',
+    methodologyTitle: '方法说明',
+    methodologyIntro: '这些数字如何定义，以及它们包含什么。',
+    methodologyCadence: '采样节奏：每 15 分钟一次。每一轮记录展示 APR 与基准对比的日期限阶梯行。',
+    methodologyMatching:
+      '匹配规则：相同目标价格 + 最近的 Binance 结算时间。产品页会披露结算偏移。当结算偏移超过 Anker 期限的 50% 时，该行记为无可比产品。',
+    methodologyFeeBasis: '费用口径：Anker APR 为扣除协议费后的净值（与产品页净 APR 一致）。',
+    methodologyDenominator:
+      '统计口径：头条统计只计入实时来源且已匹配的样本。快照回退与未匹配行不计入头条数字，但计入阶梯覆盖率。失败轮次不产生样本，因此既不进入头条数字，也不进入覆盖率。',
+    methodologyStartDate: (date: string) => `样本起始日期：${date}。`,
+    methodologyStartPending: '样本起始日期：待定——尚无已存样本。',
+    methodologyRepo: '源代码仓库',
+    methodologyRepoUrl: 'https://github.com/cl-fi/AnkerProtocol',
   },
   execution: {
     onChainSubscribe: '链上认购',

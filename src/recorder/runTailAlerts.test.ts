@@ -92,6 +92,12 @@ describe('runTailAlerts', () => {
       async listRecentRuns() {
         throw new Error('db down');
       },
+      async listAllRuns() {
+        return [];
+      },
+      async listTimestampedSamples() {
+        return [];
+      },
     };
     const current = okRun(BOUNDARY, 0.1);
 

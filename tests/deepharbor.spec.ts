@@ -110,6 +110,49 @@ test('redirects legacy dashboard paths to the portfolio route in both locales', 
   await expect(page.getByRole('navigation', { name: '产品' }).getByRole('link', { name: '持仓' })).toBeVisible();
 });
 
+test('renders the Analytics page with fixture headline stats and methodology', async ({ page }) => {
+  await page.goto('/analytics');
+
+  await expect(page).toHaveURL(/\/en\/analytics$/);
+  await expect(page.locator('main#benchmark-analytics')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Products' }).getByRole('link', { name: 'Analytics' })).toBeVisible();
+
+  const stats = page.getByLabel('Headline statistics');
+  await expect(stats).toBeVisible();
+  await expect(stats.getByText('Samples')).toBeVisible();
+  await expect(stats.getByText('4', { exact: true })).toBeVisible();
+  await expect(stats.getByText('75%')).toBeVisible();
+  await expect(stats.getByText('+10.00 pts')).toBeVisible();
+  await expect(stats.locator('.analytics-stats > div').filter({ hasText: 'Leading streak' })).toContainText(
+    '2',
+  );
+  await expect(stats.getByText('Runs')).toBeVisible();
+  await expect(stats.getByText('80%')).toBeVisible();
+
+  const methodology = page.getByRole('region', { name: 'Methodology' });
+  await expect(methodology).toBeVisible();
+  await expect(methodology.getByText(/every 15 minutes/i)).toBeVisible();
+  await expect(methodology.getByText(/exceeds 50%/i)).toBeVisible();
+  await expect(methodology.getByText(/net after protocol fee/i)).toBeVisible();
+  await expect(methodology.getByText(/live-source matched Samples/i)).toBeVisible();
+  await expect(methodology.getByText(/Failed Runs record no Samples/i)).toBeVisible();
+  await expect(methodology.getByText(/Sample start date:/i)).toBeVisible();
+  await expect(methodology.getByRole('link', { name: 'Source repository' })).toHaveAttribute(
+    'href',
+    'https://github.com/cl-fi/AnkerProtocol',
+  );
+});
+
+test('renders Chinese Analytics copy in fixture mode', async ({ page }) => {
+  await page.goto('/zh-CN/analytics');
+
+  await expect(page).toHaveURL(/\/zh-CN\/analytics$/);
+  await expect(page.getByRole('heading', { name: '数据分析' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '方法说明' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '产品' }).getByRole('link', { name: '数据分析' })).toBeVisible();
+});
+
 test('normalizes legacy and disabled Sell High routes to the Buy Low workspace', async ({ page }) => {
   await page.goto('/app/dual-investment?mode=target-sale');
   await expect(page).toHaveURL(/\/app\/dual-investment$/);
