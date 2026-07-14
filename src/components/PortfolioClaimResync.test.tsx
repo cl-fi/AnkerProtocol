@@ -97,11 +97,7 @@ const mockClient = {
         }
       : { $kind: 'Transaction', Transaction: { status: { success: true }, events: [] } },
   ),
-  waitForTransaction: vi.fn(async () => ({ $kind: 'Transaction', Transaction: { digest: '11'.repeat(22) } })),
-};
-
-const mockDAppKit = {
-  signAndExecuteTransaction: vi.fn(async () => {
+  executeTransaction: vi.fn(async () => {
     chain.executions += 1;
     chain.status = 'redeemed'; // the transaction lands on-chain either way
     if (chain.rejectAfterBroadcast) {
@@ -109,6 +105,11 @@ const mockDAppKit = {
     }
     return { $kind: 'Transaction', Transaction: { digest: '11'.repeat(22) } };
   }),
+  waitForTransaction: vi.fn(async () => ({ $kind: 'Transaction', Transaction: { digest: '11'.repeat(22) } })),
+};
+
+const mockDAppKit = {
+  signTransaction: vi.fn(async () => ({ bytes: 'AQID', signature: 'sig' })),
 };
 
 vi.mock('@mysten/dapp-kit-react', () => ({

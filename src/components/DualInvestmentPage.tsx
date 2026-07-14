@@ -26,6 +26,8 @@ import {
   type DualInvestmentMode,
 } from './DualInvestmentQuoteSections';
 import { DualInvestmentAdvanced, DualInvestmentConfirm, ReturnOverview } from './DualInvestmentQuoteDetail';
+import { SubscribeSuccessDialog } from './SubscribeSuccessDialog';
+import type { ConfirmedSubscription } from './TargetBuyExecutionPanel';
 import { Card } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteSections';
@@ -83,6 +85,10 @@ export function DualInvestmentPage({
   const [verifiedKey, setVerifiedKey] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  // Subscribe success dialog state lives at page level: the execution panel
+  // unmounts and remounts with live quote churn (auto-floor drift, re-verify),
+  // and any dialog state kept inside it dies on the first panel refresh.
+  const [confirmedSubscription, setConfirmedSubscription] = useState<ConfirmedSubscription | null>(null);
   const verifyIdRef = useRef(0);
   const seededOracleRef = useRef<string | undefined>();
 
@@ -304,6 +310,7 @@ export function DualInvestmentPage({
           productInput={effectiveInput}
           subscribeQuote={subscribeQuote}
           isVerifying={isVerifying}
+          onSubscribeSuccess={setConfirmedSubscription}
           error={verifyError}
           demoMode={!tradingEnabled}
           subscribeDisabledMessage={copy.demo.subscribeDisabled}
@@ -318,6 +325,15 @@ export function DualInvestmentPage({
           legCount={legCount}
           onLegCountChange={setLegCount}
           locale={locale}
+        />
+      ) : null}
+
+      {confirmedSubscription ? (
+        <SubscribeSuccessDialog
+          quote={confirmedSubscription.quote}
+          digest={confirmedSubscription.digest}
+          locale={locale}
+          onClose={() => setConfirmedSubscription(null)}
         />
       ) : null}
 

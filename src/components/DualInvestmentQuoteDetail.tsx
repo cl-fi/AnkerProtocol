@@ -7,7 +7,7 @@ import { isSubDayTenor } from '../products/dualInvestmentScan';
 import { netAprAfterCouponFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
-import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
+import { TargetBuyExecutionPanel, type ConfirmedSubscription } from './TargetBuyExecutionPanel';
 import { Badge, Button, Card } from '../ui';
 
 /**
@@ -211,6 +211,7 @@ export function DualInvestmentConfirm({
   productInput,
   subscribeQuote,
   isVerifying,
+  onSubscribeSuccess,
   error,
   demoMode = false,
   subscribeDisabledMessage,
@@ -221,6 +222,7 @@ export function DualInvestmentConfirm({
   productInput: DualInvestmentInput;
   subscribeQuote: StructuredProductQuote | null;
   isVerifying: boolean;
+  onSubscribeSuccess: (confirmation: ConfirmedSubscription) => void;
   error?: string | null;
   demoMode?: boolean;
   subscribeDisabledMessage?: string;
@@ -239,8 +241,9 @@ export function DualInvestmentConfirm({
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
 
   // Keep the last executable subscribe quote mounted across brief parent unmatches
-  // (live re-verify gaps). Success dialog state lives inside TargetBuyExecutionPanel,
-  // so unmounting it after a wallet confirm makes the modal never appear.
+  // (live re-verify gaps), so the panel and its in-flight transaction state
+  // (pending/digest/error) survive quote churn. The success dialog itself lives
+  // at page level — panel unmounts must not be able to take it down.
   const inputIdentity = productIdentity(quote.oracle.oracleId, productInput);
   const [stickySubscribeQuote, setStickySubscribeQuote] = useState(subscribeQuote);
   const [stickyInputIdentity, setStickyInputIdentity] = useState(inputIdentity);
@@ -290,7 +293,12 @@ export function DualInvestmentConfirm({
       </div>
 
       {panelQuote && !demoMode ? (
-        <TargetBuyExecutionPanel quote={panelQuote} productInput={productInput} locale={locale} />
+        <TargetBuyExecutionPanel
+          quote={panelQuote}
+          productInput={productInput}
+          onSubscribeSuccess={onSubscribeSuccess}
+          locale={locale}
+        />
       ) : disabledAction ? (
         <div className="di-confirm-pending di-confirm-awaiting" aria-live="polite">
           <Button variant="primary" disabled>

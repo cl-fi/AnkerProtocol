@@ -10,7 +10,7 @@ import {
 import type { OracleMarket } from '../products/types';
 
 /** Same principal the product page browse ladder uses (`DEFAULT_PRINCIPAL`). */
-const BROWSE_PRINCIPAL = 5;
+const BROWSE_PRINCIPAL = 500;
 
 /** Fifteen-minute cron cadence — Run timestamps align to these walls. */
 export const RUN_BOUNDARY_MS = 15 * 60 * 1000;

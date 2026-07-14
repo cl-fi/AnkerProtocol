@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
 import { buildDualInvestmentLegIntents, compileDualInvestment } from '../products/dualInvestment';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
-import { TargetBuyExecutionPanel } from './TargetBuyExecutionPanel';
+import { SubscribeSuccessDialog } from './SubscribeSuccessDialog';
+import { TargetBuyExecutionPanel, type ConfirmedSubscription } from './TargetBuyExecutionPanel';
 
 const OWNER = `0x${'a'.repeat(64)}`;
 const MANAGER_ID = `0x${'b'.repeat(64)}`;
@@ -13,7 +15,8 @@ const PREDICT_OBJECT_ID = DEEPBOOK_PREDICT.poolVaultId;
 const mocks = vi.hoisted(() => ({
   quoteLegs: vi.fn(),
   simulateTransaction: vi.fn(),
-  signAndExecuteTransaction: vi.fn(),
+  signTransaction: vi.fn(),
+  executeTransaction: vi.fn(),
   waitForTransaction: vi.fn(),
   invalidateQueries: vi.fn(),
   managersData: [] as Array<{ managerId: string; owner?: string }>,
@@ -31,9 +34,10 @@ vi.mock('@mysten/dapp-kit-react', () => ({
   useCurrentClient: () => ({
     waitForTransaction: mocks.waitForTransaction,
     simulateTransaction: mocks.simulateTransaction,
+    executeTransaction: mocks.executeTransaction,
   }),
   useDAppKit: () => ({
-    signAndExecuteTransaction: mocks.signAndExecuteTransaction,
+    signTransaction: mocks.signTransaction,
   }),
 }));
 
@@ -129,11 +133,25 @@ function successfulSimulation(legCount: number) {
   };
 }
 
+// Mirrors the DualInvestmentPage wiring: the success dialog renders from lifted state.
+function PanelHarness({ quote, productInput }: { quote: StructuredProductQuote; productInput: DualInvestmentInput }) {
+  const [confirmed, setConfirmed] = useState<ConfirmedSubscription | null>(null);
+  return (
+    <>
+      <TargetBuyExecutionPanel quote={quote} productInput={productInput} onSubscribeSuccess={setConfirmed} />
+      {confirmed ? (
+        <SubscribeSuccessDialog quote={confirmed.quote} digest={confirmed.digest} onClose={() => setConfirmed(null)} />
+      ) : null}
+    </>
+  );
+}
+
 describe('TargetBuyExecutionPanel subscription flow', () => {
   beforeEach(() => {
     mocks.quoteLegs.mockReset();
     mocks.simulateTransaction.mockReset();
-    mocks.signAndExecuteTransaction.mockReset();
+    mocks.signTransaction.mockReset();
+    mocks.executeTransaction.mockReset();
     mocks.waitForTransaction.mockReset();
     mocks.invalidateQueries.mockReset();
     mocks.managersRefetch.mockReset();
@@ -156,16 +174,22 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
       })),
     );
     mocks.simulateTransaction.mockResolvedValue(successfulSimulation(quote.legs.length));
-    mocks.signAndExecuteTransaction.mockResolvedValue({ Transaction: { digest: '0xdigest' } });
+    mocks.signTransaction.mockResolvedValue({ bytes: 'AQID', signature: 'sig' });
+    mocks.executeTransaction.mockResolvedValue({ Transaction: { digest: '0xdigest' } });
     mocks.waitForTransaction.mockResolvedValue({});
 
-    render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} />);
+    render(<PanelHarness quote={quote} productInput={productInput} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Subscribe Buy Low' }));
 
     await waitFor(() => expect(mocks.quoteLegs).toHaveBeenCalledTimes(1));
     expect(mocks.simulateTransaction).toHaveBeenCalledTimes(1);
-    expect(mocks.signAndExecuteTransaction).toHaveBeenCalledTimes(1);
+    expect(mocks.signTransaction).toHaveBeenCalledTimes(1);
+    // The signed bytes are submitted through our own client, not the wallet bridge.
+    expect(mocks.executeTransaction).toHaveBeenCalledWith({
+      transaction: new Uint8Array([1, 2, 3]),
+      signatures: ['sig'],
+    });
 
     await waitFor(() =>
       expect(screen.getByText('Subscription confirmed. Your Note is in your Portfolio.')).toBeVisible(),
@@ -212,12 +236,13 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
       },
     });
 
-    render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} />);
+    render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} onSubscribeSuccess={() => {}} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Subscribe Buy Low' }));
 
     await waitFor(() => expect(screen.getByText(/Insufficient DUSDC/i)).toBeVisible());
-    expect(mocks.signAndExecuteTransaction).not.toHaveBeenCalled();
+    expect(mocks.signTransaction).not.toHaveBeenCalled();
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
   });
 
   it('runs the one-time setup as a separate wallet transaction when none is available', async () => {
@@ -234,14 +259,15 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
         executable: true,
       })),
     );
-    mocks.signAndExecuteTransaction.mockResolvedValueOnce({ Transaction: { digest: '0xmanager' } });
+    mocks.signTransaction.mockResolvedValueOnce({ bytes: 'AQID', signature: 'sig' });
+    mocks.executeTransaction.mockResolvedValueOnce({ Transaction: { digest: '0xmanager' } });
     mocks.waitForTransaction.mockResolvedValue({});
 
-    render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} />);
+    render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} onSubscribeSuccess={() => {}} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Set up now' }));
 
-    await waitFor(() => expect(mocks.signAndExecuteTransaction).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.executeTransaction).toHaveBeenCalledTimes(1));
     expect(mocks.waitForTransaction).toHaveBeenCalledWith({ digest: '0xmanager' });
     expect(mocks.managersRefetch).toHaveBeenCalledTimes(1);
     expect(mocks.portfolioRefetch).not.toHaveBeenCalled();

@@ -71,7 +71,19 @@ vi.mock('../hooks/useBinanceDualInvestment', () => ({
 }));
 
 vi.mock('./TargetBuyExecutionPanel', () => ({
-  TargetBuyExecutionPanel: () => <div data-testid="execution-panel" />,
+  TargetBuyExecutionPanel: ({
+    quote,
+    onSubscribeSuccess,
+  }: {
+    quote: StructuredProductQuote;
+    onSubscribeSuccess: (confirmation: { quote: StructuredProductQuote; digest: string }) => void;
+  }) => (
+    <div data-testid="execution-panel">
+      <button type="button" onClick={() => onSubscribeSuccess({ quote, digest: '0xsubscribed' })}>
+        mock-subscribe-success
+      </button>
+    </div>
+  ),
 }));
 
 function quoteFixture(): StructuredProductQuote {
@@ -224,6 +236,7 @@ describe('Dual Investment APR display', () => {
           productInput={productInput}
           subscribeQuote={null}
           isVerifying={false}
+          onSubscribeSuccess={() => {}}
         />
       </>,
     );
@@ -244,6 +257,7 @@ describe('Dual Investment APR display', () => {
         productInput={productInput}
         subscribeQuote={quote}
         isVerifying={false}
+        onSubscribeSuccess={() => {}}
       />,
     );
     expect(screen.getByTestId('execution-panel')).toBeVisible();
@@ -254,6 +268,7 @@ describe('Dual Investment APR display', () => {
         productInput={productInput}
         subscribeQuote={null}
         isVerifying={true}
+        onSubscribeSuccess={() => {}}
       />,
     );
     expect(screen.getByTestId('execution-panel')).toBeVisible();
@@ -265,6 +280,7 @@ describe('Dual Investment APR display', () => {
         productInput={{ ...productInput, targetPrice: 64_000 }}
         subscribeQuote={null}
         isVerifying={true}
+        onSubscribeSuccess={() => {}}
       />,
     );
     await act(async () => {
@@ -285,6 +301,7 @@ describe('Dual Investment APR display', () => {
         productInput={productInput}
         subscribeQuote={quote}
         isVerifying={false}
+        onSubscribeSuccess={() => {}}
       />,
     );
     expect(screen.getByTestId('execution-panel')).toBeVisible();
@@ -297,6 +314,7 @@ describe('Dual Investment APR display', () => {
         productInput={productInput}
         subscribeQuote={null}
         isVerifying={true}
+        onSubscribeSuccess={() => {}}
       />,
     );
     await act(async () => {
@@ -689,6 +707,50 @@ describe('DualInvestmentPage', () => {
     });
     expect(mocks.buildVerifiedDualInvestmentQuote.mock.calls.length).toBeGreaterThan(callsAfterFirstVerify);
     expect(screen.getByTestId('execution-panel')).toBeVisible();
+  });
+
+  it('keeps the subscribe success dialog open when the execution panel is torn down', async () => {
+    // Regression: dialog state used to live inside TargetBuyExecutionPanel —
+    // it popped on confirm, then vanished when live quote churn refreshed the
+    // panel. Page-level state must survive even a full confirm-section unmount.
+    const market = marketFixture();
+    mocks.marketData = {
+      data: {
+        market,
+        productOracles: [{ oracle_id: market.oracleId, expiry: market.expiryMs, group: 'hourly', source: 'live' }],
+        selectedOracleId: market.oracleId,
+        selectedSource: 'live',
+      },
+    };
+    mocks.buildVerifiedDualInvestmentQuote.mockImplementation(
+      ({ market: oracle, productInput }: { market: OracleMarket; productInput: DualInvestmentInput }) =>
+        pageQuoteFixture({ market: oracle, productInput, coupon: 0.03 }),
+    );
+
+    const { rerender } = render(<DualInvestmentPage />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(screen.getByTestId('execution-panel')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'mock-subscribe-success' }));
+    expect(screen.getByRole('dialog', { name: 'Subscription confirmed' })).toBeVisible();
+
+    // Spot crashes below the seeded target: effectiveInput dies and the whole
+    // confirm section (panel included) unmounts.
+    const crashed = marketFixture({ spot: 50_500, forward: 50_500 });
+    mocks.marketData = {
+      data: {
+        market: crashed,
+        productOracles: [{ oracle_id: crashed.oracleId, expiry: crashed.expiryMs, group: 'hourly', source: 'live' }],
+        selectedOracleId: crashed.oracleId,
+        selectedSource: 'live',
+      },
+    };
+    rerender(<DualInvestmentPage />);
+
+    expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Subscription confirmed' })).toBeVisible();
   });
 
   it('surfaces a verification failure without blocking the estimate', async () => {

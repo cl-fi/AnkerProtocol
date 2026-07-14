@@ -23,7 +23,7 @@ import { Button, InputField, Tabs, tabClassName } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
-export const DEFAULT_PRINCIPAL = 5;
+export const DEFAULT_PRINCIPAL = 500;
 export type DualInvestmentMode = 'buy-low';
 export type BinanceBenchmarkStatus = 'loading' | 'error' | 'ready';
 

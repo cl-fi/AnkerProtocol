@@ -18,8 +18,20 @@ import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i1
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { buildCreateAccountWrapperTransaction } from '../sui/accountTransactions';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
+import { signAndExecuteWithWallet } from '../sui/walletExecution';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { Button, Card } from '../ui';
-import { SubscribeSuccessDialog } from './SubscribeSuccessDialog';
+
+/**
+ * Snapshot of a confirmed subscribe, reported upward so the success dialog can
+ * render above this panel: live re-verify can unmount/remount the panel at any
+ * moment (auto-floor drift, quote refresh), which would wipe dialog state kept
+ * here — the dialog appeared and then vanished on the next panel refresh.
+ */
+export interface ConfirmedSubscription {
+  quote: StructuredProductQuote;
+  digest: string;
+}
 
 interface TargetBuyExecutionPanelViewProps {
   hasAccount: boolean;
@@ -210,7 +222,7 @@ export function TargetBuyExecutionPanelView({
   );
 }
 
-function transactionDigest(result: Awaited<ReturnType<ReturnType<typeof useDAppKit>['signAndExecuteTransaction']>>) {
+function transactionDigest(result: SuiClientTypes.TransactionResult) {
   if (result.FailedTransaction) {
     throw new Error(result.FailedTransaction.status.error?.message ?? 'Transaction failed.');
   }
@@ -220,10 +232,12 @@ function transactionDigest(result: Awaited<ReturnType<ReturnType<typeof useDAppK
 export function TargetBuyExecutionPanel({
   quote,
   productInput,
+  onSubscribeSuccess,
   locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
   productInput: DualInvestmentInput;
+  onSubscribeSuccess: (confirmation: ConfirmedSubscription) => void;
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
@@ -240,7 +254,6 @@ export function TargetBuyExecutionPanel({
   const [digest, setDigest] = useState<string | null>(null);
   const [subscribeConfirmed, setSubscribeConfirmed] = useState(false);
   const [simulatedCostLabel, setSimulatedCostLabel] = useState<string | null>(null);
-  const [successDigest, setSuccessDigest] = useState<string | null>(null);
 
   async function runTransaction(action: () => Promise<string>) {
     setIsPending(true);
@@ -264,7 +277,7 @@ export function TargetBuyExecutionPanel({
     if (!account) return;
     void runTransaction(async () => {
       const plan = buildCreateAccountWrapperTransaction();
-      const result = await dAppKit.signAndExecuteTransaction({ transaction: plan.tx });
+      const result = await signAndExecuteWithWallet({ wallet: dAppKit, client, transaction: plan.tx });
       const nextDigest = transactionDigest(result);
       await client.waitForTransaction({ digest: nextDigest });
       await managersQuery.refetch();
@@ -298,7 +311,9 @@ export function TargetBuyExecutionPanel({
       });
       const simulatedUsdc = Number(prepared.simulatedTotalCostBaseUnits) / 1_000_000;
       setSimulatedCostLabel(`Simulated mint cost: ${simulatedUsdc.toFixed(6)} dUSDC`);
-      const result = await dAppKit.signAndExecuteTransaction({
+      const result = await signAndExecuteWithWallet({
+        wallet: dAppKit,
+        client,
         transaction: prepared.transactionPlan.tx,
       });
       const nextDigest = transactionDigest(result);
@@ -309,35 +324,27 @@ export function TargetBuyExecutionPanel({
         digest: nextDigest,
       });
       setSubscribeConfirmed(true);
-      setSuccessDigest(nextDigest);
+      onSubscribeSuccess({ quote, digest: nextDigest });
       return nextDigest;
     });
   }
 
   return (
-    <>
-      <TargetBuyExecutionPanelView
-        hasAccount={Boolean(account)}
-        hasManager={Boolean(manager)}
-        isQuoteExecutable={quote.executable}
-        quoteWarning={quote.warning}
-        isLoadingManagers={(managersQuery.isPending || portfolioQuery.isPending) && Boolean(account)}
-        isPending={isPending}
-        managerId={manager?.managerId}
-        error={error}
-        digest={digest}
-        subscribeConfirmed={subscribeConfirmed}
-        simulatedCostLabel={simulatedCostLabel}
-        locale={locale}
-        onCreateManager={handleCreateManager}
-        onSubscribe={handleSubscribe}
-      />
-      <SubscribeSuccessDialog
-        quote={quote}
-        digest={successDigest}
-        locale={locale}
-        onClose={() => setSuccessDigest(null)}
-      />
-    </>
+    <TargetBuyExecutionPanelView
+      hasAccount={Boolean(account)}
+      hasManager={Boolean(manager)}
+      isQuoteExecutable={quote.executable}
+      quoteWarning={quote.warning}
+      isLoadingManagers={(managersQuery.isPending || portfolioQuery.isPending) && Boolean(account)}
+      isPending={isPending}
+      managerId={manager?.managerId}
+      error={error}
+      digest={digest}
+      subscribeConfirmed={subscribeConfirmed}
+      simulatedCostLabel={simulatedCostLabel}
+      locale={locale}
+      onCreateManager={handleCreateManager}
+      onSubscribe={handleSubscribe}
+    />
   );
 }

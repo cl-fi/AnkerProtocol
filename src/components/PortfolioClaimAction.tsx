@@ -12,6 +12,8 @@ import { markProductNoteClaimed, type AnkerProductNoteRecord } from '../sui/anke
 import { buildClaimDualInvestmentNoteTransaction } from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { preflightTransaction } from '../sui/transactionPreflight';
+import { signAndExecuteWithWallet } from '../sui/walletExecution';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { formatBtcAmount, formatPreciseAmount, shortId, suiExplorerTxUrl } from './PortfolioFormat';
 import { Button } from '../ui';
 import type { ClaimSuccessSummary } from './ClaimSuccessDialog';
@@ -170,7 +172,7 @@ export function ClaimActionView({
   );
 }
 
-function transactionDigest(result: Awaited<ReturnType<ReturnType<typeof useDAppKit>['signAndExecuteTransaction']>>) {
+function transactionDigest(result: SuiClientTypes.TransactionResult) {
   if (result.FailedTransaction) {
     throw new Error(result.FailedTransaction.status.error?.message ?? 'Transaction failed.');
   }
@@ -213,7 +215,7 @@ export function ClaimAction({
         settlement,
       });
       await preflightTransaction({ client, sender: account.address, transaction: plan.tx });
-      const result = await dAppKit.signAndExecuteTransaction({ transaction: plan.tx });
+      const result = await signAndExecuteWithWallet({ wallet: dAppKit, client, transaction: plan.tx });
       const nextDigest = transactionDigest(result);
       setDigest(nextDigest);
       onClaimSuccess({
