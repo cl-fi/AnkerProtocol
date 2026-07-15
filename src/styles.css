@@ -706,7 +706,7 @@ a {
 .product-nav {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 6px;
   color: #5b6885;
   font-size: 0.9rem;
   font-weight: 760;
@@ -715,13 +715,32 @@ a {
 .product-nav a {
   display: inline-flex;
   align-items: center;
-  min-height: 70px;
-  border-bottom: 2px solid transparent;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: var(--bw) solid transparent;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.product-nav a svg {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.product-nav a:hover {
+  background: rgba(32, 48, 77, 0.07);
 }
 
 .product-nav a.active {
   color: #20304d;
-  border-bottom-color: #cf8a22;
+  border-color: var(--navy);
+  background: var(--gold);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.product-nav a.active svg {
+  opacity: 1;
 }
 
 .demo-banner {
@@ -842,6 +861,22 @@ a {
   gap: 12px;
 }
 
+/* Environment badge — global home for the "Sui testnet" status */
+.testnet-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: var(--bw) solid var(--copper-line);
+  border-radius: 999px;
+  background: var(--gold-tint);
+  color: var(--copper-deep);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .wallet-area {
   display: inline-flex;
   align-items: center;
@@ -870,8 +905,7 @@ a {
 .faq-section,
 .deep-footer,
 .di-selection,
-.di-terminal,
-.di-confirm {
+.di-terminal {
   width: min(100%, 1360px);
   margin: 0 auto;
   padding-right: 28px;
@@ -1719,6 +1753,9 @@ a {
 .return-overview-panel {
   display: grid;
   gap: 18px;
+  /* heading · scenario tabs · chart — the chart absorbs any extra height when
+     the order ticket on the right runs taller than the chart's minimum. */
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .return-overview-heading {
@@ -1733,17 +1770,12 @@ a {
   flex: 0 0 auto;
 }
 
+/* Question-style header — the scenario tabs below are its two answers */
 .return-overview-heading h3 {
   margin: 0;
   color: var(--navy);
-  font-size: 1.16rem;
-}
-
-.return-overview-heading p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-  font-weight: 680;
+  font-size: 1.5rem;
+  line-height: 1.15;
 }
 
 .return-scenario-tabs {
@@ -1943,56 +1975,6 @@ a {
 .return-receive-card b {
   color: var(--grass);
   font-size: 0.82rem;
-}
-
-.return-overview-breakdown {
-  display: grid;
-  gap: 0;
-  padding: 0 46px 4px;
-}
-
-.return-overview-breakdown > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 18px;
-  min-height: 52px;
-  color: var(--ink-soft);
-  font-size: 1rem;
-  font-weight: 720;
-}
-
-.return-overview-breakdown > div:nth-child(2),
-.return-overview-breakdown > div:nth-child(3) {
-  border-bottom: 1px solid rgba(32, 48, 77, 0.12);
-}
-
-.return-overview-breakdown strong {
-  color: var(--navy);
-  font-weight: 780;
-}
-
-.return-overview-breakdown b,
-.return-receive-row strong {
-  color: var(--grass);
-}
-
-.return-receive-row {
-  padding-top: 12px;
-  font-size: 1.08rem;
-}
-
-.return-receive-row strong {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
-  font-size: 1.3rem;
-}
-
-.return-receive-row i {
-  color: var(--navy);
-  font-size: 1rem;
-  font-style: normal;
 }
 
 .detail-grid {
@@ -2265,17 +2247,6 @@ a {
     min-width: 860px;
   }
 
-  .return-overview-breakdown {
-    padding: 0 8px 4px;
-  }
-
-  .return-overview-breakdown > div {
-    grid-template-columns: 1fr;
-    gap: 6px;
-    justify-items: start;
-    padding: 12px 0;
-  }
-
   .return-chart-visual {
     min-height: 300px;
   }
@@ -2481,10 +2452,7 @@ a {
 .offer-table .apr-cell,
 .offer-table .binance-apr,
 .offer-table .edge-cell,
-.return-overview-breakdown strong,
-.return-overview-breakdown b,
-.return-receive-row strong,
-.return-receive-row i,
+.ticket-outcome-value strong,
 .return-receive-card strong,
 .return-receive-card b,
 .return-current-label strong,
@@ -2691,8 +2659,6 @@ summary:focus-visible,
 
 .product-nav a.active {
   color: var(--navy);
-  border-bottom-width: 3px;
-  border-bottom-color: var(--gold);
 }
 
 /* Brand tile — chunky outline */
@@ -3887,17 +3853,29 @@ dd {
   letter-spacing: -0.01em;
 }
 
-/* ②③ Terminal — copper chart (left) + controls & reference (right) */
+/* ②③ Terminal — scenario chart (left) + order ticket (right) */
 .di-terminal {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.95fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr);
   gap: 18px;
   align-items: stretch;
   padding-bottom: 24px;
 }
 
-/* Right column is one card: reference (fills) on top, your input pinned to the
-   bottom so it lines up with the bottom of the chart on the left. */
+/* Left wrapper stretches with the grid row; the scenario card fills it so the
+   chart grows to match however tall the order ticket runs. */
+.di-terminal-chart {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.di-terminal-chart .return-overview-panel {
+  flex: 1 1 auto;
+}
+
+/* Right column is the order ticket: inputs on top, reference ladder filling
+   the middle, outcome summary + subscribe CTA pinned to the bottom. */
 .di-terminal-side {
   display: flex;
   flex-direction: column;
@@ -3911,6 +3889,7 @@ dd {
 
 .return-overview-panel.is-empty {
   gap: 16px;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .di-overview-empty {
@@ -3927,13 +3906,13 @@ dd {
   text-align: center;
 }
 
-/* Controls — bottom sub-panel of the merged right card */
+/* Controls — top sub-panel of the order ticket */
 .di-controls {
   display: grid;
   gap: 12px;
   flex: 0 0 auto;
   padding: 14px 16px;
-  border-top: var(--bw) solid rgba(32, 48, 77, 0.16);
+  border-bottom: var(--bw) solid rgba(32, 48, 77, 0.16);
   background: var(--paper-2);
 }
 
@@ -4064,8 +4043,8 @@ dd {
   font-weight: 700;
 }
 
-/* Reference — top sub-panel of the merged right card; fills the space so the
-   controls below line up with the bottom of the chart. */
+/* Reference ladder — middle sub-panel of the ticket; fills leftover height
+   and scrolls internally so the summary + CTA below stay in view. */
 .di-reference {
   display: flex;
   flex-direction: column;
@@ -4101,6 +4080,7 @@ dd {
 .di-reference .table-shell {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: 304px;
   overflow-y: auto;
   border: 0;
   border-radius: 0;
@@ -4186,102 +4166,152 @@ dd {
   transform: translateY(0);
 }
 
-/* ④ Confirm — three numbers + worst case + subscribe */
-.di-confirm {
+/* ④ Ticket bottom — two-outcome summary + subscribe CTA.
+   The at-or-below row IS the worst case: both settlement outcomes sit side by
+   side, so the old banner and confirm strip have no separate home anymore. */
+.ticket-confirm {
   display: grid;
-  gap: 16px;
-  padding-bottom: 10px;
-}
-
-.di-confirm-numbers {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 14px;
-}
-
-.di-confirm-numbers > div:not(.di-confirm-arrow) {
-  flex: 1 1 200px;
-  display: grid;
-  gap: 6px;
-  align-content: center;
-  padding: 18px 20px;
-  border: var(--bw) solid var(--navy);
-  border-radius: var(--r);
+  gap: 13px;
+  flex: 0 0 auto;
+  padding: 13px 16px 16px;
+  border-top: var(--bw) solid rgba(32, 48, 77, 0.16);
   background: var(--paper);
-  box-shadow: var(--shadow-hard-sm);
 }
 
-.di-confirm-numbers span {
+.ticket-outcomes {
+  display: grid;
+}
+
+.ticket-outcomes-title {
+  color: var(--copper-deep);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ticket-outcome {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(32, 48, 77, 0.16);
+}
+
+.ticket-outcome:last-child {
+  padding-bottom: 2px;
+  border-bottom: 0;
+}
+
+.ticket-outcome-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--ink-soft);
   font-size: 0.8rem;
-  font-weight: 800;
+  font-weight: 750;
 }
 
-.di-confirm-numbers strong {
+.ticket-outcome-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--navy);
+  border-radius: 50%;
+}
+
+.ticket-outcome.is-above .ticket-outcome-dot {
+  border-color: var(--grass);
+  background: var(--grass);
+}
+
+.ticket-outcome.is-below .ticket-outcome-dot {
+  border-color: var(--gold-3);
+  background: var(--gold);
+}
+
+.ticket-outcome-value {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  text-align: right;
+}
+
+.ticket-outcome-value strong {
   color: var(--navy);
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  line-height: 1.05;
-}
-
-.di-confirm-numbers em {
-  color: var(--copper-deep);
-  font-style: normal;
-  font-weight: 800;
-  font-size: 0.9rem;
-}
-
-.di-confirm-arrow {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  color: var(--gold-3);
-  font-size: 1.6rem;
-  font-weight: 900;
-}
-
-.di-confirm-worstcase {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 0;
-  padding: 14px 16px;
-  border: var(--bw) dashed var(--copper-line);
-  border-radius: var(--r-sm);
-  background: var(--copper-tint);
-  color: var(--copper-deep);
-}
-
-.di-confirm-worstcase svg {
-  flex: 0 0 auto;
-  margin-top: 2px;
-}
-
-.di-confirm-worstcase-text {
-  display: grid;
-  gap: 4px;
-}
-
-.di-confirm-worstcase-main {
-  font-size: 0.9rem;
+  font-size: 0.98rem;
   font-weight: 700;
-  line-height: 1.5;
 }
 
-.di-confirm-worstcase small {
+.ticket-outcome.is-above .ticket-outcome-value strong {
+  color: var(--grass);
+}
+
+.ticket-outcome-value small {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.ticket-outcome-value .di-equiv-note::after {
+  width: 240px;
+}
+
+/* CTA block — one primary button; state lives in its label */
+.ticket-execution {
+  display: grid;
+  gap: 9px;
+}
+
+.ticket-execution .anker-btn {
+  width: 100%;
+  min-height: 48px;
+}
+
+.ticket-connect mysten-dapp-kit-connect-button {
+  display: block;
+  width: 100%;
+}
+
+.ticket-connect mysten-dapp-kit-connect-button::part(trigger) {
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  border-color: var(--navy);
+  background: var(--gold);
+}
+
+.ticket-execution-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.ticket-execution .execution-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ink-soft);
   font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.45;
-  color: var(--copper-deep);
-  opacity: 0.82;
+  font-weight: 700;
+}
+
+.ticket-execution .execution-message,
+.ticket-execution .execution-error {
+  margin: 0;
+  font-size: 0.78rem;
 }
 
 .di-confirm-pending {
-  padding: 18px 20px;
+  padding: 14px 16px;
   border: var(--bw) dashed rgba(32, 48, 77, 0.4);
-  border-radius: var(--r);
+  border-radius: var(--r-sm);
   color: var(--ink-soft);
+  font-size: 0.82rem;
   font-weight: 700;
   text-align: center;
 }
@@ -4292,133 +4322,25 @@ dd {
   color: #7a2d12;
 }
 
-/* On-chain Subscribe — two-step checklist */
-.exec-steps {
+/* Snapshot rows: disabled CTA + explanatory note, no dashed box */
+.di-confirm-awaiting {
   display: grid;
-  gap: 10px;
-  margin: 6px 0 14px;
+  gap: 8px;
   padding: 0;
-  list-style: none;
+  border: 0;
 }
 
-.exec-step {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  border: var(--bw) solid rgba(32, 48, 77, 0.16);
-  border-radius: var(--r-sm);
-  background: var(--paper-2);
+.di-confirm-awaiting .anker-btn {
+  width: 100%;
+  min-height: 48px;
 }
 
-.exec-step.is-active {
-  border-color: var(--navy);
-  background: var(--paper);
-  box-shadow: var(--shadow-hard-sm);
-}
-
-.exec-step.is-done {
-  border-color: var(--grass);
-  background: var(--grass-tint);
-}
-
-.exec-step.is-locked {
-  opacity: 0.55;
-}
-
-.exec-step-mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: var(--bw) solid var(--navy);
-  border-radius: 50%;
-  background: var(--paper);
-  color: var(--navy);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
-.exec-step.is-active .exec-step-mark {
-  background: var(--gold);
-}
-
-.exec-step.is-done .exec-step-mark {
-  border-color: var(--grass);
-  background: var(--grass);
-  color: #fff;
-}
-
-.exec-step-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.exec-step-text strong {
-  color: var(--navy);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 0.98rem;
-}
-
-.exec-step-text span {
+.di-confirm-awaiting-note {
+  margin: 0;
   color: var(--ink-soft);
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.exec-step-action {
-  flex: 0 0 auto;
-}
-
-.exec-step-action .small-action,
-.exec-step-action .primary-action {
-  min-width: 0;
-  min-height: 40px;
-  padding: 0 18px;
-}
-
-.exec-step-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border: var(--bw) solid var(--grass);
-  border-radius: 999px;
-  background: var(--grass);
-  color: #fff;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 0.82rem;
-}
-
-.execution-panel .execution-status {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--ink-soft);
-  font-size: 0.84rem;
-  font-weight: 700;
-}
-
-@media (max-width: 560px) {
-  .exec-step {
-    grid-template-columns: auto minmax(0, 1fr);
-    row-gap: 12px;
-  }
-
-  .exec-step-action {
-    grid-column: 1 / -1;
-  }
-
-  .exec-step-action .small-action,
-  .exec-step-action .primary-action {
-    width: 100%;
-  }
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-align: center;
 }
 
 /* ⑤ Advanced — collapsible secondary data.
@@ -4520,21 +4442,7 @@ dd {
   }
 }
 
-/* Two-column terminal only: the left Return Overview card defines the row
-   height; the reference side follows it exactly (height 0 keeps it out of
-   track sizing, min-height stretches it back) and scrolls internally. */
-@media (min-width: 901px) {
-  .di-terminal-side {
-    height: 0;
-    min-height: 100%;
-  }
-}
-
 @media (max-width: 640px) {
-  .di-confirm-arrow {
-    display: none;
-  }
-
   /* Stack the inputs so the Buy Low price isn't clipped in a half-width field. */
   .di-controls-grid {
     grid-template-columns: 1fr;
@@ -4545,7 +4453,7 @@ dd {
   }
 
   /* Declutter the copper chart on narrow screens — the floating callouts
-     duplicate the selection-bar spot price and the breakdown rows below. */
+     duplicate the selection-bar spot price and the ticket summary below. */
   .return-receive-card,
   .return-current-label {
     display: none;
@@ -4555,8 +4463,8 @@ dd {
     top: 30%;
   }
 
-  .return-overview-breakdown {
-    padding: 0 6px 4px;
+  .testnet-chip {
+    display: none;
   }
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ShieldCheck } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { isSubDayTenor } from '../products/dualInvestmentScan';
@@ -97,10 +97,6 @@ export function ReturnOverview({
   const format = formattersForLocale(locale);
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
   const total = quote.principal + quote.coupon;
-  const netApr = netAprAfterCouponFee(quote.apr);
-  const periodReturn = quote.principal > 0 ? quote.coupon / quote.principal : 0;
-  const subDay = isSubDayTenor(quote.oracle.expiryMs);
-  const rewardMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
   const isAbove = scenario === 'above';
   const receiveAmount = isAbove ? format.fixedTokenAmount(total, 2) : format.fixedTokenAmount(btcEquivalent, 8);
@@ -117,10 +113,7 @@ export function ReturnOverview({
   return (
     <Card as="article" className="return-overview-panel">
       <div className="return-overview-heading">
-        <div>
-          <h3>{copy.dualInvestment.returnOverview}</h3>
-          <p>{copy.dualInvestment.returnOverviewBody}</p>
-        </div>
+        <h3>{copy.dualInvestment.returnOverviewQuestion(format.shortDateTime(quote.oracle.expiryMs))}</h3>
         <Badge tone={estimated ? 'warning' : 'positive'}>
           {estimated ? copy.dualInvestment.estimate : copy.dualInvestment.liveQuote}
         </Badge>
@@ -180,29 +173,6 @@ export function ReturnOverview({
         </div>
       </div>
 
-      <div className="return-overview-breakdown">
-        <div>
-          <span>{copy.dualInvestment.subscriptionAmount}</span>
-          <strong>{format.amount(quote.principal)} dUSDC</strong>
-        </div>
-        <div>
-          <span>
-            {copy.dualInvestment.rewards} (<b>{rewardMeta}</b>)
-          </span>
-          <strong>+{format.amount(quote.coupon)} dUSDC</strong>
-        </div>
-        <div>
-          <span>{copy.dualInvestment.total}</span>
-          <strong>+{format.amount(total)} dUSDC</strong>
-        </div>
-        <div className="return-receive-row">
-          <span>{copy.dualInvestment.youWillReceive}</span>
-          <strong>
-            {receiveAmount}
-            <i {...equivNoteProps}>{receiveAsset}</i>
-          </strong>
-        </div>
-      </div>
     </Card>
   );
 }
@@ -263,34 +233,42 @@ export function DualInvestmentConfirm({
   const panelQuote = subscribeQuote ?? stickySubscribeQuote;
 
   return (
-    <section className="di-confirm" aria-label={copy.dualInvestment.confirmLabel}>
-      <div className="di-confirm-numbers">
-        <div>
-          <span>{copy.dualInvestment.youDeposit}</span>
-          <strong>{format.amount(quote.principal)} dUSDC</strong>
-        </div>
-        <div className="di-confirm-arrow" aria-hidden="true">
-          →
-        </div>
-        <div>
-          <span>{copy.dualInvestment.receiveAtSettlement}</span>
-          <strong>{format.amount(total)} dUSDC</strong>
-          <em>{rewardMeta}</em>
-        </div>
-        <div>
-          <span>{copy.dualInvestment.settles}</span>
-          <strong>{format.expiry(quote.oracle.expiryMs)}</strong>
-        </div>
-      </div>
-
-      <div className="di-confirm-worstcase">
-        <ShieldCheck size={16} />
-        <span className="di-confirm-worstcase-text">
-          <span className="di-confirm-worstcase-main">
-            {copy.dualInvestment.worstCase(format.usd(targetPrice), format.btcAmount(btcEquivalent))}
+    <section className="ticket-confirm" aria-label={copy.dualInvestment.confirmLabel}>
+      <div className="ticket-outcomes">
+        <span className="ticket-outcomes-title">{copy.dualInvestment.atSettlement}</span>
+        <div className="ticket-outcome is-above">
+          <span className="ticket-outcome-label">
+            <i className="ticket-outcome-dot" aria-hidden="true" />
+            {copy.dualInvestment.outcomeAbove(format.usd(targetPrice))}
           </span>
-          <small>{copy.dualInvestment.testnetSettlementNote}</small>
-        </span>
+          <span className="ticket-outcome-value">
+            <strong>{format.amount(total)} dUSDC</strong>
+            <small>{copy.dualInvestment.includesReward(format.amount(quote.coupon), rewardMeta)}</small>
+          </span>
+        </div>
+        <div className="ticket-outcome is-below">
+          <span className="ticket-outcome-label">
+            <i className="ticket-outcome-dot" aria-hidden="true" />
+            {copy.dualInvestment.outcomeAtOrBelow(format.usd(targetPrice))}
+          </span>
+          <span className="ticket-outcome-value">
+            <strong
+              className="di-equiv-note"
+              data-tip={copy.dualInvestment.testnetSettlementNote}
+              tabIndex={0}
+              aria-label={`≈ ${format.btcAmount(btcEquivalent)} BTC. ${copy.dualInvestment.testnetSettlementNote}`}
+            >
+              ≈ {format.btcAmount(btcEquivalent)} BTC
+            </strong>
+            <small>{copy.dualInvestment.outcomeBelowDetail(format.usd(targetPrice))}</small>
+          </span>
+        </div>
+        <div className="ticket-outcome is-settle">
+          <span className="ticket-outcome-label">{copy.dualInvestment.settles}</span>
+          <span className="ticket-outcome-value">
+            <strong>{format.expiry(quote.oracle.expiryMs)}</strong>
+          </span>
+        </div>
       </div>
 
       {panelQuote && !demoMode ? (

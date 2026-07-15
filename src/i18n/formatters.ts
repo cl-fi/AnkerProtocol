@@ -102,6 +102,16 @@ export function formatOracleTimestamp(value: number, locale: Locale) {
   return formatExpiry(value, locale);
 }
 
+/** Compact settle moment for prose, e.g. "Jul 16, 08:00 AM" / "7月16日 08:00". */
+export function formatShortDateTime(value: number, locale: Locale) {
+  return new Intl.DateTimeFormat(numberLocale(locale), {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(value);
+}
+
 export function formatChartDate(value: number, locale: Locale) {
   return new Intl.DateTimeFormat(locale === 'zh-CN' ? 'zh-CN' : 'en-GB', {
     day: '2-digit',
@@ -137,6 +147,7 @@ export function formattersForLocale(locale: Locale) {
     quoteBaseUnits: formatQuoteBaseUnits,
     expiry: (value: number) => formatExpiry(value, locale),
     oracleTimestamp: (value: number) => formatOracleTimestamp(value, locale),
+    shortDateTime: (value: number) => formatShortDateTime(value, locale),
     chartDate: (value: number) => formatChartDate(value, locale),
     time: (value: number) => formatTime(value, locale),
     timeToExpiry: (expiryMs: number, nowMs = Date.now()) => formatTimeToExpiry(expiryMs, locale, nowMs),

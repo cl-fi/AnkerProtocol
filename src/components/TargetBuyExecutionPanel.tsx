@@ -4,7 +4,8 @@ import { useCurrentAccount, useCurrentClient, useCurrentWallet, useDAppKit } fro
 import { isEnokiWallet } from '@mysten/enoki';
 import { useQueryClient } from '@tanstack/react-query';
 import { WalletCards } from 'lucide-react';
-import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useState, type ReactNode } from 'react';
 import {
   createSubscribeQuoteEnvelope,
   prepareSubscribeDualInvestmentForSigning,
@@ -21,7 +22,13 @@ import { buildCreateAccountWrapperTransaction } from '../sui/accountTransactions
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
 import { isSponsorshipEnabled } from '../sui/sponsoredExecution';
 import { executeWalletTransaction } from '../sui/transactionExecution';
-import { Button, Card } from '../ui';
+import { Button } from '../ui';
+
+/** Functional connect CTA for the disconnected state — opens the wallet modal. */
+const WalletConnectButton = dynamic(
+  () => import('./WalletConnectButton').then((module) => module.WalletConnectButton),
+  { ssr: false },
+);
 
 /**
  * Snapshot of a confirmed subscribe, reported upward so the success dialog can
@@ -47,6 +54,8 @@ interface TargetBuyExecutionPanelViewProps {
   /** True once the digest belongs to a wait-confirmed subscribe (vs. account creation). */
   subscribeConfirmed?: boolean;
   simulatedCostLabel?: string | null;
+  /** Functional wallet-connect control for the disconnected state (falls back to a disabled button). */
+  connectAction?: ReactNode;
   locale?: Locale;
   onCreateManager: () => void;
   onSubscribe: () => void;
@@ -135,12 +144,12 @@ export function TargetBuyExecutionPanelView({
   digest,
   subscribeConfirmed,
   simulatedCostLabel,
+  connectAction,
   locale = DEFAULT_LOCALE,
   onCreateManager,
   onSubscribe,
 }: TargetBuyExecutionPanelViewProps) {
   const copy = copyForLocale(locale);
-  const canSubscribe = hasAccount && hasManager && isQuoteExecutable && !isPending;
   const execution = targetBuyExecutionViewModel({
     hasAccount,
     hasManager,
@@ -153,62 +162,58 @@ export function TargetBuyExecutionPanelView({
     locale,
   });
 
-  const step1State = !hasAccount ? 'locked' : hasManager ? 'done' : 'active';
-  const step2State = !hasAccount || !hasManager ? 'locked' : 'active';
+  if (!hasAccount) {
+    return (
+      <div className="ticket-execution">
+        {connectAction ? (
+          <div className="ticket-connect">{connectAction}</div>
+        ) : (
+          <Button variant="primary" disabled>
+            {copy.common.connectWallet}
+          </Button>
+        )}
+        <p className="ticket-execution-note">{copy.execution.status.connectWallet}</p>
+      </div>
+    );
+  }
+
+  // Single state-driven CTA: the one-time setup is a labelled first click
+  // ("1 of 2"), not a standing checklist — progress lives in the button.
+  const needsSetup = !hasManager;
+  const buttonLabel = isPending
+    ? copy.execution.waitingForWallet
+    : isLoadingManagers
+      ? copy.execution.checking
+      : needsSetup
+        ? copy.execution.setupStep
+        : copy.execution.subscribeBuyLow;
+  const canAct = !isPending && !isLoadingManagers && (needsSetup || isQuoteExecutable);
+  const note = isPending
+    ? null
+    : needsSetup && !isLoadingManagers
+      ? copy.execution.createContainerHelp
+      : !needsSetup && !digest && isQuoteExecutable
+        ? copy.execution.subscribeHelp
+        : null;
+  const showStatus =
+    execution.state === 'awaiting-signature' ||
+    execution.state === 'quote-expired' ||
+    execution.state === 'transaction-failed' ||
+    execution.state === 'transaction-submitted' ||
+    execution.state === 'subscribe-confirmed';
 
   return (
-    <Card as="article" className="execution-panel">
-      <div className="detail-title">
-        <h3>{copy.execution.onChainSubscribe}</h3>
-        <span>{copy.execution.suiTestnet}</span>
-      </div>
-
-      <ol className="exec-steps">
-        <li className={`exec-step is-${step1State}`}>
-          <span className="exec-step-mark">{hasManager ? '✓' : '1'}</span>
-          <div className="exec-step-text">
-            <strong>{copy.execution.createContainer}</strong>
-            <span>{copy.execution.createContainerHelp}</span>
-          </div>
-          <div className="exec-step-action">
-            {hasManager ? (
-              <span className="exec-step-badge">{copy.execution.ready}</span>
-            ) : (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={!hasAccount || isPending || isLoadingManagers}
-                onClick={onCreateManager}
-              >
-                {isPending
-                  ? copy.execution.waitingForWallet
-                  : isLoadingManagers
-                    ? copy.execution.checking
-                    : copy.execution.createProductContainer}
-              </Button>
-            )}
-          </div>
-        </li>
-
-        <li className={`exec-step is-${step2State}`}>
-          <span className="exec-step-mark">2</span>
-          <div className="exec-step-text">
-            <strong>{copy.execution.subscribeBuyLow}</strong>
-            <span>{copy.execution.subscribeHelp}</span>
-          </div>
-          <div className="exec-step-action">
-            <Button variant="primary" disabled={!canSubscribe} onClick={onSubscribe}>
-              {isPending ? copy.execution.waitingForWallet : copy.execution.subscribeBuyLow}
-            </Button>
-          </div>
-        </li>
-      </ol>
-
-      <div className="execution-status">
-        <WalletCards size={18} />
-        <span>{execution.status}</span>
-      </div>
-
+    <div className="ticket-execution">
+      <Button variant="primary" disabled={!canAct} onClick={needsSetup ? onCreateManager : onSubscribe}>
+        {buttonLabel}
+      </Button>
+      {note ? <p className="ticket-execution-note">{note}</p> : null}
+      {showStatus ? (
+        <div className="execution-status">
+          <WalletCards size={16} />
+          <span>{execution.status}</span>
+        </div>
+      ) : null}
       {simulatedCostLabel ? <p className="execution-message">{simulatedCostLabel}</p> : null}
       {quoteWarning && !isQuoteExecutable ? <p className="execution-error">{quoteWarning}</p> : null}
       {digest ? (
@@ -218,8 +223,8 @@ export function TargetBuyExecutionPanelView({
           <a href={localizedPath(locale, '/app/portfolio')}>{copy.execution.viewPortfolio}</a>
         </p>
       ) : null}
-      {error ? <p className="execution-error">{error}</p> : null}
-    </Card>
+      {error && execution.state !== 'quote-expired' ? <p className="execution-error">{error}</p> : null}
+    </div>
   );
 }
 
@@ -348,6 +353,7 @@ export function TargetBuyExecutionPanel({
       digest={digest}
       subscribeConfirmed={subscribeConfirmed}
       simulatedCostLabel={simulatedCostLabel}
+      connectAction={<WalletConnectButton />}
       locale={locale}
       onCreateManager={handleCreateManager}
       onSubscribe={handleSubscribe}

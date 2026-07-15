@@ -6,6 +6,10 @@ vi.mock('lucide-react', () => ({
   WalletCards: () => <span data-testid="wallet-icon" />,
 }));
 
+vi.mock('next/dynamic', () => ({
+  default: () => () => <button className="wallet-loading">Connect Wallet</button>,
+}));
+
 describe('TargetBuyExecutionPanelView', () => {
   it('asks for wallet connection before subscription actions', () => {
     render(
@@ -21,10 +25,30 @@ describe('TargetBuyExecutionPanelView', () => {
     );
 
     expect(screen.getByText('Connect wallet to subscribe')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
+    // No subscribe or setup actions leak into the disconnected state.
+    expect(screen.queryByRole('button', { name: 'Subscribe Buy Low' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Set up wallet/ })).not.toBeInTheDocument();
   });
 
-  it('asks the wallet to run the one-time setup before subscription when none is available', () => {
+  it('renders the provided connect action instead of the fallback button', () => {
+    render(
+      <TargetBuyExecutionPanelView
+        hasAccount={false}
+        hasManager={false}
+        isQuoteExecutable={true}
+        isLoadingManagers={false}
+        isPending={false}
+        connectAction={<button type="button">wallet-modal-trigger</button>}
+        onCreateManager={() => undefined}
+        onSubscribe={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'wallet-modal-trigger' })).toBeEnabled();
+  });
+
+  it('labels the CTA as a one-time setup step when no manager is available', () => {
+    const onCreateManager = vi.fn();
     render(
       <TargetBuyExecutionPanelView
         hasAccount
@@ -32,14 +56,20 @@ describe('TargetBuyExecutionPanelView', () => {
         isQuoteExecutable={true}
         isLoadingManagers={false}
         isPending={false}
-        onCreateManager={() => undefined}
+        onCreateManager={onCreateManager}
         onSubscribe={() => undefined}
       />,
     );
 
-    expect(screen.getByText('Start with step 1 — finish the one-time setup.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Set up now' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
+    const setup = screen.getByRole('button', { name: 'Set up wallet · 1 of 2' });
+    expect(setup).toBeEnabled();
+    expect(
+      screen.getByText('A single on-chain setup for your wallet — done once, then every subscription is one confirm.'),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Subscribe Buy Low' })).not.toBeInTheDocument();
+
+    setup.click();
+    expect(onCreateManager).toHaveBeenCalledTimes(1);
   });
 
   it('enables subscribe when wallet, manager, and executable quote are ready', () => {
@@ -56,8 +86,8 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('Setup complete (0xabc). Subscribe to finish.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeEnabled();
+    expect(screen.getByText('Confirm in your wallet to lock in your reward.')).toBeVisible();
   });
 
   it('shows the quote warning when the wallet is ready but the quote is not executable', () => {

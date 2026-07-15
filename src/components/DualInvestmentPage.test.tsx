@@ -41,7 +41,9 @@ vi.mock('next/dynamic', () => ({
 vi.mock('lucide-react', () => ({
   RefreshCw: () => <span data-testid="refresh-icon" />,
   ChevronDown: () => <span data-testid="chevron-icon" />,
-  ShieldCheck: () => <span data-testid="shield-icon" />,
+  ArrowDownUp: () => <span data-testid="dual-investment-icon" />,
+  Briefcase: () => <span data-testid="portfolio-icon" />,
+  ChartLine: () => <span data-testid="analytics-icon" />,
   Github: () => <span data-testid="github-icon" />,
   Send: () => <span data-testid="send-icon" />,
   Camera: () => <span data-testid="camera-icon" />,
@@ -241,8 +243,8 @@ describe('Dual Investment APR display', () => {
       </>,
     );
 
-    expect(screen.getAllByText('135% APR').length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByText('150% APR')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/135% APR/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/150% APR/)).not.toBeInTheDocument();
   });
 
   it('keeps the execution panel mounted when subscribeQuote briefly unmatches', async () => {
@@ -598,11 +600,14 @@ describe('DualInvestmentPage', () => {
     expect(sellHigh).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('leads with a live estimate of the Return Overview and needs no preview step', () => {
+  it('leads with a live estimate of the return scenarios and needs no preview step', () => {
     render(<DualInvestmentPage />);
 
-    expect(screen.getByRole('heading', { name: 'Return Overview' })).toBeVisible();
-    expect(screen.getByText('Subscription Amount')).toBeVisible();
+    expect(screen.getByRole('heading', { name: /Where will BTC land by/ })).toBeVisible();
+    // The ticket summary shows both settlement outcomes side by side (seeded
+    // default target: nearest grid step below the fixture spot → $66,000).
+    expect(screen.getByText('BTC above $66,000')).toBeVisible();
+    expect(screen.getByText('BTC at or below $66,000')).toBeVisible();
     expect(screen.getByText('Estimate')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Preview/i })).not.toBeInTheDocument();
     // Subscribe is gated until the background quote confirms.
@@ -635,7 +640,7 @@ describe('DualInvestmentPage', () => {
     // Back inside the band the error clears and the estimate returns.
     fireEvent.change(priceInput, { target: { value: '65500' } });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.getByText('Subscription Amount')).toBeVisible();
+    expect(screen.getByText('BTC above $65,500')).toBeVisible();
   });
 
   it('verifies in the background and unlocks the subscribe execution panel', async () => {
@@ -763,7 +768,7 @@ describe('DualInvestmentPage', () => {
     });
 
     expect(screen.getByText('devInspect unavailable')).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Return Overview' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: /Where will BTC land by/ })).toBeVisible();
     expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
   });
 

@@ -264,17 +264,32 @@ export function DualInvestmentPage({
           ) : (
             <Card as="article" className="return-overview-panel is-empty">
               <div className="return-overview-heading">
-                <div>
-                  <h3>{copy.dualInvestment.returnOverview}</h3>
-                  <p>{copy.dualInvestment.returnOverviewBody}</p>
-                </div>
+                <h3>
+                  {market
+                    ? copy.dualInvestment.returnOverviewQuestion(format.shortDateTime(market.expiryMs))
+                    : copy.dualInvestment.returnOverviewQuestionFallback}
+                </h3>
               </div>
               <p className="di-overview-empty">{copy.dualInvestment.emptyOverview}</p>
             </Card>
           )}
         </div>
 
+        {/* Order ticket: inputs → reference ladder → outcome summary → subscribe.
+            One top-to-bottom flow that ends at the CTA; every fact lives here once. */}
         <div className="di-terminal-side">
+          <BuyLowControls
+            market={market}
+            principal={principal}
+            targetPrice={targetPrice}
+            estimateApr={estimateApr}
+            periodReturn={periodReturn}
+            minTargetPrice={minTargetPrice}
+            maxTargetPrice={defaultTarget > 0 ? defaultTarget : null}
+            onPrincipalChange={setPrincipal}
+            onTargetChange={setTargetPrice}
+            locale={locale}
+          />
           <ReferenceTable
             market={market}
             rows={scanQuery.data ?? []}
@@ -289,35 +304,22 @@ export function DualInvestmentPage({
             }}
             locale={locale}
           />
-          <BuyLowControls
-            market={market}
-            principal={principal}
-            targetPrice={targetPrice}
-            estimateApr={estimateApr}
-            periodReturn={periodReturn}
-            minTargetPrice={minTargetPrice}
-            maxTargetPrice={defaultTarget > 0 ? defaultTarget : null}
-            onPrincipalChange={setPrincipal}
-            onTargetChange={setTargetPrice}
-            locale={locale}
-          />
+          {displayQuote && effectiveInput ? (
+            <DualInvestmentConfirm
+              quote={displayQuote}
+              productInput={effectiveInput}
+              subscribeQuote={subscribeQuote}
+              isVerifying={isVerifying}
+              onSubscribeSuccess={setConfirmedSubscription}
+              error={verifyError}
+              demoMode={!tradingEnabled}
+              subscribeDisabledMessage={copy.demo.subscribeDisabled}
+              disabledAction={disabledAction}
+              locale={locale}
+            />
+          ) : null}
         </div>
       </div>
-
-      {displayQuote && effectiveInput ? (
-        <DualInvestmentConfirm
-          quote={displayQuote}
-          productInput={effectiveInput}
-          subscribeQuote={subscribeQuote}
-          isVerifying={isVerifying}
-          onSubscribeSuccess={setConfirmedSubscription}
-          error={verifyError}
-          demoMode={!tradingEnabled}
-          subscribeDisabledMessage={copy.demo.subscribeDisabled}
-          disabledAction={disabledAction}
-          locale={locale}
-        />
-      ) : null}
 
       {displayQuote && effectiveInput ? (
         <DualInvestmentAdvanced

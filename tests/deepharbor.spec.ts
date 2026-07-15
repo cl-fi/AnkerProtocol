@@ -73,7 +73,7 @@ test('supports selecting a Buy Low reference row and changing payoff smoothness'
   await expect(inputs.nth(0)).toHaveValue('5');
   await expect(inputs.nth(1)).not.toHaveValue('0');
 
-  await expect(page.getByRole('heading', { name: 'Return Overview' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Where will BTC land by/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Confirm your Buy Low' })).toBeVisible();
 
   const advanced = page.locator('details.di-advanced');

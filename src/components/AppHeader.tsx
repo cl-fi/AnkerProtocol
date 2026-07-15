@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Megaphone } from 'lucide-react';
+import { ArrowDownUp, Briefcase, ChartLine, Megaphone } from 'lucide-react';
 import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -57,16 +57,20 @@ export function AppHeader({
             className={activeProduct === 'dual-investment' ? 'active' : ''}
             href={localizedPath(locale, '/app/dual-investment')}
           >
+            <ArrowDownUp size={15} aria-hidden="true" />
             {copy.common.dualInvestment}
           </Link>
           <Link className={activeProduct === 'portfolio' ? 'active' : ''} href={localizedPath(locale, '/app/portfolio')}>
+            <Briefcase size={15} aria-hidden="true" />
             {copy.common.portfolio}
           </Link>
           <Link className={activeProduct === 'analytics' ? 'active' : ''} href={localizedPath(locale, '/analytics')}>
+            <ChartLine size={15} aria-hidden="true" />
             {copy.common.analytics}
           </Link>
         </nav>
         <div className="top-nav-actions">
+          <span className="testnet-chip">{copy.execution.suiTestnet}</span>
           <LanguageSwitcher locale={locale} currentPath={currentPathForActiveProduct(activeProduct)} />
           <div className="wallet-area">
             <WalletConnectButton />

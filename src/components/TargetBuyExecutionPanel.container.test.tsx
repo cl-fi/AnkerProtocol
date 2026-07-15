@@ -266,7 +266,7 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
 
     render(<TargetBuyExecutionPanel quote={quote} productInput={productInput} onSubscribeSuccess={() => {}} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Set up now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set up wallet · 1 of 2' }));
 
     await waitFor(() => expect(mocks.executeTransaction).toHaveBeenCalledTimes(1));
     expect(mocks.waitForTransaction).toHaveBeenCalledWith({ digest: '0xmanager' });
