@@ -4,6 +4,7 @@ import { buildDualInvestmentLegIntents, compileDualInvestment } from '../product
 import {
   buildDualInvestmentScanInputs,
   filterMeaningfulScanRows,
+  MAX_REFERENCE_SCAN_ROWS,
   type DualInvestmentScanRow,
 } from '../products/dualInvestmentScan';
 import { DEFAULT_MAX_PREDICT_ASK, DEFAULT_MIN_PREDICT_ASK, estimateBinaryUpAskPrice } from '../products/predictPricing';
@@ -131,7 +132,7 @@ export async function buildDualInvestmentScan(input: {
     }
   });
 
-  return filterMeaningfulScanRows(rows, { nowMs: input.nowMs });
+  return filterMeaningfulScanRows(rows, { nowMs: input.nowMs }).slice(0, MAX_REFERENCE_SCAN_ROWS);
 }
 
 export function useDualInvestmentScan(input: {

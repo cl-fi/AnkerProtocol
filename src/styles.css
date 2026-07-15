@@ -847,15 +847,18 @@ a {
   align-items: center;
 }
 
+/* Placeholder while the wallet button chunk loads — mirrors ::part(trigger) */
 .wallet-loading {
-  min-height: 42px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 8px;
-  background: #1c1917;
-  color: #fffbeb;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: var(--bw) solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-raised);
+  color: var(--color-on-accent);
   font: inherit;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 600;
+  box-shadow: var(--shadow-hard-sm);
 }
 
 .dual-hero,
@@ -1710,27 +1713,35 @@ a {
   color: #5b6885;
 }
 
+/* ---- Return Overview — paper chart, navy curve, gold accents ----
+   Panel surface (paper bg, navy border, hard shadow) comes from the shared
+   `.detail-panel` sticker rule; this block only adds structure + chart look. */
 .return-overview-panel {
   display: grid;
   gap: 18px;
-  background: #0c2b27;
-  color: #e9f3ee;
 }
 
 .return-overview-heading {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Estimate vs live badge sits in the heading */
+.return-overview-heading .quote-badge {
+  flex: 0 0 auto;
 }
 
 .return-overview-heading h3 {
   margin: 0;
-  color: #f1f7f3;
+  color: var(--navy);
   font-size: 1.16rem;
 }
 
 .return-overview-heading p {
   margin: 0;
-  color: #93b1a8;
+  color: var(--ink-soft);
   font-size: 0.92rem;
   font-weight: 680;
 }
@@ -1740,8 +1751,9 @@ a {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   padding: 8px;
-  border: 1px solid #2c4f48;
-  border-radius: 14px;
+  border: var(--bw) solid rgba(32, 48, 77, 0.18);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
 }
 
 .return-scenario-tabs button {
@@ -1749,26 +1761,24 @@ a {
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: #83a59b;
+  color: var(--ink-soft);
+  font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 860;
 }
 
 .return-scenario-tabs button.active {
-  background: #16463f;
-  color: #f1f7f3;
-}
-
-.return-scenario-tabs button:focus-visible {
-  outline: 2px solid rgba(50, 211, 148, 0.72);
-  outline-offset: 2px;
+  background: var(--gold);
+  color: var(--navy);
 }
 
 .return-chart-visual {
   position: relative;
   min-height: 320px;
   overflow: hidden;
-  background: #0f322d;
+  border: 1.5px solid rgba(32, 48, 77, 0.12);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
 }
 
 .return-chart-visual svg {
@@ -1779,13 +1789,19 @@ a {
 }
 
 .return-grid-line {
-  stroke: #234039;
+  stroke: rgba(32, 48, 77, 0.16);
   stroke-dasharray: 7 6;
   stroke-width: 1.4;
 }
 
+/* Horizontal line = the target price level; slightly stronger than the grid */
 .return-grid-line.horizontal {
-  stroke: #2c4f48;
+  stroke: rgba(32, 48, 77, 0.34);
+}
+
+.return-area-path {
+  fill: url(#returnAreaFade);
+  stroke: none;
 }
 
 .return-price-path {
@@ -1796,13 +1812,13 @@ a {
 }
 
 .return-current-dot {
-  fill: #0c2b27;
-  stroke: #f2c14e;
+  fill: var(--paper);
+  stroke: var(--gold-3);
   stroke-width: 4;
 }
 
 .return-arrow {
-  fill: #f2c14e;
+  fill: var(--gold-3);
 }
 
 .return-target-label,
@@ -1820,13 +1836,15 @@ a {
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border: 2px solid #e9f3ee;
-  color: #a6c1b8;
+  border: 2px solid var(--navy);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink-soft);
   font-weight: 760;
 }
 
 .return-target-label strong {
-  color: #f1f7f3;
+  color: var(--navy);
 }
 
 .return-current-label {
@@ -1837,8 +1855,8 @@ a {
   gap: 2px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: #eef4f0;
-  color: #0c2b27;
+  background: var(--navy);
+  color: var(--paper);
   text-align: center;
   font-size: 0.72rem;
 }
@@ -1849,7 +1867,7 @@ a {
   top: 42%;
   width: 14px;
   height: 14px;
-  background: #eef4f0;
+  background: var(--navy);
   content: '';
   transform: rotate(45deg);
 }
@@ -1865,7 +1883,7 @@ a {
 }
 
 .return-current-label strong {
-  color: #16463f;
+  color: var(--gold-2);
   font-size: 1rem;
 }
 
@@ -1873,15 +1891,15 @@ a {
   display: grid;
   justify-items: center;
   gap: 8px;
-  color: #bcd2ca;
+  color: var(--ink-soft);
   font-weight: 760;
 }
 
 .return-date-label span {
   padding: 4px 10px;
   border-radius: 999px;
-  background: #16463f;
-  color: #8aa9a0;
+  background: rgba(32, 48, 77, 0.1);
+  color: var(--ink-soft);
 }
 
 .return-date-label.start {
@@ -1900,8 +1918,11 @@ a {
   gap: 2px;
   width: 138px;
   padding: 10px 12px;
-  background: #0c2b27;
-  color: #9bb8af;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard-sm);
+  color: var(--ink-soft);
   font-size: 0.72rem;
   font-weight: 760;
 }
@@ -1915,12 +1936,12 @@ a {
 }
 
 .return-receive-card strong {
-  color: #32d394;
+  color: var(--grass);
   font-size: 1.02rem;
 }
 
 .return-receive-card b {
-  color: #32d394;
+  color: var(--grass);
   font-size: 0.82rem;
 }
 
@@ -1936,24 +1957,24 @@ a {
   align-items: center;
   gap: 18px;
   min-height: 52px;
-  color: #9bb8af;
+  color: var(--ink-soft);
   font-size: 1rem;
   font-weight: 720;
 }
 
 .return-overview-breakdown > div:nth-child(2),
 .return-overview-breakdown > div:nth-child(3) {
-  border-bottom: 1px solid #2c4f48;
+  border-bottom: 1px solid rgba(32, 48, 77, 0.12);
 }
 
 .return-overview-breakdown strong {
-  color: #f1f7f3;
+  color: var(--navy);
   font-weight: 780;
 }
 
 .return-overview-breakdown b,
 .return-receive-row strong {
-  color: #32d394;
+  color: var(--grass);
 }
 
 .return-receive-row {
@@ -1969,7 +1990,7 @@ a {
 }
 
 .return-receive-row i {
-  color: #f1f7f3;
+  color: var(--navy);
   font-size: 1rem;
   font-style: normal;
 }
@@ -2612,12 +2633,6 @@ summary:focus-visible,
   outline-offset: 2px;
 }
 
-/* On dark surfaces the ring needs the lighter accent */
-.return-overview-panel a:focus-visible,
-.return-overview-panel button:focus-visible {
-  outline-color: #32d394;
-}
-
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -3035,137 +3050,6 @@ summary:focus-visible,
 
 .footer-columns a:hover {
   color: var(--navy);
-}
-
-/* ---- Return overview panel → copper sticker (low-contrast, on-brand) ---- */
-.return-overview-panel {
-  background: var(--copper-tint);
-  border: var(--bw) solid var(--navy);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-hard);
-  color: var(--ink);
-}
-
-.return-overview-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.return-overview-heading h3 {
-  color: var(--navy);
-  font-family: var(--font-display);
-}
-
-.return-overview-heading p {
-  color: var(--ink-soft);
-}
-
-.return-scenario-tabs {
-  border: var(--bw) solid var(--copper-line);
-  border-radius: var(--r-sm);
-  background: rgba(255, 253, 245, 0.4);
-}
-
-.return-scenario-tabs button {
-  color: var(--copper-deep);
-  font-family: var(--font-display);
-}
-
-.return-scenario-tabs button.active {
-  background: var(--gold);
-  color: var(--navy);
-}
-
-.return-chart-visual {
-  background: var(--copper-tint-2);
-  border-radius: var(--r-sm);
-}
-
-.return-grid-line {
-  stroke: var(--copper-line);
-}
-
-.return-grid-line.horizontal {
-  stroke: var(--copper);
-}
-
-.return-receive-card {
-  background: var(--paper);
-  border: var(--bw) solid var(--navy);
-  border-radius: var(--r-sm);
-  box-shadow: var(--shadow-hard-sm);
-  color: var(--ink-soft);
-}
-
-.return-receive-card strong,
-.return-receive-card b,
-.return-overview-breakdown b,
-.return-receive-row strong {
-  color: var(--copper-deep);
-}
-
-.return-current-dot {
-  fill: var(--copper-tint-2);
-  stroke: var(--copper-deep);
-}
-
-.return-arrow {
-  fill: var(--copper-deep);
-}
-
-.return-target-label {
-  border-color: var(--navy);
-  color: var(--ink-soft);
-}
-
-.return-target-label strong {
-  color: var(--navy);
-}
-
-.return-current-label {
-  background: var(--navy);
-  color: var(--paper);
-}
-
-.return-current-label::before {
-  background: var(--navy);
-}
-
-.return-current-label strong {
-  color: var(--gold-2);
-}
-
-.return-date-label {
-  color: var(--ink-soft);
-}
-
-.return-date-label span {
-  background: rgba(32, 48, 77, 0.1);
-  color: var(--ink-soft);
-}
-
-.return-overview-breakdown > div {
-  color: var(--ink-soft);
-}
-
-.return-overview-breakdown > div:nth-child(2),
-.return-overview-breakdown > div:nth-child(3) {
-  border-bottom: 1px solid var(--copper-line);
-}
-
-.return-overview-breakdown strong {
-  color: var(--navy);
-}
-
-.return-receive-row i {
-  color: var(--navy);
-}
-
-/* Estimate vs live badge sits in the heading */
-.return-overview-heading .quote-badge {
-  flex: 0 0 auto;
 }
 
 /* ---- Focus ring → bold navy (gold on dark panel) ---- */
@@ -4035,10 +3919,10 @@ dd {
   min-height: 320px;
   margin: 0;
   padding: 24px;
-  border: var(--bw) dashed var(--copper-line);
+  border: var(--bw) dashed rgba(32, 48, 77, 0.28);
   border-radius: var(--r-sm);
-  background: var(--copper-tint-2);
-  color: var(--copper-deep);
+  background: var(--paper-2);
+  color: var(--ink-soft);
   font-weight: 700;
   text-align: center;
 }
@@ -4636,6 +4520,16 @@ dd {
   }
 }
 
+/* Two-column terminal only: the left Return Overview card defines the row
+   height; the reference side follows it exactly (height 0 keeps it out of
+   track sizing, min-height stretches it back) and scrolls internally. */
+@media (min-width: 901px) {
+  .di-terminal-side {
+    height: 0;
+    min-height: 100%;
+  }
+}
+
 @media (max-width: 640px) {
   .di-confirm-arrow {
     display: none;
@@ -4751,4 +4645,67 @@ dd {
 .success-dialog-cta {
   width: 100%;
   margin-top: 6px;
+}
+
+/* ============================================================
+   Wallet connect (dapp-kit web components) → Anker sticker theme
+   ============================================================ */
+
+/* dapp-kit's shadow styles derive --dapp-kit-* from these UNPREFIXED tokens
+   (shadcn-style names: `--dapp-kit-background: var(--background, …)`). Set the
+   unprefixed names on the host elements; they inherit through both shadow
+   trees (button → nested modal), which a direct --dapp-kit-* override cannot
+   do — the modal's own :host mapping would win over inherited values. */
+mysten-dapp-kit-connect-button,
+mysten-dapp-kit-connect-modal {
+  --background: var(--paper);
+  --foreground: var(--navy);
+  --muted: var(--paper-2);
+  --muted-foreground: var(--ink-soft);
+  --popover: var(--paper);
+  --popover-foreground: var(--navy);
+  --primary: var(--gold);
+  --primary-foreground: var(--navy);
+  --secondary: var(--paper-2);
+  --secondary-foreground: var(--navy);
+  --accent: var(--gold-tint);
+  --accent-foreground: var(--navy);
+  --border: rgba(32, 48, 77, 0.35);
+  --input: rgba(32, 48, 77, 0.35);
+  --ring: var(--gold);
+  --destructive: var(--coral);
+  --positive: var(--grass);
+  --radius: var(--r-sm);
+  --cursor-button: pointer;
+  --cursor-menu-item: pointer;
+  --cursor-radio: pointer;
+}
+
+/* Trigger button — mirror of .anker-btn--secondary (paper outline sticker) */
+mysten-dapp-kit-connect-button::part(trigger) {
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: var(--bw) solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-raised);
+  color: var(--color-on-accent);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-hard-sm);
+  transition:
+    background-color 200ms ease,
+    box-shadow 220ms ease,
+    transform 120ms ease;
+}
+
+mysten-dapp-kit-connect-button::part(trigger):hover {
+  background: var(--surface-accent-soft);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--border-strong);
+}
+
+mysten-dapp-kit-connect-button::part(trigger):active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--border-strong);
 }

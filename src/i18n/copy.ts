@@ -148,9 +148,9 @@ export const enCopy = {
       noApr: 'No APR',
     },
     referenceFootnote:
-      'Binance benchmark uses BTCUSDC Dual Investment, matched by target price and nearest settlement time. Offsets beyond 50% of the Anker tenor show as no comparable product. Anker APR is net after protocol fee and based on live DeepBook Predict quote preview.',
+      'Binance benchmark: BTCUSDC Dual Investment, matched by price and nearest settlement — no match in range shows as no comparable product. Anker APR is net of protocol fee, from the live Predict quote.',
     hourlyReferenceFootnote:
-      'Hourly tenors are under one day: primary figure is per-period yield in basis points; rows below 1 bp are hidden. Ref. APR is a simple annualization for magnitude only (not a promised rate). Quotes include Predict base/min fee (EWMA congestion is 0 unless gas is an outlier).',
+      'Sub-day tenors show per-period yield in basis points; rows under 1 bp are hidden. Ref. APR is a simple annualization for scale, not a promised rate.',
     estimate: 'Estimate',
     liveQuote: 'Live quote',
     scenarioLabel: 'Return scenario',
@@ -518,9 +518,9 @@ export const zhCnCopy: AppCopy = {
       noApr: '无 APR',
     },
     referenceFootnote:
-      'Binance 基准使用 BTCUSDC 双币赢，按目标价格和最近结算时间匹配。结算偏移超过 Anker 期限 50% 时显示无可比产品。Anker APR 为扣除协议费后的净值，并基于实时 DeepBook Predict 报价预览。',
+      'Binance 基准：BTCUSDC 双币赢，按价格与最近结算时间匹配，范围内无匹配则显示无可比产品。Anker APR 为扣除协议费后的净值，来自实时 Predict 报价。',
     hourlyReferenceFootnote:
-      '小时期限不足一天：主显示为单期收益（基点）；低于 1 基点的档位不展示。参考年化为简单年化，仅供建立量级感，非承诺收益。报价已计入 Predict base/min 费用（EWMA 拥堵费默认 0，仅在 gas 异常时触发）。',
+      '小时级期限主显示为单期收益（基点），低于 1 基点的档位不展示。参考年化仅为量级参考，非承诺收益。',
     estimate: '预估',
     liveQuote: '实时报价',
     scenarioLabel: '收益场景',

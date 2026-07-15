@@ -12,6 +12,9 @@ export const TURBO_DISPLAY_TARGET_ROWS = 16;
 export const DEFAULT_DISPLAY_TARGET_STEP = 500;
 /** Hide Turbo browse rows whose per-period yield is below this (1 bp = 0.01%). */
 export const TURBO_MIN_PERIOD_RETURN_BPS = 1;
+/** Hard cap on reference-table rows after filtering — every tenor shows at most
+    this many, so the side column stays near the Return Overview's height. */
+export const MAX_REFERENCE_SCAN_ROWS = 8;
 
 export interface DualInvestmentScanRow {
   input: DualInvestmentInput;

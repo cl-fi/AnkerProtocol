@@ -103,13 +103,16 @@ export function ReturnOverview({
   const rewardMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
   const isAbove = scenario === 'above';
-  const receiveAmount = isAbove ? format.fixedTokenAmount(total, 6) : format.fixedTokenAmount(btcEquivalent, 8);
+  const receiveAmount = isAbove ? format.fixedTokenAmount(total, 2) : format.fixedTokenAmount(btcEquivalent, 8);
   const receiveAsset = isAbove ? copy.dualInvestment.receiveAssetDusdc : copy.dualInvestment.receiveAssetBtcEquivalent;
   const settleNote = isAbove ? null : copy.dualInvestment.cashSettledTip;
   const equivNoteProps = settleNote
     ? { className: 'di-equiv-note', 'data-tip': settleNote, tabIndex: 0, 'aria-label': `${receiveAsset}. ${settleNote}` }
     : {};
   const chartClassName = isAbove ? 'return-chart-visual above' : 'return-chart-visual below';
+  const pricePathD = isAbove
+    ? 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 138 504 152 C 558 164 586 72 642 48'
+    : 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 98 504 110 C 558 122 514 236 642 230';
 
   return (
     <Card as="article" className="return-overview-panel">
@@ -136,22 +139,20 @@ export function ReturnOverview({
         <svg viewBox="0 0 720 320" role="img" aria-label={copy.dualInvestment.chartLabel}>
           <defs>
             <linearGradient id="returnPathFade" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0%" stopColor="#b9772f" stopOpacity="0.95" />
-              <stop offset="58%" stopColor="#cf9a52" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#b9772f" stopOpacity="0.95" />
+              <stop offset="0%" style={{ stopColor: 'var(--navy)' }} stopOpacity="0.95" />
+              <stop offset="58%" style={{ stopColor: 'var(--slate)' }} stopOpacity="0.75" />
+              <stop offset="100%" style={{ stopColor: 'var(--navy)' }} stopOpacity="0.95" />
+            </linearGradient>
+            <linearGradient id="returnAreaFade" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" style={{ stopColor: 'var(--gold)' }} stopOpacity="0.3" />
+              <stop offset="100%" style={{ stopColor: 'var(--gold)' }} stopOpacity="0.02" />
             </linearGradient>
           </defs>
           <line className="return-grid-line horizontal" x1="46" x2="674" y1="138" y2="138" />
           <line className="return-grid-line" x1="178" x2="178" y1="18" y2="286" />
           <line className="return-grid-line" x1="546" x2="546" y1="18" y2="286" />
-          <path
-            className="return-price-path"
-            d={
-              isAbove
-                ? 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 138 504 152 C 558 164 586 72 642 48'
-                : 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 98 504 110 C 558 122 514 236 642 230'
-            }
-          />
+          <path className="return-area-path" d={`${pricePathD} L 642 320 L 70 320 Z`} />
+          <path className="return-price-path" d={pricePathD} />
           <circle className="return-current-dot" cx="178" cy="88" r="8" />
           <path className="return-arrow" d={isAbove ? 'M 642 48 l -16 -10 l 4 20 z' : 'M 642 230 l -18 -8 l 7 18 z'} />
         </svg>
