@@ -1,6 +1,7 @@
 'use client';
 
-import { useCurrentAccount, useCurrentClient, useDAppKit } from '@mysten/dapp-kit-react';
+import { useCurrentAccount, useCurrentClient, useCurrentWallet, useDAppKit } from '@mysten/dapp-kit-react';
+import { isEnokiWallet } from '@mysten/enoki';
 import { useQueryClient } from '@tanstack/react-query';
 import { WalletCards } from 'lucide-react';
 import { useState } from 'react';
@@ -18,8 +19,8 @@ import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i1
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { buildCreateAccountWrapperTransaction } from '../sui/accountTransactions';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
-import { signAndExecuteWithWallet } from '../sui/walletExecution';
-import type { SuiClientTypes } from '@mysten/sui/client';
+import { isSponsorshipEnabled } from '../sui/sponsoredExecution';
+import { executeWalletTransaction } from '../sui/transactionExecution';
 import { Button, Card } from '../ui';
 
 /**
@@ -222,13 +223,6 @@ export function TargetBuyExecutionPanelView({
   );
 }
 
-function transactionDigest(result: SuiClientTypes.TransactionResult) {
-  if (result.FailedTransaction) {
-    throw new Error(result.FailedTransaction.status.error?.message ?? 'Transaction failed.');
-  }
-  return result.Transaction.digest;
-}
-
 export function TargetBuyExecutionPanel({
   quote,
   productInput,
@@ -243,6 +237,7 @@ export function TargetBuyExecutionPanel({
   const copy = copyForLocale(locale);
   const account = useCurrentAccount();
   const client = useCurrentClient();
+  const currentWallet = useCurrentWallet();
   const dAppKit = useDAppKit();
   const queryClient = useQueryClient();
   const managersQuery = usePredictManagers();
@@ -273,12 +268,22 @@ export function TargetBuyExecutionPanel({
     }
   }
 
+  /** zkLogin accounts own no SUI, so Enoki sessions execute gas-sponsored. */
+  async function shouldSponsor() {
+    return Boolean(currentWallet && isEnokiWallet(currentWallet)) && (await isSponsorshipEnabled());
+  }
+
   function handleCreateManager() {
     if (!account) return;
     void runTransaction(async () => {
       const plan = buildCreateAccountWrapperTransaction();
-      const result = await signAndExecuteWithWallet({ wallet: dAppKit, client, transaction: plan.tx });
-      const nextDigest = transactionDigest(result);
+      const nextDigest = await executeWalletTransaction({
+        wallet: dAppKit,
+        client,
+        transaction: plan.tx,
+        sender: account.address,
+        sponsored: await shouldSponsor(),
+      });
       await client.waitForTransaction({ digest: nextDigest });
       await managersQuery.refetch();
       return nextDigest;
@@ -311,12 +316,13 @@ export function TargetBuyExecutionPanel({
       });
       const simulatedUsdc = Number(prepared.simulatedTotalCostBaseUnits) / 1_000_000;
       setSimulatedCostLabel(`Simulated mint cost: ${simulatedUsdc.toFixed(6)} dUSDC`);
-      const result = await signAndExecuteWithWallet({
+      const nextDigest = await executeWalletTransaction({
         wallet: dAppKit,
         client,
         transaction: prepared.transactionPlan.tx,
+        sender: account.address,
+        sponsored: await shouldSponsor(),
       });
-      const nextDigest = transactionDigest(result);
       await client.waitForTransaction({ digest: nextDigest });
       recordSubscriptionDigest({
         owner: account.address,

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCurrentAccount, useCurrentClient, useDAppKit } from '@mysten/dapp-kit-react';
+import { useCurrentAccount, useCurrentClient, useCurrentWallet, useDAppKit } from '@mysten/dapp-kit-react';
+import { isEnokiWallet } from '@mysten/enoki';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { settlementEstimateForNote, settlementForProductNote } from '../application/settleProductNote';
@@ -12,8 +13,8 @@ import { markProductNoteClaimed, type AnkerProductNoteRecord } from '../sui/anke
 import { buildClaimDualInvestmentNoteTransaction } from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { preflightTransaction } from '../sui/transactionPreflight';
-import { signAndExecuteWithWallet } from '../sui/walletExecution';
-import type { SuiClientTypes } from '@mysten/sui/client';
+import { isSponsorshipEnabled } from '../sui/sponsoredExecution';
+import { executeWalletTransaction } from '../sui/transactionExecution';
 import { formatBtcAmount, formatPreciseAmount, shortId, suiExplorerTxUrl } from './PortfolioFormat';
 import { Button } from '../ui';
 import type { ClaimSuccessSummary } from './ClaimSuccessDialog';
@@ -172,13 +173,6 @@ export function ClaimActionView({
   );
 }
 
-function transactionDigest(result: SuiClientTypes.TransactionResult) {
-  if (result.FailedTransaction) {
-    throw new Error(result.FailedTransaction.status.error?.message ?? 'Transaction failed.');
-  }
-  return result.Transaction.digest;
-}
-
 export function ClaimAction({
   note,
   marketState,
@@ -193,6 +187,7 @@ export function ClaimAction({
   const copy = copyForLocale(locale);
   const account = useCurrentAccount();
   const client = useCurrentClient();
+  const currentWallet = useCurrentWallet();
   const dAppKit = useDAppKit();
   const queryClient = useQueryClient();
   const [isPending, setIsPending] = useState(false);
@@ -215,8 +210,14 @@ export function ClaimAction({
         settlement,
       });
       await preflightTransaction({ client, sender: account.address, transaction: plan.tx });
-      const result = await signAndExecuteWithWallet({ wallet: dAppKit, client, transaction: plan.tx });
-      const nextDigest = transactionDigest(result);
+      const sponsored = Boolean(currentWallet && isEnokiWallet(currentWallet)) && (await isSponsorshipEnabled());
+      const nextDigest = await executeWalletTransaction({
+        wallet: dAppKit,
+        client,
+        transaction: plan.tx,
+        sender: account.address,
+        sponsored,
+      });
       setDigest(nextDigest);
       onClaimSuccess({
         note: { principal: note.principal, targetPrice: note.targetPrice },

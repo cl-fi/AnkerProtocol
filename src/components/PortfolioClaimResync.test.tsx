@@ -115,6 +115,7 @@ const mockDAppKit = {
 vi.mock('@mysten/dapp-kit-react', () => ({
   useCurrentAccount: () => ({ address: OWNER }),
   useCurrentClient: () => mockClient,
+  useCurrentWallet: () => null,
   useDAppKit: () => mockDAppKit,
 }));
 

@@ -36,6 +36,7 @@ vi.mock('@mysten/dapp-kit-react', () => ({
     simulateTransaction: mocks.simulateTransaction,
     executeTransaction: mocks.executeTransaction,
   }),
+  useCurrentWallet: () => null,
   useDAppKit: () => ({
     signTransaction: mocks.signTransaction,
   }),

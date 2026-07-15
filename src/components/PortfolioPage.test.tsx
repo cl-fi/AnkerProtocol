@@ -18,6 +18,7 @@ import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 vi.mock('@mysten/dapp-kit-react', () => ({
   useCurrentAccount: () => null,
   useCurrentClient: () => ({}),
+  useCurrentWallet: () => null,
   useDAppKit: () => ({ signTransaction: vi.fn() }),
 }));
 
