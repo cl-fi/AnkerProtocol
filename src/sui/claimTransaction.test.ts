@@ -84,6 +84,43 @@ describe('buildClaimDualInvestmentNoteTransaction', () => {
     ]);
   });
 
+  it('skips every redeem when the settlement sweep already removed the legs from Predict', () => {
+    const note = noteFixture();
+    const settlement = settlementForProductNote(note, 63_500);
+    const plan = buildClaimDualInvestmentNoteTransaction({
+      accountAddress: OWNER,
+      note,
+      settlement,
+      livePredictOrderIds: new Set<string>(),
+      config,
+    });
+
+    // Payout math is unchanged — the sweep already credited the winnings to
+    // the account, so the claim only withdraws and records.
+    expect(plan.payoutAmount).toBe(4_960_000n);
+    expect(plan.calls).toEqual([
+      `${ACCOUNT_PACKAGE_ID}::account::generate_auth`,
+      `${ACCOUNT_PACKAGE_ID}::account::withdraw_funds`,
+      'splitCoins',
+      `${ANKER_PACKAGE_ID}::product_note::record_redeem_with_fee`,
+      'transferObjects',
+    ]);
+  });
+
+  it('redeems only the legs still open on Predict when the sweep was partial', () => {
+    const note = noteFixture();
+    const settlement = settlementForProductNote(note, 63_500);
+    const plan = buildClaimDualInvestmentNoteTransaction({
+      accountAddress: OWNER,
+      note,
+      settlement,
+      livePredictOrderIds: new Set(['22']),
+      config,
+    });
+
+    expect(plan.calls.filter((call) => call.endsWith('::expiry_market::redeem_settled'))).toHaveLength(1);
+  });
+
   it('rejects notes whose order ids no longer align with their legs', () => {
     const note = { ...noteFixture(), orderIds: [11n] };
     expect(() =>

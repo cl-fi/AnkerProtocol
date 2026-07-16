@@ -24,6 +24,8 @@ const chain = {
   rejectAfterBroadcast: false,
   // Adds a second, unsettled note so PortfolioPage shows filter tabs.
   includeActiveNote: false,
+  // Settlement sweep already redeemed the legs out of the predict account.
+  predictPositionsSwept: false,
 };
 
 function noteFieldsJson() {
@@ -69,7 +71,65 @@ function activeNoteFieldsJson() {
   };
 }
 
+const WRAPPER_ID = `0x${'b'.repeat(64)}`;
+const INNER_ACCOUNT_ID = `0x${'e'.repeat(64)}`;
+const PREDICT_APP_FIELD_ID = `0x${'f'.repeat(64)}`;
+const POSITIONS_TABLE_ID = `0x${'1'.repeat(64)}`;
+
+// PositionKey BCS: market id (32 bytes) ++ order id (u256 LE).
+function positionKeyBcs(marketId: string, orderId: bigint): Uint8Array {
+  const bytes = new Uint8Array(64);
+  bytes.set(
+    marketId
+      .slice(2)
+      .match(/../g)!
+      .map((pair) => Number.parseInt(pair, 16)),
+    0,
+  );
+  let value = orderId;
+  for (let i = 32; i < 64; i += 1) {
+    bytes[i] = Number(value & 0xffn);
+    value >>= 8n;
+  }
+  return bytes;
+}
+
 const mockClient = {
+  core: {
+    getObject: vi.fn(async ({ objectId }: { objectId: string }) => {
+      if (objectId === WRAPPER_ID) {
+        return { object: { json: { account: { account_id: INNER_ACCOUNT_ID } } } };
+      }
+      if (objectId === PREDICT_APP_FIELD_ID) {
+        return { object: { json: { value: { positions: { id: POSITIONS_TABLE_ID } } } } };
+      }
+      throw new Error(`unexpected getObject ${objectId}`);
+    }),
+    listDynamicFields: vi.fn(async ({ parentId }: { parentId: string }) => {
+      if (parentId === INNER_ACCOUNT_ID) {
+        return {
+          dynamicFields: [
+            {
+              fieldId: PREDICT_APP_FIELD_ID,
+              name: { type: '0xdb3e::account::DataKey<0xdb3e::predict_account::PredictApp>' },
+            },
+          ],
+          hasNextPage: false,
+          cursor: null,
+        };
+      }
+      if (parentId === POSITIONS_TABLE_ID) {
+        return {
+          dynamicFields: chain.predictPositionsSwept
+            ? []
+            : [{ name: { type: '0xdb3e::predict_account::PositionKey', bcs: positionKeyBcs(MARKET_ID, 11n) } }],
+          hasNextPage: false,
+          cursor: null,
+        };
+      }
+      throw new Error(`unexpected listDynamicFields ${parentId}`);
+    }),
+  },
   listOwnedObjects: vi.fn(async () => ({
     objects: [
       {
@@ -170,8 +230,16 @@ afterEach(() => {
   chain.executions = 0;
   chain.rejectAfterBroadcast = false;
   chain.includeActiveNote = false;
+  chain.predictPositionsSwept = false;
   vi.clearAllMocks();
 });
+
+function lastSignedTransactionJson() {
+  const calls = mockDAppKit.signTransaction.mock.calls as unknown as [{ transaction?: { getData(): unknown } }][];
+  const call = calls.at(-1)?.[0];
+  if (!call?.transaction) throw new Error('no transaction was signed');
+  return JSON.stringify(call.transaction.getData());
+}
 
 describe('claim flow chain resync', () => {
   it('flips the note to claimed and pops the success card after a successful claim', async () => {
@@ -193,6 +261,24 @@ describe('claim flow chain resync', () => {
     expect(screen.queryByRole('button', { name: 'Claim payout' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Details' }));
     expect(await screen.findByText('You received')).toBeVisible();
+    expect(chain.executions).toBe(1);
+    // The leg is still open on Predict, so the claim redeems it on-chain.
+    expect(lastSignedTransactionJson()).toContain('redeem_settled');
+  });
+
+  it('claims without redeem calls once the settlement sweep removed the positions', async () => {
+    // After settlement a permissionless sweep can redeem every leg straight
+    // into the account; a claim that still calls redeem_settled aborts in
+    // predict_account::remove_position. The claim must withdraw-only instead.
+    chain.predictPositionsSwept = true;
+    renderHarness();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Claim payout' }));
+
+    await screen.findByRole('dialog', { name: 'Claim confirmed' });
+    const signed = lastSignedTransactionJson();
+    expect(signed).not.toContain('redeem_settled');
+    expect(signed).toContain('record_redeem_with_fee');
     expect(chain.executions).toBe(1);
   });
 

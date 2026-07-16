@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { settlementEstimateForNote, settlementForProductNote } from '../application/settleProductNote';
 import { isDemoMode } from '../config/runtimeModes';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
+import { fetchLivePredictOrderIds } from '../deepbook/predictPositions';
 import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 import type { SettlementResult } from '../products/settlement';
 import { markProductNoteClaimed, type AnkerProductNoteRecord } from '../sui/ankerPortfolio';
@@ -228,10 +229,19 @@ export function useClaimNote({
     setError(null);
     try {
       const settlement = settlementForProductNote(note, marketState.settlementPrice);
+      // The settlement sweep may have already redeemed the legs into the
+      // account; redeeming a missing position aborts on-chain. When the
+      // position table is unreadable, fall back to redeeming everything —
+      // preflight still guards the transaction.
+      const livePredictOrderIds = await fetchLivePredictOrderIds(client, {
+        wrapperId: note.wrapperId,
+        expiryMarketId: note.oracleId,
+      }).catch(() => undefined);
       const plan = buildClaimDualInvestmentNoteTransaction({
         accountAddress: account.address,
         note,
         settlement,
+        livePredictOrderIds,
       });
       await preflightTransaction({ client, sender: account.address, transaction: plan.tx });
       const sponsored = Boolean(currentWallet && isEnokiWallet(currentWallet)) && (await isSponsorshipEnabled());

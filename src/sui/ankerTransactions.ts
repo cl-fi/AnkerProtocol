@@ -43,6 +43,13 @@ export function buildClaimDualInvestmentNoteTransaction(input: {
   accountAddress: string;
   note: AnkerProductNoteRecord;
   settlement: SettlementResult;
+  /**
+   * Order ids (as decimal strings) still open on Predict for this note's
+   * market. After settlement a permissionless sweep may redeem legs directly
+   * into the account — those legs must be skipped or `redeem_settled` aborts
+   * on the missing position. Omit to redeem every leg.
+   */
+  livePredictOrderIds?: ReadonlySet<string>;
   config?: AnkerProtocolConfig;
 }): ClaimDualInvestmentTransactionPlan {
   assertTransactionsEnabled();
@@ -70,25 +77,31 @@ export function buildClaimDualInvestmentNoteTransaction(input: {
   const accumulatorRoot = tx.object(config.accumulatorRoot);
   const clock = tx.object.clock();
 
-  calls.push(
-    ...predictAdapter.redeemLegs({
-      tx,
-      expiryMarketId: input.note.oracleId,
-      wrapperId: input.note.wrapperId,
-      legs: input.note.orderIds.map((orderId, index) => ({
-        orderId,
-        quantityBaseUnits: input.note.legs[index].quantityBaseUnits,
-      })),
-      config: {
-        predictPackageId: config.predictPackageId,
-        accountRegistryId: config.accountRegistryId,
-        protocolConfigId: config.protocolConfigId,
-        oracleRegistryId: config.oracleRegistryId,
-        pythFeedId: config.feeds.pyth,
-        accumulatorRoot: config.accumulatorRoot,
-      },
-    }),
-  );
+  const redeemableLegs = input.note.orderIds
+    .map((orderId, index) => ({
+      orderId,
+      quantityBaseUnits: input.note.legs[index].quantityBaseUnits,
+    }))
+    .filter((leg) => input.livePredictOrderIds?.has(leg.orderId.toString()) ?? true);
+
+  if (redeemableLegs.length > 0) {
+    calls.push(
+      ...predictAdapter.redeemLegs({
+        tx,
+        expiryMarketId: input.note.oracleId,
+        wrapperId: input.note.wrapperId,
+        legs: redeemableLegs,
+        config: {
+          predictPackageId: config.predictPackageId,
+          accountRegistryId: config.accountRegistryId,
+          protocolConfigId: config.protocolConfigId,
+          oracleRegistryId: config.oracleRegistryId,
+          pythFeedId: config.feeds.pyth,
+          accumulatorRoot: config.accumulatorRoot,
+        },
+      }),
+    );
+  }
 
   const authTarget = `${config.accountPackageId}::account::generate_auth`;
   calls.push(authTarget);
