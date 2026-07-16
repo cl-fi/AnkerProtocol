@@ -1,3 +1,5 @@
+import { ArrowRight, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import type { HeadlineStats } from '../recorder/aggregateHeadlineStats';
 import type { AnalyticsStatsLoad } from '../recorder/loadAnalyticsStats';
 import {
@@ -6,12 +8,14 @@ import {
   formatEdgePts,
   formatInteger,
   formatPercent,
+  localizedPath,
   type Locale,
 } from '../i18n';
+import { AnalyticsRecorderStatus } from './AnalyticsRecorderStatus';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { EdgeChart } from './EdgeChart';
-import { Stat, StatGroup } from '../ui';
+import { buttonClassName, Stat, StatGroup } from '../ui';
 
 function formatSampleStartDate(sampleStartMs: number | null, locale: Locale) {
   if (sampleStartMs === null) return null;
@@ -28,13 +32,51 @@ function statOrEmpty(value: string | null, empty: string) {
   return value ?? empty;
 }
 
-function HeadlineStatsCards({
+/**
+ * Verdict band — the page's one-sentence story ("Anker leads X% of the time,
+ * by Y pts"), promoted above the supporting counts. Mirrors the Portfolio
+ * wallet band: display-size hero figure + gold accent pill.
+ */
+function VerdictBand({
   stats,
+  startDate,
   locale,
 }: {
   stats: HeadlineStats | null;
+  startDate: string | null;
   locale: Locale;
 }) {
+  const copy = copyForLocale(locale);
+  const leadingPct =
+    stats?.leadingPct == null ? null : formatPercent(stats.leadingPct, locale, { maximumFractionDigits: 1 });
+  const medianEdge = stats?.medianEdgePp == null ? null : formatEdgePts(stats.medianEdgePp, locale);
+  const samples = stats === null ? null : formatInteger(stats.sampleCount, locale);
+
+  return (
+    <div className="analytics-verdict">
+      <span className="analytics-verdict-label">{copy.analytics.leadingPct}</span>
+      <span className="analytics-verdict-row">
+        <strong className="analytics-verdict-value">{leadingPct ?? copy.analytics.emptyValue}</strong>
+        {medianEdge !== null ? (
+          <em className="analytics-verdict-edge">
+            <Sparkles size={13} aria-hidden="true" />
+            <span>{copy.analytics.medianEdge}</span> {medianEdge}
+          </em>
+        ) : null}
+      </span>
+      {samples !== null ? (
+        <span className="analytics-verdict-support">
+          {startDate
+            ? copy.analytics.verdictSupport(samples, startDate)
+            : copy.analytics.verdictSupportNoDate(samples)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Supporting tiles: data-credibility metrics, deliberately below the verdict. */
+function SupportingStats({ stats, locale }: { stats: HeadlineStats | null; locale: Locale }) {
   const copy = copyForLocale(locale);
   const empty = copy.analytics.emptyValue;
 
@@ -43,25 +85,13 @@ function HeadlineStatsCards({
       <Stat
         label={copy.analytics.sampleCount}
         value={stats ? formatInteger(stats.sampleCount, locale) : empty}
-      />
-      <Stat
-        label={copy.analytics.leadingPct}
-        value={statOrEmpty(
-          stats?.leadingPct == null ? null : formatPercent(stats.leadingPct, locale, { maximumFractionDigits: 1 }),
-          empty,
-        )}
-      />
-      <Stat
-        label={copy.analytics.medianEdge}
-        value={statOrEmpty(
-          stats?.medianEdgePp == null ? null : formatEdgePts(stats.medianEdgePp, locale),
-          empty,
-        )}
+        hint={copy.analytics.sampleCountHint}
       />
       <Stat
         label={copy.analytics.leadingStreak}
         value={stats ? formatInteger(stats.currentLeadingStreak, locale) : empty}
         sub={stats ? copy.analytics.leadingStreakUnit : undefined}
+        hint={copy.analytics.leadingStreakHint}
       />
       <Stat
         label={copy.analytics.ladderCoverage}
@@ -71,6 +101,7 @@ function HeadlineStatsCards({
             : formatPercent(stats.ladderCoverage, locale, { maximumFractionDigits: 1 }),
           empty,
         )}
+        hint={copy.analytics.ladderCoverageHint}
       />
     </StatGroup>
   );
@@ -88,6 +119,10 @@ export function AnalyticsPage({
   const edgeTracks = load.kind === 'ready' ? load.edgeTracks : { tracks: [] };
   const showUnavailableBanner = load.kind === 'unavailable' || (stats !== null && stats.sampleCount === 0);
   const startDate = formatSampleStartDate(stats?.sampleStartMs ?? null, locale);
+  const lastRunMs =
+    edgeTracks.tracks.length === 0
+      ? null
+      : Math.max(...edgeTracks.tracks.map((track) => track.summary.lastBoundaryMs));
 
   return (
     <main className="dual-page" id="benchmark-analytics">
@@ -98,11 +133,13 @@ export function AnalyticsPage({
           <h1>{copy.analytics.title}</h1>
           <p>{copy.analytics.subtitle}</p>
         </div>
+        <AnalyticsRecorderStatus lastRunMs={lastRunMs} locale={locale} />
       </section>
 
       <section className="calculation-section" aria-label={copy.analytics.statsLabel}>
         {showUnavailableBanner ? <p className="analytics-unavailable">{copy.analytics.unavailable}</p> : null}
-        <HeadlineStatsCards stats={stats} locale={locale} />
+        <VerdictBand stats={stats} startDate={startDate} locale={locale} />
+        <SupportingStats stats={stats} locale={locale} />
       </section>
 
       <EdgeChart edgeTracks={edgeTracks} locale={locale} />
@@ -112,23 +149,42 @@ export function AnalyticsPage({
           <h2 id="analytics-methodology-title">{copy.analytics.methodologyTitle}</h2>
         </div>
         <p className="analytics-methodology-intro">{copy.analytics.methodologyIntro}</p>
-        <ul>
-          <li>{copy.analytics.methodologyCadence}</li>
-          <li>{copy.analytics.methodologyMatching}</li>
-          <li>{copy.analytics.methodologyFeeBasis}</li>
-          <li>{copy.analytics.methodologyDenominator}</li>
-          <li>{copy.analytics.methodologyChart}</li>
-          <li>
-            {startDate
-              ? copy.analytics.methodologyStartDate(startDate)
-              : copy.analytics.methodologyStartPending}
-          </li>
-          <li>
-            <a href={copy.analytics.methodologyRepoUrl} target="_blank" rel="noreferrer">
-              {copy.analytics.methodologyRepo}
-            </a>
-          </li>
-        </ul>
+        <dl className="analytics-methodology-grid">
+          {copy.analytics.methodologyEntries.map((entry) => (
+            <div key={entry.term}>
+              <dt>{entry.term}</dt>
+              <dd>{entry.def}</dd>
+            </div>
+          ))}
+          <div>
+            <dt>{copy.analytics.methodologyStartTerm}</dt>
+            <dd>
+              {startDate
+                ? copy.analytics.methodologyStartDate(startDate)
+                : copy.analytics.methodologyStartPending}
+            </dd>
+          </div>
+        </dl>
+        <p className="analytics-methodology-source">
+          <a href={copy.analytics.methodologyRepoUrl} target="_blank" rel="noreferrer">
+            {copy.analytics.methodologyRepo}
+          </a>
+        </p>
+      </section>
+
+      {/* Close the loop: the Edge shown here historically is live, rung by
+          rung, on the product ladder — send the convinced reader there. */}
+      <section className="calculation-section">
+        <div className="analytics-cta">
+          <div>
+            <h2>{copy.analytics.ctaTitle}</h2>
+            <p>{copy.analytics.ctaBody}</p>
+          </div>
+          <Link className={buttonClassName()} href={localizedPath(locale, '/app/dual-investment')}>
+            {copy.analytics.ctaButton}
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
       </section>
 
       <AppFooter locale={locale} />

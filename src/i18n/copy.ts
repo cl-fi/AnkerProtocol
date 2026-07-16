@@ -308,6 +308,16 @@ export const enCopy = {
     leadingStreakUnit: 'Runs',
     ladderCoverage: 'Ladder coverage',
     emptyValue: '—',
+    sampleCountHint: 'Live-source matched only',
+    leadingStreakHint: 'Consecutive Runs ahead of Binance',
+    ladderCoverageHint: 'Rows with a comparable Binance product',
+    verdictSupport: (samples: string, date: string) =>
+      `Across ${samples} live-source matched Samples since ${date}.`,
+    verdictSupportNoDate: (samples: string) => `Across ${samples} live-source matched Samples.`,
+    recorderKicker: 'Recorder',
+    recorderLive: 'Live',
+    recorderDelayed: 'Delayed',
+    recorderLastRun: (time: string) => `Last Run ${time}`,
     unavailable:
       'Benchmark Samples are not available yet. Headline statistics appear once the Recorder has stored live matches.',
     chartLabel: 'Edge Track',
@@ -315,7 +325,9 @@ export const enCopy = {
     chartSubtitle:
       'One Expiry Market at a time: the median Edge across its ladder rows per Run, with a min–max band. Above the zero line, Anker leads Binance.',
     chartEmpty: 'No live-source matched Samples yet — the Edge chart appears once the Recorder has stored matches.',
-    chartZeroAxis: '0',
+    chartLeadsAbove: 'Anker leads ↑',
+    chartLeadsBelow: 'Binance leads ↓',
+    legendBand: 'Min–max across ladder rows',
     marketSelectLabel: 'Expiry Market',
     marketGroupActive: 'Active',
     marketGroupEnded: 'Ended',
@@ -333,20 +345,37 @@ export const enCopy = {
     tooltipBinanceApr: 'Nearest-expiry Binance APR',
     methodologyTitle: 'Methodology',
     methodologyIntro: 'How these figures are defined and what they include.',
-    methodologyCadence:
-      'Sampling cadence: every 15 minutes. Each Run records day-shelf ladder rows that display APR and a Benchmark comparison.',
-    methodologyMatching:
-      'Matching rule: same target price and nearest Binance settlement time. Offsets are disclosed on the product page. When the settlement offset exceeds 50% of the Anker tenor, the row is recorded as no comparable product.',
-    methodologyFeeBasis:
-      'Fee basis: Anker APR is net after protocol fee (same net APR shown on the product page).',
-    methodologyDenominator:
-      'Denominator: headline statistics count only live-source matched Samples. Snapshot-fallback and unmatched rows are excluded from headline figures but included in ladder coverage. Failed Runs record no Samples, so they never enter headline figures or coverage.',
-    methodologyChart:
-      "Chart: one Edge Track per Expiry Market — each point is the median Edge across that market's ladder rows in one Run, with a min–max band. A Track ends when its market leaves the day shelf.",
-    methodologyStartDate: (date: string) => `Sample start date: ${date}.`,
-    methodologyStartPending: 'Sample start date: pending — no Samples stored yet.',
+    methodologyEntries: [
+      {
+        term: 'Sampling cadence',
+        def: 'Every 15 minutes. Each Run records day-shelf ladder rows that display APR and a Benchmark comparison.',
+      },
+      {
+        term: 'Matching rule',
+        def: 'Same target price and nearest Binance settlement time. Offsets are disclosed on the product page. When the settlement offset exceeds 50% of the Anker tenor, the row is recorded as no comparable product.',
+      },
+      {
+        term: 'Fee basis',
+        def: 'Anker APR is net after protocol fee (same net APR shown on the product page).',
+      },
+      {
+        term: 'Denominator',
+        def: 'Headline statistics count only live-source matched Samples. Snapshot-fallback and unmatched rows are excluded from headline figures but included in ladder coverage. Failed Runs record no Samples, so they never enter headline figures or coverage.',
+      },
+      {
+        term: 'Chart',
+        def: "One Edge Track per Expiry Market — each point is the median Edge across that market's ladder rows in one Run, with a min–max band. A Track ends when its market leaves the day shelf.",
+      },
+    ],
+    methodologyStartTerm: 'Sample start date',
+    methodologyStartDate: (date: string) => `${date}.`,
+    methodologyStartPending: 'Pending — no Samples stored yet.',
     methodologyRepo: 'Source repository',
     methodologyRepoUrl: 'https://github.com/cl-fi/AnkerProtocol',
+    ctaTitle: "See today's Edge, rung by rung",
+    ctaBody:
+      'The product ladder runs the same comparison live for every target price — Anker net APR next to the nearest-expiry Binance product.',
+    ctaButton: 'Open Dual Investment',
   },
   execution: {
     createContainerHelp: 'A single on-chain setup for your wallet — done once, then every subscription is one confirm.',
@@ -727,13 +756,24 @@ export const zhCnCopy: AppCopy = {
     leadingStreakUnit: '轮',
     ladderCoverage: '阶梯覆盖率',
     emptyValue: '—',
+    sampleCountHint: '仅计实时匹配样本',
+    leadingStreakHint: '连续领先 Binance 的采样轮数',
+    ladderCoverageHint: '有可比 Binance 产品的阶梯行占比',
+    verdictSupport: (samples, date) => `基于自 ${date} 以来的 ${samples} 个实时匹配样本。`,
+    verdictSupportNoDate: (samples) => `基于 ${samples} 个实时匹配样本。`,
+    recorderKicker: '记录器',
+    recorderLive: '实时',
+    recorderDelayed: '延迟',
+    recorderLastRun: (time) => `上次记录 ${time}`,
     unavailable: '基准样本尚不可用。记录器存入实时匹配样本后，头条统计才会显示。',
     chartLabel: 'Edge 领先轨迹',
     chartTitle: 'Edge 随时间变化',
     chartSubtitle:
       '一次查看一个到期市场：每轮采样取该市场阶梯行 Edge 的中位数，色带为最小–最大区间。高于零轴即 Anker 领先 Binance。',
     chartEmpty: '尚无实时来源且已匹配的样本——记录器存入匹配样本后，Edge 图表才会显示。',
-    chartZeroAxis: '0',
+    chartLeadsAbove: 'Anker 领先 ↑',
+    chartLeadsBelow: 'Binance 领先 ↓',
+    legendBand: '阶梯行最小–最大区间',
     marketSelectLabel: '到期市场',
     marketGroupActive: '活跃',
     marketGroupEnded: '已结束',
@@ -750,18 +790,30 @@ export const zhCnCopy: AppCopy = {
     tooltipBinanceApr: '最近到期 Binance APR',
     methodologyTitle: '方法说明',
     methodologyIntro: '这些数字如何定义，以及它们包含什么。',
-    methodologyCadence: '采样节奏：每 15 分钟一次。每一轮记录展示 APR 与基准对比的日期限阶梯行。',
-    methodologyMatching:
-      '匹配规则：相同目标价格 + 最近的 Binance 结算时间。产品页会披露结算偏移。当结算偏移超过 Anker 期限的 50% 时，该行记为无可比产品。',
-    methodologyFeeBasis: '费用口径：Anker APR 为扣除协议费后的净值（与产品页净 APR 一致）。',
-    methodologyDenominator:
-      '统计口径：头条统计只计入实时来源且已匹配的样本。快照回退与未匹配行不计入头条数字，但计入阶梯覆盖率。失败轮次不产生样本，因此既不进入头条数字，也不进入覆盖率。',
-    methodologyChart:
-      '图表：每个到期市场一条 Edge 领先轨迹——每个点是该市场单轮阶梯行 Edge 的中位数，色带为最小–最大区间。市场离开日货架后，轨迹随之结束。',
-    methodologyStartDate: (date: string) => `样本起始日期：${date}。`,
-    methodologyStartPending: '样本起始日期：待定——尚无已存样本。',
+    methodologyEntries: [
+      { term: '采样节奏', def: '每 15 分钟一次。每一轮记录展示 APR 与基准对比的日期限阶梯行。' },
+      {
+        term: '匹配规则',
+        def: '相同目标价格 + 最近的 Binance 结算时间。产品页会披露结算偏移。当结算偏移超过 Anker 期限的 50% 时，该行记为无可比产品。',
+      },
+      { term: '费用口径', def: 'Anker APR 为扣除协议费后的净值（与产品页净 APR 一致）。' },
+      {
+        term: '统计口径',
+        def: '头条统计只计入实时来源且已匹配的样本。快照回退与未匹配行不计入头条数字，但计入阶梯覆盖率。失败轮次不产生样本，因此既不进入头条数字，也不进入覆盖率。',
+      },
+      {
+        term: '图表',
+        def: '每个到期市场一条 Edge 领先轨迹——每个点是该市场单轮阶梯行 Edge 的中位数，色带为最小–最大区间。市场离开日货架后，轨迹随之结束。',
+      },
+    ],
+    methodologyStartTerm: '样本起始日期',
+    methodologyStartDate: (date) => `${date}。`,
+    methodologyStartPending: '待定——尚无已存样本。',
     methodologyRepo: '源代码仓库',
     methodologyRepoUrl: 'https://github.com/cl-fi/AnkerProtocol',
+    ctaTitle: '逐档查看今天的 Edge',
+    ctaBody: '产品页阶梯对每个目标价实时运行同一套对比——Anker 净 APR 与最近到期的 Binance 产品并排呈现。',
+    ctaButton: '前往双币投资',
   },
   execution: {
     createContainerHelp: '首次使用需在链上开通一次，之后每笔认购只需一次钱包确认。',

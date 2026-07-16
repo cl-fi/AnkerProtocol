@@ -3720,6 +3720,12 @@ dd {
   font-size: 0.82rem;
 }
 
+.di-position-stats small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
 /* Claim area */
 .di-claim {
   display: flex;
@@ -3874,9 +3880,75 @@ dd {
   }
 }
 
-/* Analytics — five headline cards + Edge chart + methodology dictionary */
+/* Analytics — verdict band + three supporting tiles + Edge chart + methodology grid */
+
+/* Verdict band: the page's conclusion as the hero figure (pf-wallet pattern) —
+   supporting counts live in the tiles below, never up here. */
+.analytics-verdict {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 24px 28px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+}
+
+.analytics-verdict-label {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.analytics-verdict-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.analytics-verdict-value {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+/* Median Edge rides beside the hero number as the gold pill — same accent
+   grammar as the Portfolio expected-rewards pill. */
+.analytics-verdict-edge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: var(--bw) solid var(--gold-3);
+  border-radius: 999px;
+  background: var(--gold-tint);
+  color: var(--gold-3);
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.analytics-verdict-support {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .analytics-stats {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Hero-right Recorder heartbeat — the ticker slot, one size down from the
+   product page's BTC price. */
+.di-hero-ticker.analytics-recorder strong {
+  font-size: 1.35rem;
+  line-height: 1.2;
 }
 
 .analytics-unavailable {
@@ -3892,6 +3964,42 @@ dd {
   font-size: 0.98rem;
   line-height: 1.5;
   max-width: 46rem;
+}
+
+.analytics-chart-heading {
+  align-items: flex-end;
+}
+
+.analytics-chart-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.analytics-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.analytics-legend-line {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--navy);
+}
+
+.analytics-legend-band {
+  width: 16px;
+  height: 10px;
+  border: 1.5px solid var(--gold);
+  border-radius: 3px;
+  background: var(--gold-tint);
 }
 
 .analytics-edge-chart-frame {
@@ -3987,18 +4095,42 @@ dd {
   line-height: 1.55;
 }
 
-.analytics-methodology ul {
+/* Term/definition cards instead of a bullet wall — same tile grammar as the
+   supporting stats above. */
+.analytics-methodology-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   margin: 0;
-  padding-left: 1.2rem;
+}
+
+.analytics-methodology-grid > div {
+  padding: 14px 16px;
+  border: var(--bw) solid rgba(32, 48, 77, 0.16);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+}
+
+.analytics-methodology-grid dt {
+  margin: 0;
   color: var(--navy);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.analytics-methodology-grid dd {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.analytics-methodology-source {
+  margin: 14px 0 0;
   font-size: 0.95rem;
-  line-height: 1.65;
 }
 
-.analytics-methodology li + li {
-  margin-top: 8px;
-}
-
+.analytics-methodology-source a,
 .analytics-methodology a {
   color: var(--copper-deep);
   font-weight: 700;
@@ -4006,15 +4138,55 @@ dd {
   text-underline-offset: 2px;
 }
 
-@media (max-width: 1100px) {
-  .analytics-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+/* Closing CTA — the convinced reader's next step is the product ladder. */
+.analytics-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 22px 24px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+}
+
+.analytics-cta h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 1.3rem;
+}
+
+.analytics-cta p {
+  margin: 6px 0 0;
+  max-width: 46rem;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 860px) {
+  .analytics-verdict {
+    padding: 20px;
+  }
+
+  .analytics-verdict-value {
+    font-size: 2.1rem;
+  }
+
+  /* Legend drops under the heading once the row gets tight. */
+  .analytics-chart-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }
 
 @media (max-width: 720px) {
-  .analytics-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .analytics-stats,
+  .analytics-methodology-grid {
+    grid-template-columns: 1fr;
   }
 
   .analytics-edge-chart-frame {
@@ -4035,11 +4207,9 @@ dd {
   .analytics-track-summary {
     gap: 6px 18px;
   }
-}
 
-@media (max-width: 480px) {
-  .analytics-stats {
-    grid-template-columns: 1fr;
+  .analytics-cta .anker-btn {
+    width: 100%;
   }
 }
 

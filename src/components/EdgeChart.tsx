@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -36,24 +37,24 @@ function numberLocale(locale: Locale) {
 }
 
 /** Viewer timezone for time labels: undefined = browser local, 'UTC' = pre-hydration fallback. */
-type DisplayTimeZone = 'UTC' | undefined;
+export type DisplayTimeZone = 'UTC' | undefined;
 
 /**
  * Server markup (and the first client render) must agree, but the server does not
  * know the viewer's timezone — so both render UTC, then a post-hydration re-render
  * switches every time label to the viewer's local timezone.
  */
-function useDisplayTimeZone(): DisplayTimeZone {
+export function useDisplayTimeZone(): DisplayTimeZone {
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   return hydrated ? undefined : 'UTC';
 }
 
-function offsetLabel(ms: number, timeZone: DisplayTimeZone) {
+export function offsetLabel(ms: number, timeZone: DisplayTimeZone) {
   return timeZone === 'UTC' ? 'UTC' : utcOffsetLabel(ms);
 }
 
-function formatInstant(ms: number, locale: Locale, timeZone: DisplayTimeZone) {
+export function formatInstant(ms: number, locale: Locale, timeZone: DisplayTimeZone) {
   return new Date(ms).toLocaleString(numberLocale(locale), {
     month: 'short',
     day: 'numeric',
@@ -239,17 +240,37 @@ function TrackChart({
             tick={{ fill: 'var(--ink-soft)', fontSize: 12 }}
             width={72}
           />
-          <ReferenceLine
-            y={0}
-            stroke="var(--navy)"
-            strokeWidth={2}
+          {/* The zero-line semantic lives in the chart itself: tinted half-planes
+              with "who leads" labels, so the plot reads without the caption. */}
+          <ReferenceArea
+            y1={0}
+            y2={domain[1]}
+            fill="var(--grass)"
+            fillOpacity={0.06}
+            stroke="none"
             label={{
-              value: copy.analytics.chartZeroAxis,
-              position: 'insideTopRight',
-              fill: 'var(--ink-soft)',
+              value: copy.analytics.chartLeadsAbove,
+              position: 'insideTopLeft',
+              fill: 'var(--grass)',
               fontSize: 11,
+              fontWeight: 800,
             }}
           />
+          <ReferenceArea
+            y1={domain[0]}
+            y2={0}
+            fill="var(--coral)"
+            fillOpacity={0.05}
+            stroke="none"
+            label={{
+              value: copy.analytics.chartLeadsBelow,
+              position: 'insideBottomLeft',
+              fill: 'var(--coral)',
+              fontSize: 11,
+              fontWeight: 800,
+            }}
+          />
+          <ReferenceLine y={0} stroke="var(--navy)" strokeWidth={2} />
           <Tooltip
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
@@ -258,11 +279,13 @@ function TrackChart({
               return <EdgeTrackTooltipContent point={point} locale={locale} />;
             }}
           />
+          {/* Gold band matches the product page's ReturnOverview fill — one
+              chart palette across the app (navy line + gold area). */}
           <Area
             dataKey="band"
             stroke="none"
-            fill="var(--navy)"
-            fillOpacity={0.15}
+            fill="var(--gold)"
+            fillOpacity={0.28}
             activeDot={false}
             isAnimationActive={false}
           />
@@ -305,9 +328,23 @@ export function EdgeChart({
 
   return (
     <section className="calculation-section analytics-edge-chart" aria-label={copy.analytics.chartLabel}>
-      <div className="section-heading">
-        <h2>{copy.analytics.chartTitle}</h2>
-        <p>{copy.analytics.chartSubtitle}</p>
+      <div className="section-heading analytics-chart-heading">
+        <div>
+          <h2>{copy.analytics.chartTitle}</h2>
+          <p>{copy.analytics.chartSubtitle}</p>
+        </div>
+        {/* Legend for the two encodings; the band is otherwise only
+            discoverable via the tooltip. */}
+        <div className="analytics-chart-legend">
+          <span>
+            <i className="analytics-legend-line" aria-hidden="true" />
+            {copy.analytics.medianEdge}
+          </span>
+          <span>
+            <i className="analytics-legend-band" aria-hidden="true" />
+            {copy.analytics.legendBand}
+          </span>
+        </div>
       </div>
 
       {selected === null ? (

@@ -11,10 +11,12 @@ export interface StatProps {
   value: ReactNode;
   /** Optional secondary line under the value (rendered as the `<em>` accent). */
   sub?: ReactNode;
+  /** Optional muted one-liner under the value (rendered as `<small>`). */
+  hint?: ReactNode;
 }
 
 /** A single label / value / optional-sub metric. Place inside <StatGroup>. */
-export function Stat({ label, value, sub }: StatProps) {
+export function Stat({ label, value, sub, hint }: StatProps) {
   return (
     <div>
       <span>{label}</span>
@@ -22,6 +24,7 @@ export function Stat({ label, value, sub }: StatProps) {
         {value}
         {sub ? <em>{sub}</em> : null}
       </strong>
+      {hint ? <small>{hint}</small> : null}
     </div>
   );
 }
