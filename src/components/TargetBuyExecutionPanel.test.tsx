@@ -24,7 +24,8 @@ describe('TargetBuyExecutionPanelView', () => {
       />,
     );
 
-    expect(screen.getByText('Connect wallet to subscribe')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
+    expect(screen.queryByText('Connect wallet to subscribe')).not.toBeInTheDocument();
     // No subscribe or setup actions leak into the disconnected state.
     expect(screen.queryByRole('button', { name: 'Subscribe Buy Low' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Set up wallet/ })).not.toBeInTheDocument();

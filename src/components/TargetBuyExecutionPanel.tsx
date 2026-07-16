@@ -175,7 +175,6 @@ export function TargetBuyExecutionPanelView({
             {copy.common.connectWallet}
           </Button>
         )}
-        <p className="ticket-execution-note">{copy.execution.status.connectWallet}</p>
       </div>
     );
   }
