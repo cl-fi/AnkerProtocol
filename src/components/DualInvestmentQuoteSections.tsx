@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw } from 'lucide-react';
+import { Info, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import {
@@ -16,7 +16,6 @@ import {
   isSubDayTenor,
   type DualInvestmentScanRow,
 } from '../products/dualInvestmentScan';
-import { netAprAfterCouponFee } from '../products/feePolicy';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
 import { Button, InputField, Tabs, tabClassName } from '../ui';
@@ -24,6 +23,8 @@ import { Button, InputField, Tabs, tabClassName } from '../ui';
 export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
 export const DEFAULT_PRINCIPAL = 500;
+/** Quick-set deposit fractions of the connected balance — plus a Max chip. */
+export const AMOUNT_FRACTIONS = [0.25, 0.5, 0.75];
 export type DualInvestmentMode = 'buy-low';
 export type BinanceBenchmarkStatus = 'loading' | 'error' | 'ready';
 
@@ -117,10 +118,10 @@ export function DirectionPairBar({
       </div>
 
       <div className="di-select-group di-select-grow">
-        <span className="di-select-label">{copy.dualInvestment.tenor}</span>
+        <span className="di-select-label">{copy.dualInvestment.settlementDate}</span>
         <label className="expiry-select">
           <select
-            aria-label={copy.dualInvestment.tenor}
+            aria-label={copy.dualInvestment.settlementDate}
             value={market?.oracleId ?? ''}
             onChange={(event) => onSelectOracle(event.currentTarget.value)}
           >
@@ -140,10 +141,9 @@ export function BuyLowControls({
   market,
   principal,
   targetPrice,
-  estimateApr,
-  periodReturn = null,
   minTargetPrice = null,
   maxTargetPrice = null,
+  availableBalance = null,
   onPrincipalChange,
   onTargetChange,
   locale = DEFAULT_LOCALE,
@@ -151,12 +151,12 @@ export function BuyLowControls({
   market?: OracleMarket;
   principal: number;
   targetPrice: number;
-  estimateApr: number | null;
-  periodReturn?: number | null;
   /** Lowest fillable Buy Low price (legs below it exceed Predict ask limits). */
   minTargetPrice?: number | null;
   /** Top reference-ladder row — the slider's upper bound. */
   maxTargetPrice?: number | null;
+  /** Connected wallet's subscribable dUSDC — drives the 25/50/75/Max chips. */
+  availableBalance?: number | null;
   onPrincipalChange: (value: number) => void;
   onTargetChange: (value: number) => void;
   locale?: Locale;
@@ -167,15 +167,6 @@ export function BuyLowControls({
     handler(Number(event.currentTarget.value));
   };
   const belowSpot = market ? formatBelowSpot(targetPrice, market.spot, locale) : '--';
-  const subDay = market ? isSubDayTenor(market.expiryMs) : false;
-  const rewardLabel = subDay
-    ? periodReturn !== null
-      ? format.periodReturnBps(periodReturn)
-      : '--'
-    : estimateApr !== null
-      ? `${format.apr(netAprAfterCouponFee(estimateApr))} APR`
-      : '--';
-  const referenceApr = subDay && estimateApr !== null ? netAprAfterCouponFee(estimateApr) : null;
   const targetStep = market ? displayTargetStepForMarket(market) : TURBO_DISPLAY_TARGET_STEP;
   // Slider rungs stay on the display ladder grid, so its floor is the lowest
   // fillable price rounded up to a rung.
@@ -183,55 +174,100 @@ export function BuyLowControls({
   const sliderMax = maxTargetPrice;
   const showSlider = Boolean(market) && sliderMin !== null && sliderMax !== null && sliderMin <= sliderMax;
   const targetTooLow = Boolean(market) && minTargetPrice !== null && targetPrice > 0 && targetPrice < minTargetPrice;
+  // Percent chips only exist once a balance gives them a denominator; whole
+  // dUSDC keeps chip amounts on the input's step=1 grid.
+  const hasBalance = availableBalance !== null && availableBalance >= 1;
+  const maxAmount = hasBalance ? Math.floor(availableBalance) : 0;
+  const amountForFraction = (fraction: number) => Math.max(1, Math.floor(maxAmount * fraction));
+  const insufficientBalance = availableBalance !== null && principal > availableBalance;
 
   return (
     <section className="di-controls" aria-label={copy.dualInvestment.setBuyLowLabel}>
+      {/* Price first, amount second — mirrors the flow the ladder above starts
+          (pick a price, then size the order), and keeps the balance readout on
+          the panel's right edge, clear of the price column's label. */}
       <div className="di-controls-grid">
-        <InputField
-          label={copy.dualInvestment.amount}
-          suffix="dUSDC"
-          min="1"
-          step="1"
-          type="number"
-          value={principal}
-          onChange={updateNumber(onPrincipalChange)}
-        />
-        <InputField
-          label={copy.dualInvestment.buyLowPrice}
-          suffix={belowSpot !== '--' ? `${belowSpot} ${copy.dualInvestment.below}` : 'BTC'}
-          min={sliderMin !== null ? String(sliderMin) : '1'}
-          step={String(targetStep)}
-          type="number"
-          value={targetPrice}
-          onChange={updateNumber(onTargetChange)}
-        />
+        <div className="di-control-col">
+          <InputField
+            label={copy.dualInvestment.buyLowPrice}
+            suffix={belowSpot !== '--' ? `${belowSpot} ${copy.dualInvestment.below}` : 'BTC'}
+            min={sliderMin !== null ? String(sliderMin) : '1'}
+            step={String(targetStep)}
+            type="number"
+            value={targetPrice}
+            onChange={updateNumber(onTargetChange)}
+          />
+          {showSlider ? (
+            <div className="di-target-slider-wrap">
+              <input
+                type="range"
+                className="di-target-slider"
+                aria-label={copy.dualInvestment.buyLowPriceSlider}
+                min={sliderMin as number}
+                max={sliderMax as number}
+                step={targetStep}
+                value={Math.min(Math.max(targetPrice, sliderMin as number), sliderMax as number)}
+                onChange={updateNumber(onTargetChange)}
+              />
+              <div className="di-slider-scale" aria-hidden="true">
+                <span>{format.usd(sliderMin as number)}</span>
+                <span>{format.usd(sliderMax as number)}</span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <div className="di-control-col">
+          <InputField
+            label={
+              <>
+                {copy.dualInvestment.amount}
+                {hasBalance ? (
+                  <span className="di-label-balance">
+                    <strong>{format.fixedTokenAmount(availableBalance, 2)} dUSDC</strong>
+                  </span>
+                ) : null}
+              </>
+            }
+            suffix="dUSDC"
+            min="1"
+            step="1"
+            type="number"
+            value={principal}
+            onChange={updateNumber(onPrincipalChange)}
+          />
+          {hasBalance ? (
+            <div className="di-amount-chips" role="group" aria-label={copy.dualInvestment.amountPresetsLabel}>
+              {AMOUNT_FRACTIONS.map((fraction) => (
+                <button
+                  className={principal === amountForFraction(fraction) ? 'active' : ''}
+                  key={fraction}
+                  type="button"
+                  onClick={() => onPrincipalChange(amountForFraction(fraction))}
+                >
+                  {Math.round(fraction * 100)}%
+                </button>
+              ))}
+              <button
+                className={principal === maxAmount ? 'active' : ''}
+                type="button"
+                onClick={() => onPrincipalChange(maxAmount)}
+              >
+                {copy.dualInvestment.maxAmount}
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
-      {showSlider ? (
-        <input
-          type="range"
-          className="di-target-slider"
-          aria-label={copy.dualInvestment.buyLowPriceSlider}
-          min={sliderMin as number}
-          max={sliderMax as number}
-          step={targetStep}
-          value={Math.min(Math.max(targetPrice, sliderMin as number), sliderMax as number)}
-          onChange={updateNumber(onTargetChange)}
-        />
+      {insufficientBalance ? (
+        <p className="di-target-error" role="alert">
+          {copy.dualInvestment.insufficientBalance(format.fixedTokenAmount(availableBalance, 2))}
+        </p>
       ) : null}
       {targetTooLow ? (
         <p className="di-target-error" role="alert">
           {copy.dualInvestment.targetBelowFillable(format.usd(minTargetPrice as number))}
         </p>
       ) : null}
-      <div className="di-controls-apr">
-        <span>{subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.estimatedReward}</span>
-        <div className="di-controls-apr-values">
-          <strong>{rewardLabel}</strong>
-          {referenceApr !== null ? (
-            <span className="di-ref-apr">{copy.dualInvestment.referenceApr(format.referenceApr(referenceApr))}</span>
-          ) : null}
-        </div>
-      </div>
     </section>
   );
 }
@@ -275,10 +311,7 @@ export function ReferenceTable({
     if (binanceStatus === 'loading') return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.loading };
     if (binanceStatus === 'error')
       return { className: 'muted-cell benchmark-status is-error', label: copy.dualInvestment.binanceStatus.fetchError };
-    if (match.kind === 'no_product')
-      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noProduct };
-    if (match.kind === 'no_comparable_product')
-      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noComparableProduct };
+    if (match.kind !== 'matched') return { className: 'muted-cell benchmark-status', label: '--' };
     if (match.product.apr === null)
       return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.aprUnavailable };
     return {
@@ -295,15 +328,23 @@ export function ReferenceTable({
     if (binanceStatus === 'loading') return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.waiting };
     if (binanceStatus === 'error')
       return { className: 'muted-cell benchmark-status is-error', label: copy.dualInvestment.binanceStatus.noBenchmark };
-    if (input.match.kind === 'no_product')
-      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noProduct };
-    if (input.match.kind === 'no_comparable_product')
-      return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noComparableProduct };
+    if (input.match.kind !== 'matched') return { className: 'muted-cell benchmark-status', label: '--' };
     if (input.match.product.apr === null)
       return { className: 'muted-cell benchmark-status', label: copy.dualInvestment.binanceStatus.noApr };
     const edge = input.displayApr - input.match.product.apr;
     return { className: `edge-cell ${edge >= 0 ? 'positive' : ''}`, label: formatEdge(edge, locale) };
   }
+
+  const rowMatches = rows.map((row) =>
+    market
+      ? findBinanceDualInvestmentMatch({
+          products: binanceProducts,
+          targetPrice: row.input.targetPrice,
+          settlementTimeMs: market.expiryMs,
+          nowMs,
+        })
+      : ({ kind: 'no_product' } as const),
+  );
 
   return (
     <section className="di-reference" aria-label={subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.aprReferenceLabel}>
@@ -320,25 +361,39 @@ export function ReferenceTable({
           <thead>
             <tr>
               <th>{copy.common.buyLow}</th>
-              <th>{yieldHeader}</th>
-              {!subDay ? <th>{copy.dualInvestment.binanceApr}</th> : null}
-              {!subDay ? <th>{copy.dualInvestment.edge}</th> : null}
+              <th className="di-num-head">
+                {yieldHeader}
+                {subDay ? (
+                  <span className="di-info-tip" data-tip={copy.dualInvestment.hourlyReferenceFootnote} tabIndex={0}>
+                    <Info aria-label={copy.dualInvestment.hourlyReferenceFootnote} size={12} />
+                  </span>
+                ) : null}
+              </th>
+              {!subDay ? (
+                <th className="di-num-head">
+                  {copy.dualInvestment.binanceApr}
+                  <span className="di-info-tip" data-tip={copy.dualInvestment.referenceFootnote} tabIndex={0}>
+                    <Info aria-label={copy.dualInvestment.referenceFootnote} size={12} />
+                  </span>
+                </th>
+              ) : null}
+              {!subDay ? (
+                <th className="di-num-head">
+                  {copy.dualInvestment.edge}
+                  <span className="di-info-tip" data-tip={copy.dualInvestment.edgeFootnote} tabIndex={0}>
+                    <Info aria-label={copy.dualInvestment.edgeFootnote} size={12} />
+                  </span>
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {rows.map((row, index) => {
               const displayMetrics = scanQuoteDisplayMetrics(row);
               const belowSpot = market
                 ? `${formatBelowSpot(row.input.targetPrice, market.spot, locale)} ${copy.dualInvestment.below}`
                 : '--';
-              const binanceMatch = market
-                ? findBinanceDualInvestmentMatch({
-                    products: binanceProducts,
-                    targetPrice: row.input.targetPrice,
-                    settlementTimeMs: market.expiryMs,
-                    nowMs,
-                  })
-                : ({ kind: 'no_product' } as const);
+              const binanceMatch = rowMatches[index];
               const binanceApr = binanceAprDisplay(binanceMatch);
               const edge = edgeDisplay({ displayApr: displayMetrics.apr, match: binanceMatch });
               const isActive = row.input.targetPrice === activeTargetPrice;
@@ -389,9 +444,6 @@ export function ReferenceTable({
             })}
           </tbody>
         </table>
-        <p className="di-reference-footnote">
-          {subDay ? copy.dualInvestment.hourlyReferenceFootnote : copy.dualInvestment.referenceFootnote}
-        </p>
       </div>
     </section>
   );

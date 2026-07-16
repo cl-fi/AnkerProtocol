@@ -8,6 +8,7 @@ import {
 } from '../hooks/useDualInvestmentScan';
 import { useBinanceDualInvestment } from '../hooks/useBinanceDualInvestment';
 import { useMarketData } from '../hooks/useMarketData';
+import { useSubscriptionFunds } from '../hooks/useSubscriptionFunds';
 import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
@@ -80,6 +81,7 @@ export function DualInvestmentPage({
   const [principal, setPrincipal] = useState(DEFAULT_PRINCIPAL);
   const [targetPrice, setTargetPrice] = useState(0);
   const [legCount, setLegCount] = useState(DEFAULT_LEG_COUNT);
+  const funds = useSubscriptionFunds();
 
   const [verifiedQuote, setVerifiedQuote] = useState<StructuredProductQuote | null>(null);
   const [verifiedKey, setVerifiedKey] = useState<string | null>(null);
@@ -211,11 +213,9 @@ export function DualInvestmentPage({
   const displayQuote = matchedVerified ?? estimateQuote;
   const subscribeQuote = matchedVerified && matchedVerified.executable ? matchedVerified : null;
   const isEstimate = !matchedVerified;
-  const estimateApr = estimateQuote && estimateQuote.coupon > 0 ? estimateQuote.apr : null;
-  const periodReturn =
-    estimateQuote && estimateQuote.coupon > 0 && estimateQuote.principal > 0
-      ? estimateQuote.coupon / estimateQuote.principal
-      : null;
+  // Amount over the connected balance blocks subscribe at the input, not at
+  // wallet preflight — the inline error under Amount explains the disabled CTA.
+  const insufficientFunds = funds.balance !== null && principal > funds.balance;
 
   // Snapshot rows: the disabled button is the state (Q8) — copy explains why.
   const disabledAction = isSnapshotRow
@@ -266,8 +266,8 @@ export function DualInvestmentPage({
               <div className="return-overview-heading">
                 <h3>
                   {market
-                    ? copy.dualInvestment.returnOverviewQuestion(format.shortDateTime(market.expiryMs))
-                    : copy.dualInvestment.returnOverviewQuestionFallback}
+                    ? copy.dualInvestment.returnOverviewTitle(format.shortDateTime(market.expiryMs))
+                    : copy.dualInvestment.returnOverviewTitleFallback}
                 </h3>
               </div>
               <p className="di-overview-empty">{copy.dualInvestment.emptyOverview}</p>
@@ -275,21 +275,9 @@ export function DualInvestmentPage({
           )}
         </div>
 
-        {/* Order ticket: inputs → reference ladder → outcome summary → subscribe.
-            One top-to-bottom flow that ends at the CTA; every fact lives here once. */}
+        {/* Order ticket: reference ladder → inputs → settle + subscribe CTA.
+            Look up price first, then size the order, then commit. */}
         <div className="di-terminal-side">
-          <BuyLowControls
-            market={market}
-            principal={principal}
-            targetPrice={targetPrice}
-            estimateApr={estimateApr}
-            periodReturn={periodReturn}
-            minTargetPrice={minTargetPrice}
-            maxTargetPrice={defaultTarget > 0 ? defaultTarget : null}
-            onPrincipalChange={setPrincipal}
-            onTargetChange={setTargetPrice}
-            locale={locale}
-          />
           <ReferenceTable
             market={market}
             rows={scanQuery.data ?? []}
@@ -304,12 +292,24 @@ export function DualInvestmentPage({
             }}
             locale={locale}
           />
+          <BuyLowControls
+            market={market}
+            principal={principal}
+            targetPrice={targetPrice}
+            minTargetPrice={minTargetPrice}
+            maxTargetPrice={defaultTarget > 0 ? defaultTarget : null}
+            availableBalance={funds.balance}
+            onPrincipalChange={setPrincipal}
+            onTargetChange={setTargetPrice}
+            locale={locale}
+          />
           {displayQuote && effectiveInput ? (
             <DualInvestmentConfirm
               quote={displayQuote}
               productInput={effectiveInput}
               subscribeQuote={subscribeQuote}
               isVerifying={isVerifying}
+              insufficientFunds={insufficientFunds}
               onSubscribeSuccess={setConfirmedSubscription}
               error={verifyError}
               demoMode={!tradingEnabled}

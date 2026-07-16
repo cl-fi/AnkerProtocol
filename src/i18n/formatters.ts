@@ -26,6 +26,11 @@ export function formatBtcAmount(value: number, locale: Locale) {
   return value.toLocaleString(numberLocale(locale), { maximumFractionDigits: 8 });
 }
 
+/** Scannable BTC amount for previews (5 significant digits); pair with a full-precision tooltip. */
+export function formatBtcAmountCompact(value: number, locale: Locale) {
+  return value.toLocaleString(numberLocale(locale), { maximumSignificantDigits: 5 });
+}
+
 export function formatFixedTokenAmount(value: number, decimals: number, locale: Locale) {
   return value.toLocaleString(numberLocale(locale), {
     maximumFractionDigits: decimals,
@@ -139,6 +144,7 @@ export function formattersForLocale(locale: Locale) {
     amount: (value: number) => formatAmount(value, locale),
     preciseAmount: (value: number) => formatPreciseAmount(value, locale),
     btcAmount: (value: number) => formatBtcAmount(value, locale),
+    btcAmountCompact: (value: number) => formatBtcAmountCompact(value, locale),
     fixedTokenAmount: (value: number, decimals: number) => formatFixedTokenAmount(value, decimals, locale),
     percent: (value: number, options?: Intl.NumberFormatOptions) => formatPercent(value, locale, options),
     periodReturnBps: (value: number) => formatPeriodReturnBps(value, locale),

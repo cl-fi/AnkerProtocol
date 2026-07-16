@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   buildIndicativeDualInvestmentQuote: vi.fn(),
   refetchScan: vi.fn(),
   binanceProducts: [] as BinanceDualInvestmentProduct[],
+  subscriptionBalance: null as number | null,
   marketData: undefined as
     | {
         data: {
@@ -40,6 +41,9 @@ vi.mock('next/dynamic', () => ({
 
 vi.mock('lucide-react', () => ({
   RefreshCw: () => <span data-testid="refresh-icon" />,
+  Info: ({ 'aria-label': ariaLabel }: { 'aria-label'?: string }) => (
+    <span aria-label={ariaLabel} data-testid="info-icon" />
+  ),
   ChevronDown: () => <span data-testid="chevron-icon" />,
   ArrowDownUp: () => <span data-testid="dual-investment-icon" />,
   Briefcase: () => <span data-testid="portfolio-icon" />,
@@ -47,6 +51,10 @@ vi.mock('lucide-react', () => ({
   Github: () => <span data-testid="github-icon" />,
   Send: () => <span data-testid="send-icon" />,
   Camera: () => <span data-testid="camera-icon" />,
+  Globe: () => <span data-testid="globe-icon" />,
+  Wallet: () => <span data-testid="wallet-icon" />,
+  Check: () => <span data-testid="check-icon" />,
+  Megaphone: () => <span data-testid="megaphone-icon" />,
 }));
 
 vi.mock('../hooks/useMarketData', () => ({
@@ -70,6 +78,10 @@ vi.mock('../hooks/useBinanceDualInvestment', () => ({
     isFetching: false,
     error: null,
   }),
+}));
+
+vi.mock('../hooks/useSubscriptionFunds', () => ({
+  useSubscriptionFunds: () => ({ balance: mocks.subscriptionBalance }),
 }));
 
 vi.mock('./TargetBuyExecutionPanel', () => ({
@@ -211,37 +223,98 @@ describe('QuoteRiskSummary', () => {
 });
 
 describe('Dual Investment APR display', () => {
-  it('shows net APR after protocol fee in Buy Low controls', () => {
+  it('sizes the amount from balance-percent chips once a balance is known', () => {
+    const onPrincipalChange = vi.fn();
     render(
       <BuyLowControls
         market={marketFixture()}
-        principal={5}
+        principal={500}
         targetPrice={65_500}
-        estimateApr={1.5}
+        availableBalance={1234.56}
+        onPrincipalChange={onPrincipalChange}
+        onTargetChange={() => undefined}
+      />,
+    );
+
+    // Available funds ride the Amount label line (no "Balance" label).
+    expect(screen.getByText('1,234.56 dUSDC')).toBeVisible();
+    expect(screen.queryByText('Balance')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '50%' }));
+    expect(onPrincipalChange).toHaveBeenLastCalledWith(617);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Max' }));
+    expect(onPrincipalChange).toHaveBeenLastCalledWith(1234);
+  });
+
+  it('hides the percent chips while no balance is available', () => {
+    render(
+      <BuyLowControls
+        market={marketFixture()}
+        principal={500}
+        targetPrice={65_500}
         onPrincipalChange={() => undefined}
         onTargetChange={() => undefined}
       />,
     );
 
-    expect(screen.getByText('135% APR')).toBeVisible();
+    expect(screen.queryByRole('button', { name: '50%' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Balance')).not.toBeInTheDocument();
   });
 
-  it('shows net APR after protocol fee in return and confirmation summaries', () => {
-    const quote = pageQuoteFixture({ coupon: 0.03 });
+  it('flags amounts over the connected balance with a visible error', () => {
+    render(
+      <BuyLowControls
+        market={marketFixture()}
+        principal={500}
+        targetPrice={65_500}
+        availableBalance={102}
+        onPrincipalChange={() => undefined}
+        onTargetChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/exceeds your available balance of 102.00 dUSDC/);
+  });
+
+  it('keeps the confirm block to the subscribe CTA without a reward recap', () => {
+    const quote = pageQuoteFixture({ coupon: 12.71 });
     const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
 
     render(
-      <>
-        <ReturnOverview quote={quote} productInput={productInput} />
-        <DualInvestmentConfirm
-          quote={quote}
-          productInput={productInput}
-          subscribeQuote={null}
-          isVerifying={false}
-          onSubscribeSuccess={() => {}}
-        />
-      </>,
+      <DualInvestmentConfirm
+        quote={quote}
+        productInput={productInput}
+        subscribeQuote={null}
+        isVerifying={false}
+        onSubscribeSuccess={() => {}}
+      />,
     );
+
+    // Reward / settle recap lives in the return overview — confirm is CTA only.
+    expect(screen.queryByText('+12.71 dUSDC')).not.toBeInTheDocument();
+    expect(screen.queryByText('Settles')).not.toBeInTheDocument();
+    expect(screen.queryByText('Estimated reward')).not.toBeInTheDocument();
+  });
+
+  it('shows the below outcome conversion as receipt arithmetic', () => {
+    const quote = pageQuoteFixture({ coupon: 0.03 });
+    const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
+
+    render(<ReturnOverview quote={quote} productInput={productInput} />);
+
+    // Total ÷ Buy Low price = You receive — the division is visible, not prose.
+    expect(screen.getByText('÷ Buy Low price')).toBeVisible();
+    // Target label on the chart + the divisor row in the receipt.
+    expect(screen.getAllByText('$65,500').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('You receive').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('shows net APR after protocol fee in the return overview', () => {
+    const quote = pageQuoteFixture({ coupon: 0.03 });
+    const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
+
+    render(<ReturnOverview quote={quote} productInput={productInput} />);
 
     expect(screen.getAllByText(/135% APR/).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/150% APR/)).not.toBeInTheDocument();
@@ -325,27 +398,16 @@ describe('Dual Investment APR display', () => {
     expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
   });
 
-  it('shows period return with muted reference APR for Turbo sub-day tenors', () => {
+  it('shows per-period return (not APR) in the return overview for Turbo sub-day tenors', () => {
     const market = marketFixture({ expiryMs: Date.now() + 2 * 3_600_000 });
     const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
     const quote = pageQuoteFixture({ market, productInput, coupon: 0.05 });
 
-    render(
-      <BuyLowControls
-        market={market}
-        principal={5}
-        targetPrice={65_500}
-        estimateApr={quote.apr}
-        periodReturn={0.01}
-        onPrincipalChange={() => undefined}
-        onTargetChange={() => undefined}
-      />,
-    );
+    render(<ReturnOverview quote={quote} productInput={productInput} />);
 
-    expect(screen.getByText('Per-period yield')).toBeVisible();
-    expect(screen.getByText('100 bps')).toBeVisible();
-    expect(screen.getByText('Ref. APR ≈ 135.00%')).toBeVisible();
-    expect(screen.queryByText('135% APR')).not.toBeInTheDocument();
+    // Sub-day tenors show period return in bps on the reward row, not annualized APR.
+    expect(screen.getAllByText(/Reward \(100 bps\)/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/% APR/)).not.toBeInTheDocument();
   });
 
   it('shows period return and reference APR in the Turbo reference table', () => {
@@ -373,7 +435,7 @@ describe('Dual Investment APR display', () => {
       />,
     );
 
-    expect(screen.getByRole('columnheader', { name: 'Per-period yield' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: /Per-period yield/ })).toBeVisible();
     expect(screen.getByText('40 bps')).toBeVisible();
     expect(screen.getByText('Ref. APR ≈ 135.00%')).toBeVisible();
     expect(screen.queryByRole('columnheader', { name: 'Binance APR' })).not.toBeInTheDocument();
@@ -414,11 +476,14 @@ describe('Dual Investment APR display', () => {
       />,
     );
 
-    expect(screen.getByRole('columnheader', { name: 'Binance APR' })).toBeVisible();
-    expect(screen.getByRole('columnheader', { name: 'Edge' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: /^Binance APR/ })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: /^Edge/ })).toBeVisible();
     expect(screen.getByText('80.00%')).toBeVisible();
     expect(screen.getByText('+55.00 pts')).toBeVisible();
-    expect(screen.getByText(/nearest settlement/i)).toBeVisible();
+    // Methodology + "-- means no match" live in the Binance APR header tooltip.
+    expect(screen.getByLabelText(/no comparable product/i)).toBeInTheDocument();
+    // Edge gets the same header-tooltip treatment — the term is ours, not Binance's.
+    expect(screen.getByLabelText(/percentage points/i)).toBeInTheDocument();
   });
 
   it('distinguishes missing products, incomparable offsets, and unavailable APR', () => {
@@ -443,7 +508,10 @@ describe('Dual Investment APR display', () => {
       />,
     );
 
-    expect(screen.getAllByText('No product')).toHaveLength(2);
+    // Binance-has-nothing rows show "--" cells; the meaning lives in the header tooltip.
+    expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByLabelText(/no comparable product/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Binance has no comparable product/)).not.toBeInTheDocument();
 
     rerender(
       <ReferenceTable
@@ -469,7 +537,9 @@ describe('Dual Investment APR display', () => {
       />,
     );
 
-    expect(screen.getAllByText('No comparable product')).toHaveLength(2);
+    // Incomparable settlement offsets read the same way — dashes only, no table footnote.
+    expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/Binance has no comparable product/)).not.toBeInTheDocument();
 
     rerender(
       <ReferenceTable
@@ -541,7 +611,6 @@ describe('Dual Investment APR display', () => {
           market={market}
           principal={5}
           targetPrice={64_000}
-          estimateApr={1.5}
           locale="zh-CN"
           onPrincipalChange={() => undefined}
           onTargetChange={() => undefined}
@@ -560,7 +629,7 @@ describe('Dual Investment APR display', () => {
 
     expect(screen.getByText('低买价格')).toBeVisible();
     expect(screen.getByRole('columnheader', { name: '预估 APR' })).toBeVisible();
-    expect(screen.getByRole('columnheader', { name: 'Binance APR' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: /^Binance APR/ })).toBeVisible();
     expect(screen.getByText('$64,000')).toBeVisible();
   });
 });
@@ -603,7 +672,7 @@ describe('DualInvestmentPage', () => {
   it('leads with a live estimate of the return scenarios and needs no preview step', () => {
     render(<DualInvestmentPage />);
 
-    expect(screen.getByRole('heading', { name: /Where will BTC land by/ })).toBeVisible();
+    expect(screen.getByRole('heading', { name: /What you'll receive on/ })).toBeVisible();
     // The ticket summary shows both settlement outcomes side by side (seeded
     // default target: nearest grid step below the fixture spot → $66,000).
     expect(screen.getByText('BTC above $66,000')).toBeVisible();
@@ -768,7 +837,7 @@ describe('DualInvestmentPage', () => {
     });
 
     expect(screen.getByText('devInspect unavailable')).toBeVisible();
-    expect(screen.getByRole('heading', { name: /Where will BTC land by/ })).toBeVisible();
+    expect(screen.getByRole('heading', { name: /What you'll receive on/ })).toBeVisible();
     expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
   });
 

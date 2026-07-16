@@ -45,6 +45,8 @@ interface TargetBuyExecutionPanelViewProps {
   hasAccount: boolean;
   hasManager: boolean;
   isQuoteExecutable: boolean;
+  /** Amount exceeds the connected balance — the Amount input shows the error. */
+  insufficientFunds?: boolean;
   quoteWarning?: string;
   isLoadingManagers: boolean;
   isPending: boolean;
@@ -136,6 +138,7 @@ export function TargetBuyExecutionPanelView({
   hasAccount,
   hasManager,
   isQuoteExecutable,
+  insufficientFunds = false,
   quoteWarning,
   isLoadingManagers,
   isPending,
@@ -187,14 +190,12 @@ export function TargetBuyExecutionPanelView({
       : needsSetup
         ? copy.execution.setupStep
         : copy.execution.subscribeBuyLow;
-  const canAct = !isPending && !isLoadingManagers && (needsSetup || isQuoteExecutable);
-  const note = isPending
-    ? null
-    : needsSetup && !isLoadingManagers
-      ? copy.execution.createContainerHelp
-      : !needsSetup && !digest && isQuoteExecutable
-        ? copy.execution.subscribeHelp
-        : null;
+  // Setup (create manager) never spends the amount, so it ignores the balance;
+  // subscribing over-balance would only fail later at wallet preflight.
+  const canAct = !isPending && !isLoadingManagers && (needsSetup || (isQuoteExecutable && !insufficientFunds));
+  // Setup is a one-time wallet step — keep a short note so the "1 of 2" CTA is clear.
+  const note =
+    !isPending && needsSetup && !isLoadingManagers ? copy.execution.createContainerHelp : null;
   const showStatus =
     execution.state === 'awaiting-signature' ||
     execution.state === 'quote-expired' ||
@@ -231,11 +232,14 @@ export function TargetBuyExecutionPanelView({
 export function TargetBuyExecutionPanel({
   quote,
   productInput,
+  insufficientFunds = false,
   onSubscribeSuccess,
   locale = DEFAULT_LOCALE,
 }: {
   quote: StructuredProductQuote;
   productInput: DualInvestmentInput;
+  /** Amount exceeds the connected balance — disables subscribe (input shows why). */
+  insufficientFunds?: boolean;
   onSubscribeSuccess: (confirmation: ConfirmedSubscription) => void;
   locale?: Locale;
 }) {
@@ -345,6 +349,7 @@ export function TargetBuyExecutionPanel({
       hasAccount={Boolean(account)}
       hasManager={Boolean(manager)}
       isQuoteExecutable={quote.executable}
+      insufficientFunds={insufficientFunds}
       quoteWarning={quote.warning}
       isLoadingManagers={(managersQuery.isPending || portfolioQuery.isPending) && Boolean(account)}
       isPending={isPending}
@@ -353,7 +358,7 @@ export function TargetBuyExecutionPanel({
       digest={digest}
       subscribeConfirmed={subscribeConfirmed}
       simulatedCostLabel={simulatedCostLabel}
-      connectAction={<WalletConnectButton />}
+      connectAction={<WalletConnectButton>{copy.common.connectWallet}</WalletConnectButton>}
       locale={locale}
       onCreateManager={handleCreateManager}
       onSubscribe={handleSubscribe}

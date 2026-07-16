@@ -98,22 +98,23 @@ export function ReturnOverview({
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
   const total = quote.principal + quote.coupon;
   const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
+  const netApr = netAprAfterCouponFee(quote.apr);
+  const periodReturn = quote.principal > 0 ? quote.coupon / quote.principal : 0;
+  const subDay = isSubDayTenor(quote.oracle.expiryMs);
+  const rewardMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
   const isAbove = scenario === 'above';
-  const receiveAmount = isAbove ? format.fixedTokenAmount(total, 2) : format.fixedTokenAmount(btcEquivalent, 8);
-  const receiveAsset = isAbove ? copy.dualInvestment.receiveAssetDusdc : copy.dualInvestment.receiveAssetBtcEquivalent;
-  const settleNote = isAbove ? null : copy.dualInvestment.cashSettledTip;
-  const equivNoteProps = settleNote
-    ? { className: 'di-equiv-note', 'data-tip': settleNote, tabIndex: 0, 'aria-label': `${receiveAsset}. ${settleNote}` }
-    : {};
   const chartClassName = isAbove ? 'return-chart-visual above' : 'return-chart-visual below';
   const pricePathD = isAbove
     ? 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 138 504 152 C 558 164 586 72 642 48'
     : 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 98 504 110 C 558 122 514 236 642 230';
+  const btcCompact = format.btcAmountCompact(btcEquivalent);
+  const belowOutcomeLabel = `≈ ${format.btcAmount(btcEquivalent)} BTC. ${copy.dualInvestment.testnetSettlementNote}`;
+  const belowValueTip = `≈ ${format.btcAmount(btcEquivalent)} BTC · ${copy.dualInvestment.testnetSettlementNote}`;
 
   return (
     <Card as="article" className="return-overview-panel">
       <div className="return-overview-heading">
-        <h3>{copy.dualInvestment.returnOverviewQuestion(format.shortDateTime(quote.oracle.expiryMs))}</h3>
+        <h3>{copy.dualInvestment.returnOverviewTitle(format.shortDateTime(quote.oracle.expiryMs))}</h3>
         <Badge tone={estimated ? 'warning' : 'positive'}>
           {estimated ? copy.dualInvestment.estimate : copy.dualInvestment.liveQuote}
         </Badge>
@@ -147,7 +148,7 @@ export function ReturnOverview({
           <path className="return-area-path" d={`${pricePathD} L 642 320 L 70 320 Z`} />
           <path className="return-price-path" d={pricePathD} />
           <circle className="return-current-dot" cx="178" cy="88" r="8" />
-          <path className="return-arrow" d={isAbove ? 'M 642 48 l -16 -10 l 4 20 z' : 'M 642 230 l -18 -8 l 7 18 z'} />
+          <circle className="return-end-dot" cx="642" cy={isAbove ? 48 : 230} r="7" />
         </svg>
 
         <div className="return-target-label">
@@ -166,13 +167,79 @@ export function ReturnOverview({
           <span>{copy.dualInvestment.settle}</span>
           <strong>{format.chartDate(quote.oracle.expiryMs)}</strong>
         </div>
-        <div className="return-receive-card">
+        <div className="return-receive-chip">
           <span>{copy.dualInvestment.youWillReceive}</span>
-          <strong>{receiveAmount}</strong>
-          <b {...equivNoteProps}>{receiveAsset}</b>
+          <strong>{isAbove ? `${format.fixedTokenAmount(total, 2)} dUSDC` : `≈ ${btcCompact} BTC`}</strong>
         </div>
+        {/* The price path is a drawn scenario, not a forecast — say so on the chart. */}
+        <span className="return-chart-note">{copy.dualInvestment.illustrativeOnly}</span>
       </div>
 
+      <div className="return-outcomes" aria-label={copy.dualInvestment.atSettlement}>
+        <button
+          type="button"
+          className={`return-outcome is-above${isAbove ? ' is-selected' : ''}`}
+          aria-pressed={isAbove}
+          onClick={() => setScenario('above')}
+        >
+          <span className="return-outcome-head">
+            <i className="return-outcome-dot" aria-hidden="true" />
+            {copy.dualInvestment.outcomeAbove(format.usd(targetPrice))}
+          </span>
+          <span className="return-outcome-receipt">
+            <span className="return-receipt-row">
+              <span>{copy.dualInvestment.receiptDeposit}</span>
+              <strong>{format.fixedTokenAmount(quote.principal, 2)}</strong>
+            </span>
+            <span className="return-receipt-row">
+              <span>{copy.dualInvestment.receiptReward(rewardMeta)}</span>
+              <strong>+{format.fixedTokenAmount(quote.coupon, 2)}</strong>
+            </span>
+            {/* No conversion step in this outcome — the sum IS what you get, so
+                the terminal line says "You receive", mirroring the below card. */}
+            <span className="return-receipt-row is-receive">
+              <span>{copy.dualInvestment.youWillReceive}</span>
+              <strong>{format.fixedTokenAmount(total, 2)} dUSDC</strong>
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`return-outcome is-below${!isAbove ? ' is-selected' : ''}`}
+          aria-pressed={!isAbove}
+          aria-label={`${copy.dualInvestment.outcomeAtOrBelow(format.usd(targetPrice))}. ${belowOutcomeLabel}`}
+          onClick={() => setScenario('below')}
+        >
+          <span className="return-outcome-head">
+            <i className="return-outcome-dot" aria-hidden="true" />
+            {copy.dualInvestment.outcomeAtOrBelow(format.usd(targetPrice))}
+          </span>
+          <span className="return-outcome-receipt">
+            <span className="return-receipt-row">
+              <span>{copy.dualInvestment.receiptDeposit}</span>
+              <strong>{format.fixedTokenAmount(quote.principal, 2)}</strong>
+            </span>
+            <span className="return-receipt-row">
+              <span>{copy.dualInvestment.receiptReward(rewardMeta)}</span>
+              <strong>+{format.fixedTokenAmount(quote.coupon, 2)}</strong>
+            </span>
+            <span className="return-receipt-row is-total">
+              <span>{copy.dualInvestment.receiptTotal}</span>
+              <strong>{format.fixedTokenAmount(total, 2)} dUSDC</strong>
+            </span>
+            <span className="return-receipt-row is-divide">
+              <span>{copy.dualInvestment.receiptDividePrice}</span>
+              <strong>{format.usd(targetPrice)}</strong>
+            </span>
+            <span className="return-receipt-row is-receive">
+              <span>{copy.dualInvestment.youWillReceive}</span>
+              <strong className="di-equiv-note" data-tip={belowValueTip}>
+                ≈ {btcCompact} BTC
+              </strong>
+            </span>
+          </span>
+        </button>
+      </div>
     </Card>
   );
 }
@@ -182,6 +249,7 @@ export function DualInvestmentConfirm({
   productInput,
   subscribeQuote,
   isVerifying,
+  insufficientFunds = false,
   onSubscribeSuccess,
   error,
   demoMode = false,
@@ -193,6 +261,8 @@ export function DualInvestmentConfirm({
   productInput: DualInvestmentInput;
   subscribeQuote: StructuredProductQuote | null;
   isVerifying: boolean;
+  /** Amount exceeds the connected balance — blocks subscribe (input shows why). */
+  insufficientFunds?: boolean;
   onSubscribeSuccess: (confirmation: ConfirmedSubscription) => void;
   error?: string | null;
   demoMode?: boolean;
@@ -202,15 +272,6 @@ export function DualInvestmentConfirm({
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
-  const format = formattersForLocale(locale);
-  const targetPrice = quote.targetPrice ?? productInput.targetPrice;
-  const total = quote.principal + quote.coupon;
-  const netApr = netAprAfterCouponFee(quote.apr);
-  const periodReturn = quote.principal > 0 ? quote.coupon / quote.principal : 0;
-  const subDay = isSubDayTenor(quote.oracle.expiryMs);
-  const rewardMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
-  const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
-
   // Keep the last executable subscribe quote mounted across brief parent unmatches
   // (live re-verify gaps), so the panel and its in-flight transaction state
   // (pending/digest/error) survive quote churn. The success dialog itself lives
@@ -234,47 +295,11 @@ export function DualInvestmentConfirm({
 
   return (
     <section className="ticket-confirm" aria-label={copy.dualInvestment.confirmLabel}>
-      <div className="ticket-outcomes">
-        <span className="ticket-outcomes-title">{copy.dualInvestment.atSettlement}</span>
-        <div className="ticket-outcome is-above">
-          <span className="ticket-outcome-label">
-            <i className="ticket-outcome-dot" aria-hidden="true" />
-            {copy.dualInvestment.outcomeAbove(format.usd(targetPrice))}
-          </span>
-          <span className="ticket-outcome-value">
-            <strong>{format.amount(total)} dUSDC</strong>
-            <small>{copy.dualInvestment.includesReward(format.amount(quote.coupon), rewardMeta)}</small>
-          </span>
-        </div>
-        <div className="ticket-outcome is-below">
-          <span className="ticket-outcome-label">
-            <i className="ticket-outcome-dot" aria-hidden="true" />
-            {copy.dualInvestment.outcomeAtOrBelow(format.usd(targetPrice))}
-          </span>
-          <span className="ticket-outcome-value">
-            <strong
-              className="di-equiv-note"
-              data-tip={copy.dualInvestment.testnetSettlementNote}
-              tabIndex={0}
-              aria-label={`≈ ${format.btcAmount(btcEquivalent)} BTC. ${copy.dualInvestment.testnetSettlementNote}`}
-            >
-              ≈ {format.btcAmount(btcEquivalent)} BTC
-            </strong>
-            <small>{copy.dualInvestment.outcomeBelowDetail(format.usd(targetPrice))}</small>
-          </span>
-        </div>
-        <div className="ticket-outcome is-settle">
-          <span className="ticket-outcome-label">{copy.dualInvestment.settles}</span>
-          <span className="ticket-outcome-value">
-            <strong>{format.expiry(quote.oracle.expiryMs)}</strong>
-          </span>
-        </div>
-      </div>
-
       {panelQuote && !demoMode ? (
         <TargetBuyExecutionPanel
           quote={panelQuote}
           productInput={productInput}
+          insufficientFunds={insufficientFunds}
           onSubscribeSuccess={onSubscribeSuccess}
           locale={locale}
         />

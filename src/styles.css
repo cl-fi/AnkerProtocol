@@ -150,32 +150,67 @@ a {
 }
 
 .language-switcher {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px;
+}
+
+.language-switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
   border: 1px solid rgba(32, 48, 77, 0.16);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   color: var(--ink-soft);
+  font: inherit;
   font-size: 0.78rem;
   font-weight: 800;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.language-switcher a {
-  display: inline-flex;
+.language-switcher-trigger svg {
+  flex: 0 0 auto;
+}
+
+.language-switcher-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  min-width: 140px;
+  padding: 6px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.language-switcher-menu a {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 30px;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 8px;
+  color: var(--navy);
+  font-size: 0.84rem;
+  font-weight: 750;
 }
 
-.language-switcher a.is-active,
-.language-switcher a[aria-current='true'] {
-  background: var(--navy);
-  color: #ffffff;
+.language-switcher-menu a:hover {
+  background: rgba(32, 48, 77, 0.07);
+}
+
+.language-switcher-menu a.is-active,
+.language-switcher-menu a[aria-current='true'] {
+  background: var(--gold-tint);
+  font-weight: 850;
 }
 
 /* Shared landing section container */
@@ -713,33 +748,56 @@ a {
 }
 
 .product-nav a {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-height: 40px;
-  padding: 0 16px;
-  border: var(--bw) solid transparent;
-  border-radius: 999px;
+  padding: 0 10px;
+  color: rgba(32, 48, 77, 0.6);
   white-space: nowrap;
 }
 
 .product-nav a svg {
   flex: 0 0 auto;
-  opacity: 0.7;
+  opacity: 0.55;
+}
+
+.product-nav a::after {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 3px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--gold);
+  content: '';
+  opacity: 0;
+  transform: rotate(-1.2deg);
+  transition: opacity 160ms ease;
 }
 
 .product-nav a:hover {
-  background: rgba(32, 48, 77, 0.07);
-}
-
-.product-nav a.active {
   color: #20304d;
-  border-color: var(--navy);
-  background: var(--gold);
-  box-shadow: var(--shadow-hard-sm);
 }
 
-.product-nav a.active svg {
+.product-nav a:hover::after {
+  opacity: 0.35;
+}
+
+.product-nav a.active,
+.product-nav a[aria-current='page'] {
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.product-nav a.active::after,
+.product-nav a[aria-current='page']::after {
+  opacity: 1;
+}
+
+.product-nav a.active svg,
+.product-nav a[aria-current='page'] svg {
   opacity: 1;
 }
 
@@ -861,25 +919,30 @@ a {
   gap: 12px;
 }
 
-/* Environment badge — global home for the "Sui testnet" status */
-.testnet-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border: var(--bw) solid var(--copper-line);
+/* Soft environment tag next to the brand lockup */
+.brand-env-tag {
+  align-self: flex-start;
+  margin-top: 0.2em;
+  padding: 1px 7px;
+  border: 1px solid rgba(32, 48, 77, 0.2);
   border-radius: 999px;
-  background: var(--gold-tint);
-  color: var(--copper-deep);
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: rgba(32, 48, 77, 0.55);
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-transform: lowercase;
   white-space: nowrap;
 }
 
 .wallet-area {
   display: inline-flex;
   align-items: center;
+}
+
+.wallet-area mysten-dapp-kit-connect-button svg {
+  margin-right: 8px;
 }
 
 /* Placeholder while the wallet button chunk loads — mirrors ::part(trigger) */
@@ -917,7 +980,9 @@ a {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 28px;
-  padding-top: 86px;
+  /* App-page scale, not landing-page: the order terminal below is the point,
+     so the hero must not push it out of the first viewport. */
+  padding-top: 48px;
   padding-bottom: 60px;
 }
 
@@ -1753,9 +1818,7 @@ a {
 .return-overview-panel {
   display: grid;
   gap: 18px;
-  /* heading · scenario tabs · chart — the chart absorbs any extra height when
-     the order ticket on the right runs taller than the chart's minimum. */
-  grid-template-rows: auto auto minmax(0, 1fr);
+  /* heading · scenario tabs · chart · dual outcome receipts */
 }
 
 .return-overview-heading {
@@ -1770,7 +1833,7 @@ a {
   flex: 0 0 auto;
 }
 
-/* Question-style header — the scenario tabs below are its two answers */
+/* Outcome-first header — the scenario tabs below are its two answers */
 .return-overview-heading h3 {
   margin: 0;
   color: var(--navy);
@@ -1790,7 +1853,7 @@ a {
 
 .return-scenario-tabs button {
   min-height: 52px;
-  border: 0;
+  border: var(--bw) solid transparent;
   border-radius: 10px;
   background: transparent;
   color: var(--ink-soft);
@@ -1799,14 +1862,17 @@ a {
   font-weight: 860;
 }
 
+/* Selected scenario is a view state, not an action — tint only, so the
+   saturated gold stays reserved for the ticket's CTA. */
 .return-scenario-tabs button.active {
-  background: var(--gold);
+  border-color: var(--navy);
+  background: var(--gold-tint);
   color: var(--navy);
 }
 
 .return-chart-visual {
   position: relative;
-  min-height: 320px;
+  aspect-ratio: 720 / 320;
   overflow: hidden;
   border: 1.5px solid rgba(32, 48, 77, 0.12);
   border-radius: var(--r-sm);
@@ -1849,14 +1915,35 @@ a {
   stroke-width: 4;
 }
 
-.return-arrow {
+/* Endpoint dot sits ON the curve and reuses the outcome cards' legend colors
+   (above = grass, below = gold), tying the chart ending to its receipt. */
+.return-end-dot {
+  fill: var(--grass);
+  stroke: var(--paper);
+  stroke-width: 3;
+}
+
+.return-chart-visual.below .return-end-dot {
   fill: var(--gold-3);
+}
+
+/* The drawn price path is a scenario, not a forecast — the corner note says so. */
+.return-chart-note {
+  position: absolute;
+  right: 10px;
+  bottom: 7px;
+  color: var(--ink-muted, #6b7280);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.8;
+  pointer-events: none;
 }
 
 .return-target-label,
 .return-current-label,
-.return-date-label,
-.return-receive-card {
+.return-date-label {
   position: absolute;
   z-index: 1;
 }
@@ -1944,37 +2031,175 @@ a {
   bottom: 20px;
 }
 
-.return-receive-card {
-  right: 3%;
+/* Payout chip anchored at the path's end — "at settle you get X". Its vertical
+   position tracks the scenario's endpoint (above ends high, below ends low). */
+.return-receive-chip {
+  position: absolute;
+  right: 3.5%;
+  z-index: 1;
   display: grid;
   gap: 2px;
-  width: 138px;
-  padding: 10px 12px;
+  justify-items: end;
+  padding: 7px 11px;
   border: var(--bw) solid var(--navy);
-  border-radius: var(--r-sm);
+  border-radius: 10px;
   background: var(--paper);
   box-shadow: var(--shadow-hard-sm);
+  text-align: right;
+}
+
+.return-receive-chip span {
   color: var(--ink-soft);
-  font-size: 0.72rem;
-  font-weight: 760;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.return-chart-visual.above .return-receive-card {
-  top: 24px;
-}
-
-.return-chart-visual.below .return-receive-card {
-  bottom: 44px;
-}
-
-.return-receive-card strong {
+.return-receive-chip strong {
   color: var(--grass);
-  font-size: 1.02rem;
+  font-size: 0.92rem;
 }
 
-.return-receive-card b {
-  color: var(--grass);
+.return-chart-visual.above .return-receive-chip {
+  top: 24%;
+}
+
+.return-chart-visual.below .return-receive-chip {
+  top: 44%;
+}
+
+.return-chart-visual.below .return-receive-chip strong {
+  color: var(--navy);
+}
+
+/* Dual settlement scenario receipts under the chart — click toggles Above/Below.
+   Both outcomes carry the same deposit/reward/total structure so the reward is
+   visibly earned in BOTH branches (the below case converts it into BTC). */
+.return-outcomes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.return-outcome {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 9px;
+  width: 100%;
+  padding: 12px 14px;
+  border: var(--bw) solid rgba(32, 48, 77, 0.16);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.75;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    opacity 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.return-outcome:hover {
+  border-color: var(--navy);
+  opacity: 1;
+}
+
+.return-outcome.is-selected {
+  border-color: var(--navy);
+  background: var(--gold-tint);
+  box-shadow: var(--shadow-hard-sm);
+  opacity: 1;
+}
+
+.return-outcome-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.return-outcome-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--navy);
+  border-radius: 50%;
+}
+
+.return-outcome.is-above .return-outcome-dot {
+  border-color: var(--grass);
+  background: var(--grass);
+}
+
+.return-outcome.is-below .return-outcome-dot {
+  border-color: var(--gold-3);
+  background: var(--gold);
+}
+
+.return-outcome-receipt {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.return-receipt-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 680;
+}
+
+.return-receipt-row strong {
+  flex: 0 0 auto;
+  color: var(--navy);
   font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.return-receipt-row.is-total {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1.5px dashed rgba(32, 48, 77, 0.28);
+}
+
+.return-receipt-row.is-total strong {
+  font-size: 0.95rem;
+}
+
+.return-outcome.is-above .return-receipt-row.is-receive strong {
+  color: var(--grass);
+}
+
+/* Terminal "You receive" line of both outcome cards. margin-top:auto pins it
+   to the card's bottom edge, so the two lines share a baseline across cards
+   even though the below card has extra conversion rows above it. */
+.return-receipt-row.is-receive {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1.5px dashed rgba(32, 48, 77, 0.28);
+}
+
+/* Below card: the slack must sit BEFORE the conversion block, never inside
+   it — Total ÷ price = receive reads as one uninterrupted calculation. */
+.return-outcome.is-below .return-receipt-row.is-total {
+  margin-top: auto;
+}
+
+.return-outcome.is-below .return-receipt-row.is-receive {
+  margin-top: 2px;
+}
+
+.return-receipt-row.is-receive strong {
+  font-size: 0.95rem;
 }
 
 .detail-grid {
@@ -2211,7 +2436,6 @@ a {
 
   .dual-hero {
     grid-template-columns: 1fr;
-    padding-top: 54px;
   }
 
   .asset-grid {
@@ -2247,20 +2471,10 @@ a {
     min-width: 860px;
   }
 
-  .return-chart-visual {
-    min-height: 300px;
-  }
-
   .return-current-label {
     left: 26%;
     min-width: 132px;
     padding: 14px 16px;
-  }
-
-  .return-receive-card {
-    right: 3%;
-    width: 150px;
-    padding: 14px;
   }
 
   .return-target-label {
@@ -2452,9 +2666,8 @@ a {
 .offer-table .apr-cell,
 .offer-table .binance-apr,
 .offer-table .edge-cell,
-.ticket-outcome-value strong,
-.return-receive-card strong,
-.return-receive-card b,
+.return-receipt-row strong,
+.return-receive-chip strong,
 .return-current-label strong,
 .return-target-label strong,
 .redeem-action strong {
@@ -2573,10 +2786,6 @@ a {
   background: #f1faf7;
 }
 
-.product-nav a:hover {
-  color: #20304d;
-}
-
 .view-more:hover {
   color: var(--accent-strong);
   text-decoration: underline;
@@ -2650,15 +2859,6 @@ summary:focus-visible,
   background: var(--cream);
   border-bottom: var(--bw-thick) solid var(--navy);
   backdrop-filter: none;
-}
-
-.product-nav a {
-  color: var(--ink-soft);
-  font-weight: 700;
-}
-
-.product-nav a.active {
-  color: var(--navy);
 }
 
 /* Brand tile — chunky outline */
@@ -3704,6 +3904,8 @@ dd {
     position: absolute;
     left: 50%;
     top: 0;
+    height: 100%;
+    align-items: center;
     transform: translateX(-50%);
   }
 }
@@ -3718,7 +3920,7 @@ dd {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 16px 24px;
-  padding-bottom: 22px;
+  padding-bottom: 24px;
 }
 
 .di-select-group {
@@ -3792,7 +3994,9 @@ dd {
 .di-hero-ticker {
   display: grid;
   gap: 8px;
-  align-self: center;
+  /* Bottom edge locks to the subtitle's bottom (hero is align-items: end),
+     so the big price and the intro copy share one baseline. */
+  align-self: end;
   justify-self: end;
   justify-items: end;
   text-align: right;
@@ -3853,17 +4057,18 @@ dd {
   letter-spacing: -0.01em;
 }
 
-/* ②③ Terminal — scenario chart (left) + order ticket (right) */
+/* ②③ Terminal — scenario chart (left) + order ticket (right).
+   Columns stretch to one shared height: each side has a designated flexible
+   zone (outcome receipts on the left, the controls band on the right), so
+   transient content — validation errors, tx status lines — never breaks the
+   flush bottom edge. */
 .di-terminal {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr);
   gap: 18px;
-  align-items: stretch;
   padding-bottom: 24px;
 }
 
-/* Left wrapper stretches with the grid row; the scenario card fills it so the
-   chart grows to match however tall the order ticket runs. */
 .di-terminal-chart {
   display: flex;
   flex-direction: column;
@@ -3874,8 +4079,14 @@ dd {
   flex: 1 1 auto;
 }
 
-/* Right column is the order ticket: inputs on top, reference ladder filling
-   the middle, outcome summary + subscribe CTA pinned to the bottom. */
+/* Height differences land in the outcomes row — the chart keeps its
+   aspect-ratio, and the receipt cards absorb the slack (their "You receive"
+   lines are pinned to the card bottom). */
+.di-terminal-chart .return-overview-panel:not(.is-empty) {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+/* Right column is the order ticket: reference ladder → inputs → settle + CTA. */
 .di-terminal-side {
   display: flex;
   flex-direction: column;
@@ -3906,13 +4117,17 @@ dd {
   text-align: center;
 }
 
-/* Controls — top sub-panel of the order ticket */
+/* Controls — middle sub-panel of the order ticket (after reference ladder).
+   This tinted band is the ticket's flexible zone: when the left card is the
+   taller column, the slack extends the band instead of leaving blank paper
+   under the CTA. */
 .di-controls {
   display: grid;
+  align-content: start;
   gap: 12px;
-  flex: 0 0 auto;
+  flex: 1 0 auto;
   padding: 14px 16px;
-  border-bottom: var(--bw) solid rgba(32, 48, 77, 0.16);
+  border-top: var(--bw) solid rgba(32, 48, 77, 0.16);
   background: var(--paper-2);
 }
 
@@ -3928,9 +4143,27 @@ dd {
 }
 
 .di-field > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 800;
+}
+
+/* Available funds share the Amount label line — the denominator for the
+   percent chips sits right where the order is sized, not on a row of its own. */
+.di-label-balance {
+  color: var(--ink-muted, #6b7280);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.di-label-balance strong {
+  color: var(--ink-soft);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .di-input-wrap {
@@ -3974,14 +4207,66 @@ dd {
   font-weight: 800;
 }
 
-.di-field > span {
-  font-size: 0.74rem;
+/* Each input column stacks its own quick-set control (chips / slider), so the
+   slider visibly belongs to the Buy Low price and not the Amount field. */
+.di-control-col {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.di-amount-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.di-amount-chips button {
+  flex: 1 1 0;
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 1.5px solid rgba(32, 48, 77, 0.3);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.di-amount-chips button:hover {
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+.di-amount-chips button.active {
+  border-color: var(--navy);
+  background: var(--gold-tint);
+  color: var(--navy);
+}
+
+.di-target-slider-wrap {
+  display: grid;
+  gap: 3px;
 }
 
 .di-target-slider {
   width: 100%;
   margin: 0;
   accent-color: var(--navy);
+}
+
+.di-slider-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-muted, #6b7280);
+  font-size: 0.66rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .di-target-error {
@@ -3993,36 +4278,6 @@ dd {
   color: #7a2d12;
   font-size: 0.78rem;
   font-weight: 700;
-}
-
-.di-controls-apr {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 11px 14px;
-  border: var(--bw) solid var(--navy);
-  border-radius: var(--r-sm);
-  background: var(--gold-tint);
-}
-
-.di-controls-apr > span {
-  color: var(--copper-deep);
-  font-size: 0.8rem;
-  font-weight: 800;
-}
-
-.di-controls-apr-values {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.di-controls-apr strong {
-  color: var(--navy);
-  font-family: var(--font-display);
-  font-size: 1.15rem;
 }
 
 .di-ref-apr {
@@ -4043,15 +4298,15 @@ dd {
   font-weight: 700;
 }
 
-/* Reference ladder — middle sub-panel of the ticket; fills leftover height
-   and scrolls internally so the summary + CTA below stay in view. */
+/* Reference ladder — top sub-panel of the ticket. All 8 rungs render with no
+   internal scroll: the full APR-decay curve (down to ~5% below spot) must be
+   visible at a glance, and a scroll cut mid-row reads as a broken table. */
 .di-reference {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   gap: 8px;
-  padding: 14px 16px 6px;
+  padding: 14px 16px 10px;
 }
 
 .di-reference-head {
@@ -4078,10 +4333,6 @@ dd {
 }
 
 .di-reference .table-shell {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: 304px;
-  overflow-y: auto;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -4097,9 +4348,15 @@ dd {
   white-space: nowrap;
 }
 
+/* Numeric columns read down a right edge; only the price column stays left. */
+.di-reference-table th.di-num-head,
+.di-reference-table td:not(:first-child) {
+  text-align: right;
+}
+
 .di-reference-table td {
   min-height: 0;
-  padding: 7px;
+  padding: 6px 7px;
   font-size: 0.82rem;
 }
 
@@ -4116,12 +4373,15 @@ dd {
   box-shadow: inset 3px 0 0 var(--gold-3);
 }
 
-.di-reference-footnote {
-  margin: 10px 7px 0;
+/* ⓘ methodology tip in a column header — same tooltip pattern as the BTC
+   equivalence note below. */
+.di-info-tip {
+  position: relative;
+  display: inline-flex;
+  margin-left: 5px;
+  vertical-align: middle;
   color: var(--ink-soft);
-  font-size: 0.66rem;
-  font-weight: 700;
-  line-height: 1.35;
+  cursor: help;
 }
 
 /* "BTC equiv." settlement note — dashed affordance + hover/focus tooltip */
@@ -4131,6 +4391,7 @@ dd {
   cursor: help;
 }
 
+.di-info-tip::after,
 .di-equiv-note::after {
   content: attr(data-tip);
   position: absolute;
@@ -4160,10 +4421,25 @@ dd {
     transform 140ms ease;
 }
 
+/* Header tips open DOWN over the table body — upward would clip against the
+   ticket card's overflow:hidden top edge. */
+.di-info-tip::after {
+  top: calc(100% + 9px);
+  bottom: auto;
+}
+
+.di-info-tip:hover::after,
+.di-info-tip:focus-visible::after,
 .di-equiv-note:hover::after,
 .di-equiv-note:focus-visible::after {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Header tooltips must escape the table shell; the reference ladder never
+   scrolls horizontally on desktop, so visible overflow is safe here. */
+.di-reference .table-shell {
+  overflow: visible;
 }
 
 /* ④ Ticket bottom — two-outcome summary + subscribe CTA.
@@ -4176,86 +4452,6 @@ dd {
   padding: 13px 16px 16px;
   border-top: var(--bw) solid rgba(32, 48, 77, 0.16);
   background: var(--paper);
-}
-
-.ticket-outcomes {
-  display: grid;
-}
-
-.ticket-outcomes-title {
-  color: var(--copper-deep);
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.ticket-outcome {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px dashed rgba(32, 48, 77, 0.16);
-}
-
-.ticket-outcome:last-child {
-  padding-bottom: 2px;
-  border-bottom: 0;
-}
-
-.ticket-outcome-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-  font-weight: 750;
-}
-
-.ticket-outcome-dot {
-  flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
-  border: 1.5px solid var(--navy);
-  border-radius: 50%;
-}
-
-.ticket-outcome.is-above .ticket-outcome-dot {
-  border-color: var(--grass);
-  background: var(--grass);
-}
-
-.ticket-outcome.is-below .ticket-outcome-dot {
-  border-color: var(--gold-3);
-  background: var(--gold);
-}
-
-.ticket-outcome-value {
-  display: grid;
-  gap: 2px;
-  justify-items: end;
-  text-align: right;
-}
-
-.ticket-outcome-value strong {
-  color: var(--navy);
-  font-size: 0.98rem;
-  font-weight: 700;
-}
-
-.ticket-outcome.is-above .ticket-outcome-value strong {
-  color: var(--grass);
-}
-
-.ticket-outcome-value small {
-  color: var(--ink-soft);
-  font-size: 0.7rem;
-  font-weight: 650;
-}
-
-.ticket-outcome-value .di-equiv-note::after {
-  width: 240px;
 }
 
 /* CTA block — one primary button; state lives in its label */
@@ -4448,22 +4644,30 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  /* Receipts side by side get too cramped for their labels on phones. */
+  .return-outcomes {
+    grid-template-columns: 1fr;
+  }
+
   .di-hero-ticker strong {
     font-size: 2.6rem;
   }
 
-  /* Declutter the copper chart on narrow screens — the floating callouts
-     duplicate the selection-bar spot price and the ticket summary below. */
-  .return-receive-card,
-  .return-current-label {
+  /* Declutter the chart on narrow screens — current-price callout duplicates
+     the hero ticker, the target label can crowd a short chart, and the payout
+     chip's totals are fully covered by the receipts right below. */
+  .return-current-label,
+  .return-receive-chip {
     display: none;
   }
 
   .return-target-label {
     top: 30%;
   }
+}
 
-  .testnet-chip {
+@media (max-width: 480px) {
+  .return-target-label {
     display: none;
   }
 }
@@ -4591,6 +4795,10 @@ mysten-dapp-kit-connect-modal {
 
 /* Trigger button — mirror of .anker-btn--secondary (paper outline sticker) */
 mysten-dapp-kit-connect-button::part(trigger) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 44px;
   padding: 0 var(--space-5);
   border: var(--bw) solid var(--border-strong);

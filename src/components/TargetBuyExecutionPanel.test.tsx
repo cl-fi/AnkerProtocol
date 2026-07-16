@@ -87,7 +87,8 @@ describe('TargetBuyExecutionPanelView', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeEnabled();
-    expect(screen.getByText('Confirm in your wallet to lock in your reward.')).toBeVisible();
+    // Ready-to-subscribe is a bare CTA — no extra help line under the button.
+    expect(screen.queryByText('Confirm in your wallet to lock in your reward.')).not.toBeInTheDocument();
   });
 
   it('shows the quote warning when the wallet is ready but the quote is not executable', () => {
@@ -107,6 +108,26 @@ describe('TargetBuyExecutionPanelView', () => {
 
     expect(screen.getByText('Ask price 1.0010 is outside Predict mint bounds 0.01-0.99.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
+  });
+
+  it('disables subscribe while the amount exceeds the connected balance', () => {
+    render(
+      <TargetBuyExecutionPanelView
+        hasAccount
+        hasManager
+        isQuoteExecutable={true}
+        insufficientFunds
+        isLoadingManagers={false}
+        isPending={false}
+        managerId="0xabc"
+        onCreateManager={() => undefined}
+        onSubscribe={() => undefined}
+      />,
+    );
+
+    // The Amount input owns the error message; the CTA just refuses to fire.
+    expect(screen.getByRole('button', { name: 'Subscribe Buy Low' })).toBeDisabled();
+    expect(screen.queryByText('Confirm in your wallet to lock in your reward.')).not.toBeInTheDocument();
   });
 
   it('links to the portfolio after a subscribe transaction is submitted', () => {

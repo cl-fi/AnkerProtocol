@@ -3,6 +3,7 @@ import {
   DEFAULT_LOCALE,
   formattersForLocale,
   isLocale,
+  localeShortLabel,
   localizedPath,
   normalizeLocale,
   stripLocalePath,
@@ -16,6 +17,11 @@ describe('i18n locale helpers', () => {
     expect(isLocale('zh-CN')).toBe(true);
     expect(isLocale('ja-JP')).toBe(false);
     expect(normalizeLocale('ja-JP')).toBe(DEFAULT_LOCALE);
+  });
+
+  it('shortens locale labels for the language-switcher trigger', () => {
+    expect(localeShortLabel('en')).toBe('EN');
+    expect(localeShortLabel('zh-CN')).toBe('中');
   });
 
   it('adds, strips, and switches locale prefixes', () => {

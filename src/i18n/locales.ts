@@ -16,3 +16,8 @@ export function normalizeLocale(value: string | undefined): Locale {
 export function localeLabel(locale: Locale) {
   return locale === 'zh-CN' ? '中文' : 'English';
 }
+
+/** Compact label for the language-switcher trigger (current locale). */
+export function localeShortLabel(locale: Locale) {
+  return locale === 'zh-CN' ? '中' : 'EN';
+}
