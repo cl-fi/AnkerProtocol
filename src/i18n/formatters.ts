@@ -18,8 +18,17 @@ export function formatUsd(value: number, locale: Locale, options?: Intl.NumberFo
   return `$${value.toLocaleString(numberLocale(locale), { maximumFractionDigits: 0, ...options })}`;
 }
 
-export function formatPreciseAmount(value: number, locale: Locale) {
-  return value.toLocaleString(numberLocale(locale), { maximumFractionDigits: 6 });
+/**
+ * dUSDC cash amounts display with exactly two decimals everywhere (the cents
+ * convention); a nonzero amount that would round to 0.00 shows as "<0.01" so
+ * tiny fees never read as free.
+ */
+export function formatCashAmount(value: number, locale: Locale) {
+  if (value !== 0 && Math.abs(value) < 0.005) return '<0.01';
+  return value.toLocaleString(numberLocale(locale), {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function formatBtcAmount(value: number, locale: Locale) {
@@ -72,11 +81,14 @@ export function formatReferenceApr(value: number, locale: Locale) {
   return formatPercent(value, locale, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
 
-export function formatQuoteBaseUnits(value: bigint) {
-  const scale = 1_000_000n;
-  const whole = value / scale;
-  const fraction = (value % scale).toString().padStart(6, '0').replace(/0+$/, '');
-  return fraction ? `${whole}.${fraction}` : whole.toString();
+export function formatQuoteBaseUnits(value: bigint, locale: Locale = 'en') {
+  // Round half-up to cents in bigint space; base units are 1e6 per dUSDC.
+  const centsPerUnit = 10_000n;
+  const cents = (value + centsPerUnit / 2n) / centsPerUnit;
+  if (value !== 0n && cents === 0n) return '<0.01';
+  const whole = cents / 100n;
+  const fraction = (cents % 100n).toString().padStart(2, '0');
+  return `${whole.toLocaleString(numberLocale(locale))}.${fraction}`;
 }
 
 /**
@@ -142,7 +154,7 @@ export function formattersForLocale(locale: Locale) {
     integer: (value: number) => formatInteger(value, locale),
     usd: (value: number, options?: Intl.NumberFormatOptions) => formatUsd(value, locale, options),
     amount: (value: number) => formatAmount(value, locale),
-    preciseAmount: (value: number) => formatPreciseAmount(value, locale),
+    cashAmount: (value: number) => formatCashAmount(value, locale),
     btcAmount: (value: number) => formatBtcAmount(value, locale),
     btcAmountCompact: (value: number) => formatBtcAmountCompact(value, locale),
     fixedTokenAmount: (value: number, decimals: number) => formatFixedTokenAmount(value, decimals, locale),
@@ -150,7 +162,7 @@ export function formattersForLocale(locale: Locale) {
     periodReturnBps: (value: number) => formatPeriodReturnBps(value, locale),
     apr: (value: number) => formatApr(value, locale),
     referenceApr: (value: number) => formatReferenceApr(value, locale),
-    quoteBaseUnits: formatQuoteBaseUnits,
+    quoteBaseUnits: (value: bigint) => formatQuoteBaseUnits(value, locale),
     expiry: (value: number) => formatExpiry(value, locale),
     oracleTimestamp: (value: number) => formatOracleTimestamp(value, locale),
     shortDateTime: (value: number) => formatShortDateTime(value, locale),

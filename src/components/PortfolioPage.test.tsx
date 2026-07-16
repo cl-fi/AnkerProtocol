@@ -158,7 +158,7 @@ describe('depositedCashText', () => {
   });
 
   it('falls back to the owned ProductNote principal before subscription events are indexed', () => {
-    expect(depositedCashText(noteFixture())).toBe('5');
+    expect(depositedCashText(noteFixture())).toBe('5.00');
   });
 });
 
@@ -199,7 +199,7 @@ describe('SettlementRangeValue', () => {
   it('shows the current estimated gross payout range for a Target Buy note', () => {
     render(<SettlementRangeValue note={noteFixture()} />);
 
-    expect(screen.getByText('4.943865 - 5.007453 dUSDC')).toBeVisible();
+    expect(screen.getByText('4.94 - 5.01 dUSDC')).toBeVisible();
   });
 
   it('formats large base-unit payout ranges without losing bigint precision', () => {
@@ -214,6 +214,8 @@ describe('SettlementRangeValue', () => {
       />,
     );
 
-    expect(screen.getByText('9007199254.740994 - 9007199254.740995 dUSDC')).toBeVisible();
+    // Values above 2^53 base units stay exact via the bigint path; a float
+    // detour would drift the cents.
+    expect(screen.getByText('9,007,199,254.74 - 9,007,199,254.74 dUSDC')).toBeVisible();
   });
 });

@@ -16,7 +16,7 @@ import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { ClaimSuccessDialog } from './ClaimSuccessDialog';
 import type { ConfirmedClaim } from './PortfolioClaimAction';
-import { formatAmount, formatPreciseAmount, shortId } from './PortfolioFormat';
+import { formatCashAmount, shortId } from './PortfolioFormat';
 import { ProductNoteCard } from './PortfolioProductNoteCard';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
@@ -138,12 +138,12 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                 <span className="pf-wallet-label">{copy.portfolio.totalAssets}</span>
                 <span className="pf-wallet-amount-row">
                   <strong className="pf-wallet-amount">
-                    {totalAssets !== null ? formatAmount(totalAssets, locale) : '—'} <em>dUSDC</em>
+                    {totalAssets !== null ? formatCashAmount(totalAssets, locale) : '—'} <em>dUSDC</em>
                   </strong>
                   {expectedRewards > 0 ? (
                     <em className="pf-wallet-expected">
                       <Sparkles size={13} aria-hidden="true" />
-                      +{formatPreciseAmount(expectedRewards, locale)} {copy.portfolio.expectedRewards}
+                      +{formatCashAmount(expectedRewards, locale)} {copy.portfolio.expectedRewards}
                     </em>
                   ) : null}
                 </span>
@@ -164,24 +164,24 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
             <div className="di-portfolio pf-tiles">
               <div>
                 <span>{copy.portfolio.available}</span>
-                <strong>{funds.available !== null ? formatAmount(funds.available, locale) : '—'}</strong>
+                <strong>{funds.available !== null ? formatCashAmount(funds.available, locale) : '—'}</strong>
                 <small>{copy.portfolio.availableHint}</small>
               </div>
               <div>
                 <span>{copy.portfolio.inPosition}</span>
-                <strong>{formatAmount(inPosition, locale)}</strong>
+                <strong>{formatCashAmount(inPosition, locale)}</strong>
                 <small>{copy.portfolio.inPositionHint}</small>
               </div>
               <div>
                 <span>{copy.portfolio.expectedRewardsTile}</span>
-                <strong className="pf-rewards-expected">+{formatPreciseAmount(expectedRewards, locale)}</strong>
+                <strong className="pf-rewards-expected">+{formatCashAmount(expectedRewards, locale)}</strong>
                 <small>{copy.portfolio.expectedRewardsHint}</small>
               </div>
               <div>
                 <span>{copy.portfolio.cumulativeRewards}</span>
                 <strong className={cumulativeRewards >= 0 ? 'pf-rewards-positive' : undefined}>
                   {cumulativeRewards >= 0 ? '+' : ''}
-                  {formatPreciseAmount(cumulativeRewards, locale)}
+                  {formatCashAmount(cumulativeRewards, locale)}
                 </strong>
                 <small>{copy.portfolio.cumulativeRewardsHint}</small>
               </div>

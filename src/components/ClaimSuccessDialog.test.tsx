@@ -36,9 +36,9 @@ describe('ClaimSuccessDialog', () => {
     render(<ClaimSuccessDialog note={NOTE} success={returnedSuccess()} onClose={() => undefined} />);
 
     expect(screen.getByRole('dialog', { name: 'Claim confirmed' })).toBeVisible();
-    expect(screen.getByText('5.005963 dUSDC')).toBeVisible();
-    expect(screen.getByText('5.006708 dUSDC')).toBeVisible();
-    expect(screen.getByText('−0.000745 dUSDC')).toBeVisible();
+    // Cash renders at two decimals, so the net hero and gross row coincide here.
+    expect(screen.getAllByText('5.01 dUSDC')).toHaveLength(2);
+    expect(screen.getByText('−<0.01 dUSDC')).toBeVisible();
     expect(
       screen.getByText('Settled at $65,000 — your principal was returned in dUSDC, coupon included.'),
     ).toBeVisible();

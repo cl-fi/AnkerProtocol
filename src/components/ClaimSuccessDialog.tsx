@@ -47,10 +47,10 @@ export function ClaimSuccessDialog({
         </span>
         <h3 className="success-dialog-title">{dialogCopy.title}</h3>
         <p className="success-dialog-intro">{dialogCopy.received}</p>
-        <strong className="success-dialog-hero">{fmt.preciseAmount(success.netPayout)} dUSDC</strong>
+        <strong className="success-dialog-hero">{fmt.cashAmount(success.netPayout)} dUSDC</strong>
         <KeyValueList className="success-dialog-terms">
-          <KeyValue label={dialogCopy.grossPayout} value={`${fmt.preciseAmount(success.grossPayout)} dUSDC`} />
-          <KeyValue label={dialogCopy.performanceFee} value={`−${fmt.preciseAmount(success.feeAmount)} dUSDC`} />
+          <KeyValue label={dialogCopy.grossPayout} value={`${fmt.cashAmount(success.grossPayout)} dUSDC`} />
+          <KeyValue label={dialogCopy.performanceFee} value={`−${fmt.cashAmount(success.feeAmount)} dUSDC`} />
         </KeyValueList>
         <p className="success-dialog-outcome">{outcome}</p>
         <a className="success-dialog-tx" href={suiExplorerTxUrl(success.digest)} target="_blank" rel="noreferrer">

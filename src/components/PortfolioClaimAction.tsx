@@ -15,7 +15,7 @@ import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { preflightTransaction } from '../sui/transactionPreflight';
 import { isSponsorshipEnabled } from '../sui/sponsoredExecution';
 import { executeWalletTransaction } from '../sui/transactionExecution';
-import { formatBtcAmount, formatPreciseAmount, shortId, suiExplorerTxUrl } from './PortfolioFormat';
+import { formatBtcAmount, formatCashAmount, shortId, suiExplorerTxUrl } from './PortfolioFormat';
 import { Button } from '../ui';
 import type { ClaimSuccessSummary } from './ClaimSuccessDialog';
 
@@ -143,7 +143,7 @@ export function ClaimActionView({
     : canClaim
       ? copy.portfolio.claim.youllReceive
       : copy.portfolio.claim.projectedPayout;
-  const feeText = copy.portfolio.claim.fee(formatPreciseAmount(estimate.feeAmount, locale));
+  const feeText = copy.portfolio.claim.fee(formatCashAmount(estimate.feeAmount, locale));
   const btcAmount = note.targetPrice > 0 ? dusdcAmount / note.targetPrice : 0;
   const statusText = demoMode && action.canClaim ? copy.demo.claimDisabled : action.status;
   const showStatus = action.lifecycle === 'awaiting_settle' || (demoMode && action.canClaim);
@@ -157,19 +157,19 @@ export function ClaimActionView({
           <>
             <strong className="di-claim-amount">~{formatBtcAmount(btcAmount, locale)} BTC</strong>
             <small className="di-claim-fee">
-              {copy.portfolio.claim.onTestnetAfterFee(formatPreciseAmount(estimate.netPayout, locale), feeText)}
+              {copy.portfolio.claim.onTestnetAfterFee(formatCashAmount(estimate.netPayout, locale), feeText)}
             </small>
           </>
         ) : mode === 'projected' ? (
           <>
-            <strong className="di-claim-amount">~{formatPreciseAmount(dusdcAmount, locale)} dUSDC</strong>
+            <strong className="di-claim-amount">~{formatCashAmount(dusdcAmount, locale)} dUSDC</strong>
             <small className="di-claim-fee">
               {copy.portfolio.claim.orBtcAfterFee(formatBtcAmount(btcAmount, locale), feeText)}
             </small>
           </>
         ) : (
           <>
-            <strong className="di-claim-amount">{formatPreciseAmount(dusdcAmount, locale)} dUSDC</strong>
+            <strong className="di-claim-amount">{formatCashAmount(dusdcAmount, locale)} dUSDC</strong>
             <small className="di-claim-fee">{copy.portfolio.claim.afterFee(feeText)}</small>
           </>
         )}

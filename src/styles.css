@@ -941,11 +941,7 @@ a {
   align-items: center;
 }
 
-.wallet-area mysten-dapp-kit-connect-button svg {
-  margin-right: 8px;
-}
-
-/* Placeholder while the wallet button chunk loads — mirrors ::part(trigger) */
+/* Placeholder while the wallet button chunk loads — mirrors the connect CTA */
 .wallet-loading {
   min-height: 44px;
   padding: 0 var(--space-5);
@@ -3467,11 +3463,13 @@ dd {
   gap: 16px;
 }
 
-/* Collapsed summary — title/strike/status left, the three variables right. */
+/* Collapsed summary — one column grid shared by every row, so Deposit /
+   Reward / the third stat / the actions sit on the same vertical lines no
+   matter how wide each row's values are. */
 .di-position-summary {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 160px 215px 205px;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px 18px;
   cursor: pointer;
 }
@@ -3489,16 +3487,16 @@ dd {
   font-size: 1.08rem;
 }
 
+/* The <dl> dissolves so its three cells become row-grid columns directly. */
 .di-position-inline-stats {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  margin: 0 0 0 auto;
+  display: contents;
 }
 
+/* Numbers right-align: magnitudes only compare when digits share an edge. */
 .di-position-inline-stats > div {
   display: grid;
   gap: 2px;
+  text-align: right;
 }
 
 .di-position-inline-stats dt {
@@ -3525,12 +3523,22 @@ dd {
   color: var(--grass);
 }
 
+/* APR reads as a sub-line under the reward, keeping the column narrow. */
 .di-position-inline-stats dd em {
-  margin-left: 5px;
+  display: block;
+  margin-top: 1px;
   color: var(--copper-deep);
   font-style: normal;
   font-size: 0.76rem;
   font-weight: 700;
+}
+
+/* Claim + chevron (or Details) share a fixed slot, right-edge aligned. */
+.di-position-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .di-position-toggle {
@@ -3823,14 +3831,25 @@ dd {
 
 @media (max-width: 900px) {
   /* Stack the row: stats drop under the title and spread across the width. */
+  .di-position-summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
   .di-position-inline-stats {
+    display: flex;
+    gap: 24px;
     width: 100%;
-    margin-left: 0;
     justify-content: space-between;
   }
 
-  .di-position-toggle {
-    margin-left: auto;
+  .di-position-inline-stats > div {
+    text-align: left;
+  }
+
+  .di-position-actions {
+    width: 100%;
   }
 }
 
@@ -3843,6 +3862,10 @@ dd {
   .di-position-inline-stats {
     flex-wrap: wrap;
     gap: 10px 18px;
+  }
+
+  .di-position-actions {
+    flex-wrap: wrap;
   }
 
   .di-claim-button,
@@ -4610,17 +4633,9 @@ dd {
   min-height: 48px;
 }
 
-.ticket-connect mysten-dapp-kit-connect-button {
-  display: block;
-  width: 100%;
-}
-
-.ticket-connect mysten-dapp-kit-connect-button::part(trigger) {
-  justify-content: center;
+.ticket-connect .anker-btn {
   width: 100%;
   min-height: 48px;
-  border-color: var(--navy);
-  background: var(--gold);
 }
 
 .ticket-execution-note {
@@ -4905,70 +4920,160 @@ dd {
 }
 
 /* ============================================================
-   Wallet connect (dapp-kit web components) → Anker sticker theme
+   Wallet connect — app-owned sign-in dialog (ConnectWalletDialog)
    ============================================================ */
 
-/* dapp-kit's shadow styles derive --dapp-kit-* from these UNPREFIXED tokens
-   (shadcn-style names: `--dapp-kit-background: var(--background, …)`). Set the
-   unprefixed names on the host elements; they inherit through both shadow
-   trees (button → nested modal), which a direct --dapp-kit-* override cannot
-   do — the modal's own :host mapping would win over inherited values. */
-mysten-dapp-kit-connect-button,
-mysten-dapp-kit-connect-modal {
-  --background: var(--paper);
-  --foreground: var(--navy);
-  --muted: var(--paper-2);
-  --muted-foreground: var(--ink-soft);
-  --popover: var(--paper);
-  --popover-foreground: var(--navy);
-  --primary: var(--gold);
-  --primary-foreground: var(--navy);
-  --secondary: var(--paper-2);
-  --secondary-foreground: var(--navy);
-  --accent: var(--gold-tint);
-  --accent-foreground: var(--navy);
-  --border: rgba(32, 48, 77, 0.35);
-  --input: rgba(32, 48, 77, 0.35);
-  --ring: var(--gold);
-  --destructive: var(--coral);
-  --positive: var(--grass);
-  --radius: var(--r-sm);
-  --cursor-button: pointer;
-  --cursor-menu-item: pointer;
-  --cursor-radio: pointer;
+.connect-dialog-shell {
+  width: min(400px, 100%);
 }
 
-/* Trigger button — mirror of .anker-btn--secondary (paper outline sticker) */
-mysten-dapp-kit-connect-button::part(trigger) {
+.connect-dialog {
+  display: grid;
+  gap: 14px;
+}
+
+/* Google zkLogin is the hero path: one full-width CTA, white per Google's
+   sign-in branding, sticker outline per ours. */
+.connect-google {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 44px;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
   padding: 0 var(--space-5);
-  border: var(--bw) solid var(--border-strong);
+  border: var(--bw) solid var(--navy);
   border-radius: var(--r-sm);
-  background: var(--surface-raised);
-  color: var(--color-on-accent);
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 600;
+  cursor: pointer;
   box-shadow: var(--shadow-hard-sm);
   transition:
-    background-color 200ms ease,
     box-shadow 220ms ease,
     transform 120ms ease;
 }
 
-mysten-dapp-kit-connect-button::part(trigger):hover {
-  background: var(--surface-accent-soft);
+.connect-google:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--border-strong);
+  box-shadow: 4px 4px 0 var(--navy);
 }
 
-mysten-dapp-kit-connect-button::part(trigger):active {
+.connect-google:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--border-strong);
+  box-shadow: 1px 1px 0 var(--navy);
+}
+
+.connect-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.connect-divider::before,
+.connect-divider::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(32, 48, 77, 0.14);
+}
+
+.connect-wallet-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.connect-wallet-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: var(--bw) solid rgba(32, 48, 77, 0.3);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+  color: var(--navy);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.connect-wallet-row:hover {
+  border-color: var(--navy);
+  background: var(--gold-tint);
+}
+
+.connect-wallet-row img {
+  border-radius: 6px;
+}
+
+.connect-empty {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.connect-empty a {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+/* Connecting / error views — centered status column. */
+.connect-status {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 12px 0 4px;
+}
+
+.connect-status p {
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.connect-status-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--navy);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: wallet-cta-spin 700ms linear infinite;
+}
+
+/* Trust line — the Enoki wordmark paints with currentColor. */
+.connect-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 2px solid rgba(32, 48, 77, 0.12);
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.connect-footer svg {
+  display: block;
+  color: var(--navy);
 }
 
 /* ============================================================
@@ -5157,6 +5262,33 @@ mysten-dapp-kit-connect-button::part(trigger):active {
   border-radius: 999px;
   background: var(--grass);
   border: 2px solid var(--navy);
+}
+
+/* Identity-first trigger: the Google G / wallet icon replaces the status dot,
+   the email (zkLogin) or address (extension) is the label. */
+.account-trigger-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.account-trigger-avatar img {
+  display: block;
+  border-radius: 4px;
+}
+
+.account-trigger-label {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .account-trigger-label {
+    max-width: 120px;
+  }
 }
 
 .account-trigger > svg:last-child {

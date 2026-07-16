@@ -323,7 +323,7 @@ export function TargetBuyExecutionPanel({
         client,
       });
       const simulatedUsdc = Number(prepared.simulatedTotalCostBaseUnits) / 1_000_000;
-      setSimulatedCostLabel(`Simulated mint cost: ${simulatedUsdc.toFixed(6)} dUSDC`);
+      setSimulatedCostLabel(`Simulated mint cost: ${simulatedUsdc.toFixed(2)} dUSDC`);
       const nextDigest = await executeWalletTransaction({
         wallet: dAppKit,
         client,
@@ -357,7 +357,11 @@ export function TargetBuyExecutionPanel({
       digest={digest}
       subscribeConfirmed={subscribeConfirmed}
       simulatedCostLabel={simulatedCostLabel}
-      connectAction={<WalletConnectButton>{copy.common.connectWallet}</WalletConnectButton>}
+      connectAction={
+        <WalletConnectButton locale={locale} variant="primary">
+          {copy.common.connectWallet}
+        </WalletConnectButton>
+      }
       locale={locale}
       onCreateManager={handleCreateManager}
       onSubscribe={handleSubscribe}

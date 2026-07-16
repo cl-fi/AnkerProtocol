@@ -41,15 +41,15 @@ export function QuoteRiskSummary({
     <div className="quote-summary compact-summary">
       <div>
         <span>{copy.dualInvestment.risk.minimumPayout}</span>
-        <strong>{format.amount(risk.minimumPayout)} dUSDC</strong>
+        <strong>{format.cashAmount(risk.minimumPayout)} dUSDC</strong>
       </div>
       <div>
         <span>{copy.dualInvestment.risk.maximumLoss}</span>
-        <strong>{format.amount(risk.maximumLoss)} dUSDC</strong>
+        <strong>{format.cashAmount(risk.maximumLoss)} dUSDC</strong>
       </div>
       <div>
         <span>{copy.dualInvestment.risk.optionBudget}</span>
-        <strong>{format.amount(risk.optionBudget)} dUSDC</strong>
+        <strong>{format.cashAmount(risk.optionBudget)} dUSDC</strong>
       </div>
       <div>
         <span>{copy.dualInvestment.risk.holdReturn}</span>
@@ -382,7 +382,7 @@ export function DualInvestmentAdvanced({
                   </span>
                 </div>
                 <div>
-                  <strong>{format.amount(leg.askCost)}</strong>
+                  <strong>{format.cashAmount(leg.askCost)}</strong>
                   <span>{copy.dualInvestment.ask}</span>
                 </div>
               </div>

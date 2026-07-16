@@ -1,8 +1,31 @@
 'use client';
 
-import { ConnectButton } from '@mysten/dapp-kit-react/ui';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { DEFAULT_LOCALE, type Locale } from '../i18n';
+import { Button, type ButtonVariant } from '../ui';
+import { ConnectWalletDialog } from './ConnectWalletDialog';
 
-export function WalletConnectButton({ children }: { children?: ReactNode }) {
-  return <ConnectButton>{children}</ConnectButton>;
+/**
+ * Connect CTA for the disconnected state — a regular sticker Button that
+ * opens the app-owned sign-in dialog (ConnectWalletDialog) instead of
+ * dapp-kit's web-component modal.
+ */
+export function WalletConnectButton({
+  children,
+  locale = DEFAULT_LOCALE,
+  variant = 'secondary',
+}: {
+  children?: ReactNode;
+  locale?: Locale;
+  variant?: ButtonVariant;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant={variant} onClick={() => setOpen(true)}>
+        {children}
+      </Button>
+      <ConnectWalletDialog open={open} locale={locale} onClose={() => setOpen(false)} />
+    </>
+  );
 }

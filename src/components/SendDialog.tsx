@@ -103,7 +103,7 @@ export function SendDialog({
       });
       await client.waitForTransaction({ digest });
       await funds.refresh();
-      setSuccess({ digest, amountText: fmt.preciseAmount(Number(amountBaseUnits) / 10 ** 6), recipient: plan.recipient });
+      setSuccess({ digest, amountText: fmt.cashAmount(Number(amountBaseUnits) / 10 ** 6), recipient: plan.recipient });
     } catch (nextError) {
       await funds.refresh().catch(() => undefined);
       setError(nextError instanceof Error ? nextError.message : dialogCopy.failed);
@@ -184,7 +184,7 @@ export function SendDialog({
             onClick={fillMax}
             disabled={funds.available === null}
           >
-            {funds.available !== null ? dialogCopy.availableBalance(fmt.preciseAmount(funds.available)) : '—'}
+            {funds.available !== null ? dialogCopy.availableBalance(fmt.cashAmount(funds.available)) : '—'}
           </button>
           {amountText.trim().length > 0 && !amountValid ? (
             <p className="wallet-field-error">{dialogCopy.amountInvalid}</p>
@@ -209,7 +209,7 @@ export function SendDialog({
               <span className="wallet-cta-spinner" aria-hidden="true" /> {dialogCopy.sending}
             </>
           ) : amountValid && !exceedsBalance ? (
-            dialogCopy.confirmWithAmount(fmt.preciseAmount(Number(amountBaseUnits) / 10 ** 6))
+            dialogCopy.confirmWithAmount(fmt.cashAmount(Number(amountBaseUnits) / 10 ** 6))
           ) : (
             dialogCopy.confirm
           )}

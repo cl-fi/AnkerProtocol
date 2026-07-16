@@ -27,7 +27,7 @@ describe('SendDialog form', () => {
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '100' } });
-    expect(screen.getByRole('button', { name: 'Send 100 dUSDC' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send 100.00 dUSDC' })).toBeInTheDocument();
   });
 
   it('keeps the plain CTA while the amount exceeds Available, with the inline error', () => {
@@ -54,7 +54,7 @@ describe('SendDialog form', () => {
     expect(screen.getByLabelText(/^Amount/)).toHaveValue('10102');
 
     fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '' } });
-    fireEvent.click(screen.getByRole('button', { name: /Available: 10,102 dUSDC/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Available: 10,102\.00 dUSDC/ }));
     expect(screen.getByLabelText(/^Amount/)).toHaveValue('10102');
   });
 });

@@ -7,43 +7,21 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useWalletFunds } from '../hooks/useWalletFunds';
 import { useWalletIdentity } from '../hooks/useWalletIdentity';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
+import { GoogleMark } from './brandMarks';
 import { shortId } from './PortfolioFormat';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
 import { WalletConnectButton } from './WalletConnectButton';
 
-/** The Google "G" mark, for the zkLogin identity row. */
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
-      <path
-        fill="#4285F4"
-        d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
-      />
-    </svg>
-  );
-}
-
 /**
- * The top-right wallet control. Disconnected it stays the dapp-kit connect
- * button (wallet list incl. Google zkLogin); connected it becomes the account
- * panel — the quick embedded-wallet surface: the sign-in identity (Google
- * email for zkLogin, wallet name for extensions) with the address demoted
- * beneath it, Total assets (the same headline number as Portfolio) with an
- * Available / In Position breakdown, Receive/Send (shared dialogs with
- * Portfolio), and disconnect.
+ * The top-right wallet control. Disconnected it is the connect CTA (opens the
+ * app-owned sign-in dialog); connected it becomes the account panel — the
+ * quick embedded-wallet surface. The trigger leads with the sign-in identity
+ * (Google mark + email for zkLogin, wallet icon + address for extensions);
+ * the panel repeats that identity with the address demoted beneath it, Total
+ * assets (the same headline number as Portfolio) with an Available / In
+ * Position breakdown, Receive/Send (shared dialogs with Portfolio), and
+ * disconnect.
  */
 export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
   const copy = copyForLocale(locale);
@@ -90,7 +68,7 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
 
   if (!account) {
     return (
-      <WalletConnectButton>
+      <WalletConnectButton locale={locale}>
         <Wallet size={15} aria-hidden="true" />
         <span>{copy.common.connect}</span>
       </WalletConnectButton>
@@ -115,8 +93,22 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
         aria-label={copy.wallet.accountLabel}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="account-trigger-dot" aria-hidden="true" />
-        <span>{shortId(account.address)}</span>
+        {identity?.kind === 'social' ? (
+          <span className="account-trigger-avatar">
+            <GoogleMark size={15} />
+          </span>
+        ) : identity?.kind === 'extension' && identity.icon ? (
+          <span className="account-trigger-avatar">
+            {/* Wallet-standard icons are data: URIs, not remote assets. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={identity.icon} alt="" width={16} height={16} />
+          </span>
+        ) : (
+          <span className="account-trigger-dot" aria-hidden="true" />
+        )}
+        <span className="account-trigger-label">
+          {identity?.kind === 'social' ? (identity.email ?? copy.wallet.googleAccount) : shortId(account.address)}
+        </span>
         <ChevronDown size={14} aria-hidden="true" />
       </button>
       {open ? (
@@ -158,7 +150,7 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
             <span>{copy.portfolio.totalAssets}</span>
             <strong>
               {funds.totalAssets !== null ? (
-                fmt.amount(funds.totalAssets)
+                fmt.cashAmount(funds.totalAssets)
               ) : (
                 <span className="account-menu-skeleton" aria-hidden="true" />
               )}{' '}
@@ -168,11 +160,11 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
           <dl className="account-menu-breakdown">
             <div>
               <dt>{copy.portfolio.available}</dt>
-              <dd>{funds.available !== null ? fmt.amount(funds.available) : '—'}</dd>
+              <dd>{funds.available !== null ? fmt.cashAmount(funds.available) : '—'}</dd>
             </div>
             <div>
               <dt>{copy.portfolio.inPosition}</dt>
-              <dd>{fmt.amount(funds.inPosition)}</dd>
+              <dd>{fmt.cashAmount(funds.inPosition)}</dd>
             </div>
           </dl>
           <div className="account-menu-actions">

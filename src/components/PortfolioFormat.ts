@@ -12,16 +12,16 @@ export function formatApr(value: number, locale: Locale = DEFAULT_LOCALE) {
   return formattersForLocale(locale).apr(value);
 }
 
-export function formatPreciseAmount(value: number, locale: Locale = DEFAULT_LOCALE) {
-  return formattersForLocale(locale).preciseAmount(value);
+export function formatCashAmount(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).cashAmount(value);
 }
 
 export function formatBtcAmount(value: number, locale: Locale = DEFAULT_LOCALE) {
   return formattersForLocale(locale).btcAmount(value);
 }
 
-export function formatQuoteBaseUnits(value: bigint) {
-  return formattersForLocale(DEFAULT_LOCALE).quoteBaseUnits(value);
+export function formatQuoteBaseUnits(value: bigint, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).quoteBaseUnits(value);
 }
 
 export function formatPercent(value: number | null, locale: Locale = DEFAULT_LOCALE, checkingLabel = 'Checking') {

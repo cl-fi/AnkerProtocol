@@ -26,7 +26,7 @@ import {
   formatBtcAmount,
   formatExpiry,
   formatOracleTimestamp,
-  formatPreciseAmount,
+  formatCashAmount,
   formatPrice,
   formatQuoteBaseUnits,
   shortId,
@@ -201,7 +201,7 @@ export function ProductNoteCard({
           <div>
             <dt>{copy.portfolio.card.reward}</dt>
             <dd className="is-reward">
-              +{formatPreciseAmount(note.coupon, locale)} <em>{formatApr(rewardApr, locale)} APR</em>
+              +{formatCashAmount(note.coupon, locale)} <em>{formatApr(rewardApr, locale)} APR</em>
             </dd>
           </div>
           {rowPayout ? (
@@ -210,7 +210,7 @@ export function ProductNoteCard({
               <dd className="is-payout">
                 {rowPayout.settledBelow
                   ? `~${formatBtcAmount(rowPayout.btcAmount, locale)} BTC`
-                  : `${formatPreciseAmount(rowPayout.netPayout, locale)} dUSDC`}
+                  : `${formatCashAmount(rowPayout.netPayout, locale)} dUSDC`}
               </dd>
             </div>
           ) : (
@@ -220,34 +220,36 @@ export function ProductNoteCard({
             </div>
           )}
         </dl>
-        {showRowClaim ? (
-          <Button
-            variant="primary"
-            size="sm"
-            className="di-position-claim"
-            disabled={demoMode || claimFlow.isPending}
-            title={demoMode ? copy.demo.claimDisabled : undefined}
+        <div className="di-position-actions">
+          {showRowClaim ? (
+            <Button
+              variant="primary"
+              size="sm"
+              className="di-position-claim"
+              disabled={demoMode || claimFlow.isPending}
+              title={demoMode ? copy.demo.claimDisabled : undefined}
+              onClick={(event) => {
+                event.stopPropagation();
+                claimFlow.claim();
+              }}
+            >
+              {claimFlow.isPending ? copy.portfolio.claim.submitting : copy.portfolio.claim.claimPayout}
+            </Button>
+          ) : null}
+          <button
+            type="button"
+            className="di-position-toggle"
+            aria-expanded={expanded}
+            aria-label={copy.portfolio.card.details}
             onClick={(event) => {
               event.stopPropagation();
-              claimFlow.claim();
+              toggle();
             }}
           >
-            {claimFlow.isPending ? copy.portfolio.claim.submitting : copy.portfolio.claim.claimPayout}
-          </Button>
-        ) : null}
-        <button
-          type="button"
-          className="di-position-toggle"
-          aria-expanded={expanded}
-          aria-label={copy.portfolio.card.details}
-          onClick={(event) => {
-            event.stopPropagation();
-            toggle();
-          }}
-        >
-          {showRowClaim ? null : copy.portfolio.card.details}
-          <ChevronDown size={16} aria-hidden="true" />
-        </button>
+            {showRowClaim ? null : copy.portfolio.card.details}
+            <ChevronDown size={16} aria-hidden="true" />
+          </button>
+        </div>
       </div>
       {claimFlow.digest ? (
         <p className="execution-message di-position-claim-message">
@@ -269,7 +271,7 @@ export function ProductNoteCard({
                   <span>
                     {copy.portfolio.card.outcomeAbove(
                       formatPrice(note.targetPrice, locale),
-                      formatPreciseAmount(netIfAbove, locale),
+                      formatCashAmount(netIfAbove, locale),
                     )}
                   </span>
                 </li>
@@ -286,7 +288,7 @@ export function ProductNoteCard({
               <KeyValueList className="di-position-facts">
                 <KeyValue
                   label={copy.portfolio.card.feeLabel}
-                  value={copy.portfolio.card.feeValue(formatPreciseAmount(estimate.feeAmount, locale), feePct)}
+                  value={copy.portfolio.card.feeValue(formatCashAmount(estimate.feeAmount, locale), feePct)}
                 />
                 <div>
                   <span>{copy.portfolio.card.payoutRange}</span>

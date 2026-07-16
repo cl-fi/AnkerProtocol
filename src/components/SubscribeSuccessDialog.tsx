@@ -35,10 +35,10 @@ export function SubscribeSuccessDialog({
         <p className="success-dialog-intro">{dialogCopy.intro}</p>
         <p className="success-dialog-product">{quote.title}</p>
         <KeyValueList className="success-dialog-terms">
-          <KeyValue label={dialogCopy.principal} value={`${fmt.amount(quote.principal)} ${asset}`} />
+          <KeyValue label={dialogCopy.principal} value={`${fmt.cashAmount(quote.principal)} ${asset}`} />
           {quote.targetPrice ? <KeyValue label={dialogCopy.targetPrice} value={fmt.usd(quote.targetPrice)} /> : null}
           <KeyValue label={dialogCopy.settlement} value={fmt.expiry(quote.oracle.expiryMs)} />
-          <KeyValue label={dialogCopy.coupon} value={`${fmt.preciseAmount(quote.coupon)} ${asset}`} tone="good" />
+          <KeyValue label={dialogCopy.coupon} value={`${fmt.cashAmount(quote.coupon)} ${asset}`} tone="good" />
           <KeyValue label={dialogCopy.apr} value={fmt.apr(quote.apr)} tone="good" />
         </KeyValueList>
         <a className="success-dialog-tx" href={suiExplorerTxUrl(digest)} target="_blank" rel="noreferrer">

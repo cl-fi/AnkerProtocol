@@ -51,9 +51,9 @@ describe('SubscribeSuccessDialog', () => {
     const dialog = screen.getByRole('dialog', { name: 'Subscription confirmed' });
     expect(dialog).toBeVisible();
     expect(screen.getByText('BTC Dual Investment · Buy Low')).toBeVisible();
-    expect(screen.getByText('1,000 dUSDC')).toBeVisible();
+    expect(screen.getByText('1,000.00 dUSDC')).toBeVisible();
     expect(screen.getByText('$66,000')).toBeVisible();
-    expect(screen.getByText('7.4531 dUSDC')).toBeVisible();
+    expect(screen.getByText('7.45 dUSDC')).toBeVisible();
     expect(screen.getByText('9.16%')).toBeVisible();
     expect(screen.getByRole('link', { name: /View transaction/ })).toHaveAttribute(
       'href',

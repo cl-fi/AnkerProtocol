@@ -78,8 +78,8 @@ describe('ClaimActionView settlement lifecycle', () => {
     );
 
     // deposit + reward − fee, and the same value converted at the chosen target price
-    expect(screen.getByText('~5.006708 dUSDC')).toBeVisible();
-    expect(screen.getByText('or ~0.00007644 BTC · after 0.000745 dUSDC fee')).toBeVisible();
+    expect(screen.getByText('~5.01 dUSDC')).toBeVisible();
+    expect(screen.getByText('or ~0.00007644 BTC · after <0.01 dUSDC fee')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
   });
 
@@ -95,8 +95,8 @@ describe('ClaimActionView settlement lifecycle', () => {
     );
 
     expect(screen.getByText("You'll receive")).toBeVisible();
-    expect(screen.getByText('5.006708 dUSDC')).toBeVisible();
-    expect(screen.getByText('after 0.000745 dUSDC fee')).toBeVisible();
+    expect(screen.getByText('5.01 dUSDC')).toBeVisible();
+    expect(screen.getByText('after <0.01 dUSDC fee')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Claim payout' })).toBeEnabled();
   });
 
@@ -118,8 +118,8 @@ describe('ClaimActionView settlement lifecycle', () => {
     );
 
     expect(screen.getByText('You received')).toBeVisible();
-    expect(screen.getByText('6.0125 dUSDC')).toBeVisible();
-    expect(screen.getByText('after 0.1125 dUSDC fee')).toBeVisible();
+    expect(screen.getByText('6.01 dUSDC')).toBeVisible();
+    expect(screen.getByText('after 0.11 dUSDC fee')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
   });
 });
