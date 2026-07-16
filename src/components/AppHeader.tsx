@@ -2,15 +2,15 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { ArrowDownUp, Briefcase, ChartLine, Megaphone, Wallet } from 'lucide-react';
+import { ArrowDownUp, Briefcase, ChartLine, Megaphone } from 'lucide-react';
 import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 export type ActiveProduct = 'dual-investment' | 'portfolio' | 'analytics';
 
-const WalletConnectButton = dynamic(
-  () => import('./WalletConnectButton').then((module) => module.WalletConnectButton),
+const WalletAccountControl = dynamic(
+  () => import('./WalletAccountControl').then((module) => module.WalletAccountControl),
   {
     ssr: false,
   },
@@ -82,10 +82,7 @@ export function AppHeader({
         <div className="top-nav-actions">
           <LanguageSwitcher locale={locale} currentPath={currentPathForActiveProduct(activeProduct)} />
           <div className="wallet-area">
-            <WalletConnectButton>
-              <Wallet size={15} aria-hidden="true" />
-              <span>{copy.common.connect}</span>
-            </WalletConnectButton>
+            <WalletAccountControl locale={locale} />
           </div>
         </div>
       </header>

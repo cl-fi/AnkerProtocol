@@ -18,8 +18,8 @@ export async function POST(request: Request) {
     const body: unknown = await request.json().catch(() => {
       throw new SponsorshipInputError('Request body must be JSON.');
     });
-    const { transactionKindBytes, sender } = (body ?? {}) as Record<string, unknown>;
-    return Response.json(await createAppSponsoredTransaction({ transactionKindBytes, sender }));
+    const { transactionKindBytes, sender, recipient } = (body ?? {}) as Record<string, unknown>;
+    return Response.json(await createAppSponsoredTransaction({ transactionKindBytes, sender, recipient }));
   } catch (error) {
     return sponsorshipErrorResponse(error);
   }

@@ -1,3 +1,5 @@
+import { Transaction } from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createQuoteEnvelope } from '../products/quoteEnvelope';
 import type { SettlementResult } from '../products/settlement';
@@ -13,8 +15,11 @@ import {
   buildSubscribeDualInvestmentTransaction,
   type AnkerProtocolConfig,
 } from '../sui/ankerTransactions';
+import { buildSendDusdcTransaction } from '../sui/sendTransactions';
 import {
+  assertSendTransactionShape,
   createAppSponsoredTransaction,
+  sendSponsoredMoveCallTargets,
   SponsorshipInputError,
   SponsorshipNotConfiguredError,
   sponsoredMoveCallTargets,
@@ -225,6 +230,114 @@ describe('sponsoredMoveCallTargets', () => {
   });
 });
 
+const RECIPIENT = `0x${'9'.repeat(64)}`;
+/** base58 of 32 zero bytes — a syntactically valid object digest for refs. */
+const FAKE_DIGEST = '11111111111111111111111111111111';
+
+function ownedCoinRef(tx: Transaction) {
+  return tx.objectRef({ objectId: NOTE_ID, version: '1', digest: FAKE_DIGEST });
+}
+
+async function kindBytes(tx: Transaction): Promise<string> {
+  return toBase64(await tx.build({ onlyTransactionKind: true }));
+}
+
+describe('sendSponsoredMoveCallTargets', () => {
+  const sendWhitelist = sendSponsoredMoveCallTargets(config);
+
+  it('covers every sweep-send plan target', () => {
+    const plan = buildSendDusdcTransaction({
+      sender: OWNER,
+      recipient: RECIPIENT,
+      amountBaseUnits: 1_500_000n,
+      walletBalanceBaseUnits: 1_000_000n,
+      wrapper: { wrapperId: MANAGER_ID, balanceBaseUnits: 600_000n },
+      config: accountConfig,
+    });
+    expect(plan.sweepBaseUnits).toBe(500_000n);
+    for (const target of moveCallTargets(plan.calls)) {
+      expect(sendWhitelist).toContain(target);
+    }
+  });
+
+  it('covers the coinWithBalance framework calls and no protocol flow targets', () => {
+    const framework = `0x${'0'.repeat(63)}2`;
+    expect(sendWhitelist).toContain(`${framework}::coin::redeem_funds`);
+    expect(sendWhitelist).toContain(`${framework}::coin::send_funds`);
+    expect(sendWhitelist).toContain(`${framework}::coin::destroy_zero`);
+    expect(sendWhitelist).not.toContain(`${config.packageId}::product_note::new_dual_investment_note_verified`);
+    expect(sendWhitelist).not.toContain(`${config.predictPackageId}::expiry_market::mint_exact_quantity`);
+  });
+});
+
+describe('assertSendTransactionShape', () => {
+  it('accepts plain coin plumbing that ends in a transfer', async () => {
+    const tx = new Transaction();
+    const [coin] = tx.splitCoins(ownedCoinRef(tx), [tx.pure.u64(100)]);
+    tx.transferObjects([coin], RECIPIENT);
+    const kind = await kindBytes(tx);
+    expect(() => assertSendTransactionShape(kind, config)).not.toThrow();
+  });
+
+  it('accepts the sweep shape: generate_auth + withdraw_funds typed as the quote asset', async () => {
+    const tx = new Transaction();
+    const auth = tx.moveCall({ target: `${ACCOUNT_PACKAGE_ID}::account::generate_auth`, arguments: [] });
+    const [swept] = tx.moveCall({
+      target: `${ACCOUNT_PACKAGE_ID}::account::withdraw_funds`,
+      typeArguments: [DUSDC],
+      arguments: [
+        tx.sharedObjectRef({ objectId: MANAGER_ID, initialSharedVersion: '1', mutable: true }),
+        auth,
+        tx.pure.u64(500_000),
+        tx.sharedObjectRef({ objectId: config.accumulatorRoot, initialSharedVersion: '1', mutable: true }),
+        tx.sharedObjectRef({ objectId: `0x${'0'.repeat(63)}6`, initialSharedVersion: '1', mutable: false }),
+      ],
+    });
+    tx.transferObjects([swept], RECIPIENT);
+    const kind = await kindBytes(tx);
+    expect(() => assertSendTransactionShape(kind, config)).not.toThrow();
+  });
+
+  it('rejects Move calls outside the send allowlist', async () => {
+    const tx = new Transaction();
+    tx.moveCall({ target: `${ACCOUNT_PACKAGE_ID}::account::deposit_funds`, typeArguments: [DUSDC], arguments: [ownedCoinRef(tx)] });
+    tx.transferObjects([ownedCoinRef(tx)], RECIPIENT);
+    const kind = await kindBytes(tx);
+    expect(() => assertSendTransactionShape(kind, config)).toThrow(SponsorshipInputError);
+  });
+
+  it('rejects type arguments other than the quote asset', async () => {
+    const tx = new Transaction();
+    const auth = tx.moveCall({ target: `${ACCOUNT_PACKAGE_ID}::account::generate_auth`, arguments: [] });
+    const [swept] = tx.moveCall({
+      target: `${ACCOUNT_PACKAGE_ID}::account::withdraw_funds`,
+      typeArguments: ['0x2::sui::SUI'],
+      arguments: [tx.sharedObjectRef({ objectId: MANAGER_ID, initialSharedVersion: '1', mutable: true }), auth, tx.pure.u64(1)],
+    });
+    tx.transferObjects([swept], RECIPIENT);
+    const kind = await kindBytes(tx);
+    expect(() => assertSendTransactionShape(kind, config)).toThrow(/quote asset/);
+  });
+
+  it('rejects transactions that touch the sponsored gas coin', async () => {
+    const tx = new Transaction();
+    tx.transferObjects([tx.gas], RECIPIENT);
+    const kind = await kindBytes(tx);
+    expect(() => assertSendTransactionShape(kind, config)).toThrow(/gas coin/);
+  });
+
+  it('rejects transactions that never transfer', async () => {
+    const tx = new Transaction();
+    tx.splitCoins(ownedCoinRef(tx), [tx.pure.u64(1)]);
+    const kind = await kindBytes(tx);
+    expect(() => assertSendTransactionShape(kind, config)).toThrow(/transfer/);
+  });
+
+  it('rejects unparsable bytes', () => {
+    expect(() => assertSendTransactionShape('AA==', config)).toThrow(SponsorshipInputError);
+  });
+});
+
 describe('createAppSponsoredTransaction', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -239,6 +352,20 @@ describe('createAppSponsoredTransaction', () => {
   it('rejects an oversized transaction payload', async () => {
     await expect(
       createAppSponsoredTransaction({ sender: OWNER, transactionKindBytes: 'A'.repeat(256 * 1024 + 1) }),
+    ).rejects.toBeInstanceOf(SponsorshipInputError);
+  });
+
+  it('rejects a malformed recipient before touching Enoki', async () => {
+    await expect(
+      createAppSponsoredTransaction({ sender: OWNER, transactionKindBytes: 'AA==', recipient: 'not-an-address' }),
+    ).rejects.toBeInstanceOf(SponsorshipInputError);
+  });
+
+  it('gates send sponsorships on the transaction shape', async () => {
+    // 'AA==' is not a parsable transaction kind, so the shape gate rejects it
+    // even before the Enoki key is consulted.
+    await expect(
+      createAppSponsoredTransaction({ sender: OWNER, transactionKindBytes: 'AA==', recipient: RECIPIENT }),
     ).rejects.toBeInstanceOf(SponsorshipInputError);
   });
 

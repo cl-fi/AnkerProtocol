@@ -1,12 +1,12 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ShieldCheck } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { settlementNoteForProductNote } from '../application/settleProductNote';
+import { isDemoMode } from '../config/runtimeModes';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
 import { fetchOracleMarket } from '../deepbook/predictServer';
-import { useAccountWrapperBalance } from '../hooks/useAccountWrapper';
 import { copyForLocale, DEFAULT_LOCALE, formatTimeToExpiry, type Locale } from '../i18n';
 import { netAprAfterCouponFee } from '../products/feePolicy';
 import { settlementPayoutRange } from '../products/settlement';
@@ -14,10 +14,16 @@ import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 import { lifecycleForProductNote, type ProductNoteLifecycle } from '../sui/productNoteLifecycle';
 import { subscriptionDigestForQuote } from '../sui/subscriptionDigestStore';
-import { ClaimAction, type ConfirmedClaim } from './PortfolioClaimAction';
 import {
-  formatAmount,
+  ClaimActionView,
+  claimEstimateForNote,
+  claimRowPayout,
+  useClaimNote,
+  type ConfirmedClaim,
+} from './PortfolioClaimAction';
+import {
   formatApr,
+  formatBtcAmount,
   formatExpiry,
   formatOracleTimestamp,
   formatPreciseAmount,
@@ -27,7 +33,7 @@ import {
   suiExplorerObjectUrl,
   suiExplorerTxUrl,
 } from './PortfolioFormat';
-import { Badge, Card, Disclosure, KeyValue, KeyValueList, Stat, StatGroup, type Tone } from '../ui';
+import { Badge, Button, Card, Disclosure, KeyValue, KeyValueList, type Tone } from '../ui';
 
 function ProofLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -91,30 +97,6 @@ export function IndexedTransactionDigestValue({
   );
 }
 
-export function AllocatedPositionsValue({
-  entry,
-  locale = DEFAULT_LOCALE,
-}: {
-  entry?: ProductNoteEventIndexEntry;
-  locale?: Locale;
-}) {
-  const copy = copyForLocale(locale);
-  if (!entry) return <dd>{copy.common.notIndexed}</dd>;
-
-  const quantityBaseUnits = entry.allocatedPositions.reduce((sum, position) => sum + position.quantityBaseUnits, 0n);
-  const costBaseUnits = entry.allocatedPositions.reduce((sum, position) => sum + position.costBaseUnits, 0n);
-
-  return (
-    <dd>
-      {copy.portfolio.card.indexedAllocated(
-        entry.allocatedPositions.length,
-        formatQuoteBaseUnits(quantityBaseUnits),
-        formatQuoteBaseUnits(costBaseUnits),
-      )}
-    </dd>
-  );
-}
-
 export function depositedCashText(
   note: Pick<AnkerProductNoteRecord, 'principalBaseUnits'>,
   entry?: ProductNoteEventIndexEntry,
@@ -156,6 +138,13 @@ export function SettlementRangeValue({
   );
 }
 
+/**
+ * One Position, one row: the collapsed summary carries only what varies
+ * between Positions (strike, status, deposit, reward, settle time); every
+ * shared explainer lives in the expanded detail. Claimable rows swap the
+ * settle time for the payout and carry the Claim button inline, so claiming
+ * never requires expanding — the detail stays optional reading.
+ */
 export function ProductNoteCard({
   note,
   marketState,
@@ -171,9 +160,18 @@ export function ProductNoteCard({
 }) {
   const copy = copyForLocale(locale);
   const isDual = note.productType === 'dual-investment';
-  const wrapperBalanceQuery = useAccountWrapperBalance(note.wrapperId);
   const lifecycle = lifecycleForProductNote(note, marketState, Date.now());
   const status = noteStatusBadge(note, lifecycle, locale);
+  const [expanded, setExpanded] = useState(false);
+  const claimFlow = useClaimNote({ note, marketState, onClaimSuccess, locale });
+  const demoMode = isDemoMode();
+  const showRowClaim = isDual && lifecycle === 'claimable';
+  const rowPayout = showRowClaim ? claimRowPayout(note, marketState) : null;
+
+  function toggle() {
+    setExpanded((value) => !value);
+  }
+
   const rewardApr = netAprAfterCouponFee(note.apr, note.feeBps);
   const localizedSettlesText =
     lifecycle === 'countdown'
@@ -181,115 +179,183 @@ export function ProductNoteCard({
         ? formatTimeToExpiry(note.expiryMs, locale)
         : `in ${formatTimeToExpiry(note.expiryMs, locale)}`
       : formatExpiry(note.expiryMs, locale);
-  const accountWrapperBalance = wrapperBalanceQuery.isPending
-    ? copy.common.checking
-    : wrapperBalanceQuery.data?.dusdcBalance !== null && wrapperBalanceQuery.data?.dusdcBalance !== undefined
-      ? `${formatPreciseAmount(wrapperBalanceQuery.data.dusdcBalance, locale)} dUSDC`
-      : copy.common.unavailable;
+  const estimate = claimEstimateForNote(note);
+  // Same arithmetic as the claim block: deposit + reward, net of the fee.
+  const netIfAbove = note.principal + note.coupon - estimate.feeAmount;
+  const btcIfBelow = note.targetPrice > 0 ? netIfAbove / note.targetPrice : 0;
+  const feePct = `${note.feeBps / 100}%`;
 
   return (
-    <Card as="article" className="di-position-card">
-      <header className="di-position-head">
+    <Card as="article" className="di-position-row">
+      <div className="di-position-summary" onClick={toggle}>
         <div className="di-position-title">
           <h3>{isDual ? copy.portfolio.card.buyLowBtc : copy.portfolio.card.legacyProduct}</h3>
           {isDual ? <span className="di-position-strike">@ {formatPrice(note.targetPrice, locale)}</span> : null}
+          <Badge tone={status.tone}>{status.label}</Badge>
         </div>
-        <Badge tone={status.tone}>{status.label}</Badge>
-      </header>
-
-      <StatGroup>
-        <Stat label={copy.portfolio.card.deposit} value={`${depositedCashText(note, eventIndexEntry)} dUSDC`} />
-        <Stat
-          label={copy.portfolio.card.reward}
-          value={`+${formatPreciseAmount(note.coupon, locale)} dUSDC`}
-          sub={`${formatApr(rewardApr, locale)} APR`}
-        />
-        <Stat label={copy.portfolio.card.settles} value={localizedSettlesText} />
-      </StatGroup>
-
-      {isDual ? (
-        <div className="di-position-outcome">
-          <ShieldCheck size={16} />
-          <span className="di-position-outcome-text">
-            <span className="di-position-outcome-main">
-              {copy.portfolio.card.outcomeMain(formatPrice(note.targetPrice, locale))}
-            </span>
-            <small>{copy.portfolio.card.outcomeTestnet}</small>
-          </span>
-        </div>
+        <dl className="di-position-inline-stats">
+          <div>
+            <dt>{copy.portfolio.card.deposit}</dt>
+            <dd>{depositedCashText(note, eventIndexEntry)} dUSDC</dd>
+          </div>
+          <div>
+            <dt>{copy.portfolio.card.reward}</dt>
+            <dd className="is-reward">
+              +{formatPreciseAmount(note.coupon, locale)} <em>{formatApr(rewardApr, locale)} APR</em>
+            </dd>
+          </div>
+          {rowPayout ? (
+            <div>
+              <dt>{copy.portfolio.claim.youllReceive}</dt>
+              <dd className="is-payout">
+                {rowPayout.settledBelow
+                  ? `~${formatBtcAmount(rowPayout.btcAmount, locale)} BTC`
+                  : `${formatPreciseAmount(rowPayout.netPayout, locale)} dUSDC`}
+              </dd>
+            </div>
+          ) : (
+            <div>
+              <dt>{copy.portfolio.card.settles}</dt>
+              <dd>{localizedSettlesText}</dd>
+            </div>
+          )}
+        </dl>
+        {showRowClaim ? (
+          <Button
+            variant="primary"
+            size="sm"
+            className="di-position-claim"
+            disabled={demoMode || claimFlow.isPending}
+            title={demoMode ? copy.demo.claimDisabled : undefined}
+            onClick={(event) => {
+              event.stopPropagation();
+              claimFlow.claim();
+            }}
+          >
+            {claimFlow.isPending ? copy.portfolio.claim.submitting : copy.portfolio.claim.claimPayout}
+          </Button>
+        ) : null}
+        <button
+          type="button"
+          className="di-position-toggle"
+          aria-expanded={expanded}
+          aria-label={copy.portfolio.card.details}
+          onClick={(event) => {
+            event.stopPropagation();
+            toggle();
+          }}
+        >
+          {showRowClaim ? null : copy.portfolio.card.details}
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
+      </div>
+      {claimFlow.digest ? (
+        <p className="execution-message di-position-claim-message">
+          {copy.portfolio.claim.submitted} —{' '}
+          <a className="di-proof-link" href={suiExplorerTxUrl(claimFlow.digest)} target="_blank" rel="noreferrer">
+            {shortId(claimFlow.digest)}
+          </a>
+        </p>
       ) : null}
+      {claimFlow.error ? <p className="execution-error di-position-claim-message">{claimFlow.error}</p> : null}
 
-      <ClaimAction note={note} marketState={marketState} onClaimSuccess={onClaimSuccess} locale={locale} />
-
-      <Disclosure summary={copy.portfolio.card.onChainProof}>
-        <KeyValueList>
-          <KeyValue
-            label={copy.portfolio.card.noteId}
-            value={<ProofLink href={suiExplorerObjectUrl(note.noteId)}>{shortId(note.noteId)}</ProofLink>}
-          />
-          <KeyValue
-            label={isDual ? copy.portfolio.card.quoteHash : copy.portfolio.card.productId}
-            value={note.productId || '--'}
-          />
-          {isDual ? (
-            <div>
-              <span>{copy.portfolio.card.subscriptionTx}</span>
-              <SubscriptionDigestValue
-                owner={note.owner}
-                quoteHash={note.productId}
-                eventDigest={eventIndexEntry?.subscriptionDigest}
-                locale={locale}
-              />
-            </div>
-          ) : null}
-          {isDual ? (
-            <div>
-              <span>{copy.portfolio.card.settlementTx}</span>
-              <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} locale={locale} />
-            </div>
-          ) : null}
-          <KeyValue
-            label={copy.portfolio.card.accountWrapper}
-            value={<ProofLink href={suiExplorerObjectUrl(note.wrapperId)}>{shortId(note.wrapperId)}</ProofLink>}
-          />
-          <KeyValue label={copy.portfolio.card.accountBalance} value={accountWrapperBalance} />
-          <KeyValue
-            label={copy.dualInvestment.oracle}
-            value={<ProofLink href={suiExplorerObjectUrl(note.oracleId)}>{shortId(note.oracleId)}</ProofLink>}
-          />
-          {isDual ? (
-            <div>
-              <span>{copy.portfolio.card.priceFeedUpdated}</span>
-              <OracleLastUpdateValue oracleId={note.oracleId} locale={locale} />
-            </div>
-          ) : null}
+      {expanded ? (
+        <div className="di-position-detail">
           {isDual ? (
             <>
-              <KeyValue label={copy.portfolio.card.yourPrice} value={formatPrice(note.targetPrice, locale)} />
-              <KeyValue label={copy.portfolio.card.floor} value={formatPrice(note.floorPrice, locale)} />
-              <KeyValue label={copy.portfolio.card.reward} value={`${formatAmount(note.coupon, locale)} dUSDC`} />
-              <KeyValue label={copy.portfolio.card.settlement} value={copy.portfolio.card.cashSettled} />
-              <KeyValue
-                label={copy.portfolio.card.settlementPrice}
-                value={
-                  marketState?.settlementPrice == null
-                    ? copy.common.unavailable
-                    : formatPrice(marketState.settlementPrice, locale)
-                }
-              />
-              <div>
-                <span>{copy.portfolio.card.payoutRange}</span>
-                <SettlementRangeValue note={note} locale={locale} />
-              </div>
-              <div>
-                <span>{copy.portfolio.card.allocatedPositions}</span>
-                <AllocatedPositionsValue entry={eventIndexEntry} locale={locale} />
-              </div>
-              <KeyValue label={copy.portfolio.card.legs} value={note.legs.length} />
+              <ul className="di-position-outcomes">
+                <li className="is-above">
+                  <Check size={15} aria-hidden="true" />
+                  <span>
+                    {copy.portfolio.card.outcomeAbove(
+                      formatPrice(note.targetPrice, locale),
+                      formatPreciseAmount(netIfAbove, locale),
+                    )}
+                  </span>
+                </li>
+                <li className="is-below">
+                  <ArrowDown size={15} aria-hidden="true" />
+                  <span>
+                    {copy.portfolio.card.outcomeBelow(
+                      formatPrice(note.targetPrice, locale),
+                      formatBtcAmount(btcIfBelow, locale),
+                    )}
+                  </span>
+                </li>
+              </ul>
+              <KeyValueList className="di-position-facts">
+                <KeyValue
+                  label={copy.portfolio.card.feeLabel}
+                  value={copy.portfolio.card.feeValue(formatPreciseAmount(estimate.feeAmount, locale), feePct)}
+                />
+                <div>
+                  <span>{copy.portfolio.card.payoutRange}</span>
+                  <SettlementRangeValue note={note} locale={locale} />
+                </div>
+                {marketState?.settlementPrice != null ? (
+                  <KeyValue
+                    label={copy.portfolio.card.settlementPrice}
+                    value={formatPrice(marketState.settlementPrice, locale)}
+                  />
+                ) : null}
+              </KeyValueList>
             </>
           ) : null}
-        </KeyValueList>
-      </Disclosure>
+
+          {/* The claimable payout + button already live in the summary row;
+              the detail keeps the info-only block for every other lifecycle. */}
+          {showRowClaim ? null : (
+            <ClaimActionView
+              note={note}
+              nowMs={Date.now()}
+              marketState={marketState}
+              isPending={claimFlow.isPending}
+              demoMode={demoMode}
+              locale={locale}
+              onClaim={claimFlow.claim}
+              showAction={false}
+            />
+          )}
+
+          <Disclosure summary={copy.portfolio.card.onChainProof}>
+            <KeyValueList>
+              <KeyValue
+                label={copy.portfolio.card.noteId}
+                value={<ProofLink href={suiExplorerObjectUrl(note.noteId)}>{shortId(note.noteId)}</ProofLink>}
+              />
+              {isDual ? (
+                <div>
+                  <span>{copy.portfolio.card.subscriptionTx}</span>
+                  <SubscriptionDigestValue
+                    owner={note.owner}
+                    quoteHash={note.productId}
+                    eventDigest={eventIndexEntry?.subscriptionDigest}
+                    locale={locale}
+                  />
+                </div>
+              ) : (
+                <KeyValue label={copy.portfolio.card.productId} value={note.productId || '--'} />
+              )}
+              {isDual ? (
+                <div>
+                  <span>{copy.portfolio.card.settlementTx}</span>
+                  <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} locale={locale} />
+                </div>
+              ) : null}
+              <KeyValue
+                label={copy.portfolio.card.priceFeed}
+                value={<ProofLink href={suiExplorerObjectUrl(note.oracleId)}>{shortId(note.oracleId)}</ProofLink>}
+              />
+              {isDual ? (
+                <div>
+                  <span>{copy.portfolio.card.priceFeedUpdated}</span>
+                  <OracleLastUpdateValue oracleId={note.oracleId} locale={locale} />
+                </div>
+              ) : null}
+            </KeyValueList>
+          </Disclosure>
+        </div>
+      ) : null}
     </Card>
   );
 }

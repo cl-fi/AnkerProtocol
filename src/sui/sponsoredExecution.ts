@@ -42,11 +42,14 @@ export async function signAndExecuteSponsored({
   client,
   transaction,
   sender,
+  recipient,
 }: {
   wallet: WalletTransactionSigner;
   client: ClientWithCoreApi;
   transaction: Transaction;
   sender: string;
+  /** Send flow only: the transfer recipient the sponsor must additionally allow (ADR-0010). */
+  recipient?: string;
 }): Promise<{ digest: string }> {
   transaction.setSenderIfNotSet(sender);
   const transactionKindBytes = toBase64(await transaction.build({ client, onlyTransactionKind: true }));
@@ -54,6 +57,7 @@ export async function signAndExecuteSponsored({
   const sponsored = await postSponsorApi<{ bytes: string; digest: string }>('/api/enoki/sponsor', {
     transactionKindBytes,
     sender,
+    ...(recipient ? { recipient } : {}),
   });
 
   const signed = await wallet.signTransaction({ transaction: Transaction.from(sponsored.bytes) });

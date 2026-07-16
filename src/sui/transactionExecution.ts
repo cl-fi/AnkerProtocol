@@ -27,15 +27,24 @@ export async function executeWalletTransaction({
   transaction,
   sender,
   sponsored,
+  sponsoredRecipient,
 }: {
   wallet: WalletTransactionSigner;
   client: SignedTransactionExecutor & ClientWithCoreApi;
   transaction: Transaction;
   sender: string;
   sponsored: boolean;
+  /** Send flow only: recipient the sponsor must additionally allow (ADR-0010). */
+  sponsoredRecipient?: string;
 }): Promise<string> {
   if (sponsored) {
-    const { digest } = await signAndExecuteSponsored({ wallet, client, transaction, sender });
+    const { digest } = await signAndExecuteSponsored({
+      wallet,
+      client,
+      transaction,
+      sender,
+      recipient: sponsoredRecipient,
+    });
     return digest;
   }
   return transactionDigest(await signAndExecuteWithWallet({ wallet, client, transaction }));

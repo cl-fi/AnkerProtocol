@@ -87,6 +87,20 @@ function settlementResultForView(note: AnkerProductNoteRecord, marketState?: Pre
   return settlementEstimateForNote(note);
 }
 
+/**
+ * What a claimable Position pays out right now — exact once the settlement
+ * price is known, the estimate before. Feeds the summary-row payout stat,
+ * with the same arithmetic as the expanded claim block.
+ */
+export function claimRowPayout(note: AnkerProductNoteRecord, marketState?: PredictMarketState) {
+  const estimate = settlementEstimateFromResult(settlementResultForView(note, marketState));
+  return {
+    ...estimate,
+    settledBelow: estimate.netPayout < note.principal,
+    btcAmount: note.targetPrice > 0 ? estimate.netPayout / note.targetPrice : 0,
+  };
+}
+
 export function ClaimActionView({
   note,
   nowMs,
@@ -97,6 +111,7 @@ export function ClaimActionView({
   demoMode = false,
   locale = DEFAULT_LOCALE,
   onClaim,
+  showAction = true,
 }: {
   note: AnkerProductNoteRecord;
   nowMs: number;
@@ -107,6 +122,8 @@ export function ClaimActionView({
   demoMode?: boolean;
   locale?: Locale;
   onClaim: () => void;
+  /** False when the summary row owns the Claim button — the block stays info-only. */
+  showAction?: boolean;
 }) {
   const copy = copyForLocale(locale);
   const action = claimActionViewModel({ note, nowMs, marketState, isPending, locale });
@@ -157,9 +174,11 @@ export function ClaimActionView({
           </>
         )}
       </div>
-      <Button variant="primary" className="di-claim-button" disabled={!canClaim} onClick={onClaim}>
-        {isPending ? copy.portfolio.claim.submitting : action.actionLabel}
-      </Button>
+      {showAction ? (
+        <Button variant="primary" className="di-claim-button" disabled={!canClaim} onClick={onClaim}>
+          {isPending ? copy.portfolio.claim.submitting : action.actionLabel}
+        </Button>
+      ) : null}
       {digest ? (
         <p className="execution-message">
           {copy.portfolio.claim.submitted} —{' '}
@@ -173,7 +192,12 @@ export function ClaimActionView({
   );
 }
 
-export function ClaimAction({
+/**
+ * The claim transaction flow behind every Claim button (summary row or claim
+ * block): preflight, sponsored-or-wallet execution, optimistic claimed-state
+ * update, and chain resync on failure.
+ */
+export function useClaimNote({
   note,
   marketState,
   onClaimSuccess,
@@ -247,17 +271,12 @@ export function ClaimAction({
     }
   }
 
-  return (
-    <ClaimActionView
-      note={note}
-      nowMs={Date.now()}
-      marketState={marketState}
-      isPending={isPending}
-      digest={digest}
-      error={error}
-      demoMode={isDemoMode()}
-      locale={locale}
-      onClaim={handleClaim}
-    />
-  );
+  return {
+    isPending,
+    digest,
+    error,
+    claim: () => {
+      void handleClaim();
+    },
+  };
 }

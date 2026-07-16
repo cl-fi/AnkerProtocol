@@ -7,7 +7,8 @@ import { productNoteType } from '../sui/ankerPortfolio';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
 import { ClaimSuccessDialog } from './ClaimSuccessDialog';
-import { ClaimAction, type ConfirmedClaim } from './PortfolioClaimAction';
+import { type ConfirmedClaim } from './PortfolioClaimAction';
+import { ProductNoteCard } from './PortfolioProductNoteCard';
 import { PortfolioPage } from './PortfolioPage';
 
 const OWNER = `0x${'a'.repeat(64)}`;
@@ -140,7 +141,8 @@ const settledMarket: PredictMarketState = {
   settledAtMs: 1_001,
 };
 
-// Mirrors the PortfolioPage wiring: the dialog renders from lifted state.
+// Mirrors the PortfolioPage wiring: the row card owns the Claim button, the
+// dialog renders from lifted state.
 function Harness() {
   const portfolio = useAnkerPortfolio();
   const [claim, setClaim] = useState<ConfirmedClaim | null>(null);
@@ -148,7 +150,7 @@ function Harness() {
   if (!note) return <p>loading</p>;
   return (
     <>
-      <ClaimAction note={note} marketState={settledMarket} onClaimSuccess={setClaim} />
+      <ProductNoteCard note={note} marketState={settledMarket} onClaimSuccess={setClaim} />
       {claim ? <ClaimSuccessDialog note={claim.note} success={claim.summary} onClose={() => setClaim(null)} /> : null}
     </>
   );
@@ -171,7 +173,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('ClaimAction chain resync', () => {
+describe('claim flow chain resync', () => {
   it('flips the note to claimed and pops the success card after a successful claim', async () => {
     renderHarness();
     const button = await screen.findByRole('button', { name: 'Claim payout' });
@@ -185,9 +187,12 @@ describe('ClaimAction chain resync', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
     expect(screen.queryByRole('dialog')).toBeNull();
 
-    // …and the note card itself has flipped to the claimed state.
-    await waitFor(() => expect(screen.getByText('You received')).toBeVisible());
-    expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
+    // …and the row itself has flipped to the claimed state: Completed badge,
+    // inline Claim gone, the recorded payout in the expanded detail.
+    await waitFor(() => expect(screen.getByText('Completed')).toBeVisible());
+    expect(screen.queryByRole('button', { name: 'Claim payout' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+    expect(await screen.findByText('You received')).toBeVisible();
     expect(chain.executions).toBe(1);
   });
 
@@ -200,8 +205,10 @@ describe('ClaimAction chain resync', () => {
 
     // The transaction landed on-chain; the UI must converge to the truth
     // instead of leaving a claimable-looking, error-on-reclick note.
-    await waitFor(() => expect(screen.getByText('You received')).toBeVisible());
-    expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByText('Completed')).toBeVisible());
+    expect(screen.queryByRole('button', { name: 'Claim payout' })).toBeNull();
+    // The wallet failure stays visible on the row while the state converges.
+    expect(screen.getByText('Wallet reported an unexpected response.')).toBeVisible();
     // No success card on the error path — the wallet reported a failure.
     expect(screen.queryByRole('dialog')).toBeNull();
   });

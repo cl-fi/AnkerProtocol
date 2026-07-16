@@ -32,6 +32,11 @@ export function registerEnokiWalletsIfConfigured(client: ClientWithCoreApi): voi
         // origin root; it must be listed verbatim in the OAuth client's
         // "Authorized redirect URIs".
         redirectUrl: window.location.origin,
+        // The account panel shows which Google account is signed in; the
+        // email claim only lands in the session JWT when this scope was
+        // requested at sign-in, so sessions created before it stay email-less
+        // until the next login.
+        extraParams: { scope: 'email' },
       },
     },
   });

@@ -193,7 +193,7 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByText('Subscription confirmed. Your Note is in your Portfolio.')).toBeVisible(),
+      expect(screen.getByText('Subscription confirmed. Your position is in your Portfolio.')).toBeVisible(),
     );
 
     // The success card pops with the confirmed terms and a portfolio CTA.
@@ -210,7 +210,7 @@ describe('TargetBuyExecutionPanel subscription flow', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
 
     // The inline confirmation stays behind as the persistent record.
-    expect(screen.getByText(/Subscription confirmed — your Note is live:/)).toBeVisible();
+    expect(screen.getByText(/Subscription confirmed — your position is live:/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'View Portfolio' })).toBeVisible();
   });
 

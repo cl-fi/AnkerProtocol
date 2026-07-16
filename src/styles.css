@@ -3239,11 +3239,11 @@ summary:focus-visible,
    ============================================================ */
 
 /* Notes list: equal cards, not the dual page's asymmetric split */
-.notes-grid {
-  /* auto-fill (not auto-fit) keeps the empty column track, so a single card after
-     filtering stays at its normal column width instead of stretching to fill the row. */
-  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
-  align-items: start;
+/* Positions render as full-width rows, one per Position: collapsed rows keep
+   only the per-Position variables so a long list scans vertically. */
+.notes-list {
+  display: grid;
+  gap: 14px;
 }
 
 /* Card status tag, top-right of the title */
@@ -3340,10 +3340,6 @@ dd {
 }
 
 @media (max-width: 640px) {
-  .notes-grid {
-    grid-template-columns: 1fr;
-  }
-
   .oracle-meta {
     grid-template-columns: 1fr;
   }
@@ -3405,6 +3401,16 @@ dd {
   font-size: 1.9rem;
 }
 
+/* One settlement note for the whole section — the cards stay numbers-only. */
+.di-positions-note {
+  margin: -4px 0 18px;
+  max-width: 78ch;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 .di-position-filters {
   display: flex;
   flex-wrap: wrap;
@@ -3456,16 +3462,18 @@ dd {
 }
 
 /* Position card — product-first layout on the shared detail-panel chrome */
-.di-position-card {
+.di-position-row {
   display: grid;
   gap: 16px;
 }
 
-.di-position-head {
+/* Collapsed summary — title/strike/status left, the three variables right. */
+.di-position-summary {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  cursor: pointer;
 }
 
 .di-position-title {
@@ -3473,10 +3481,155 @@ dd {
   align-items: baseline;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .di-position-title h3 {
   margin: 0;
+  font-size: 1.08rem;
+}
+
+.di-position-inline-stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin: 0 0 0 auto;
+}
+
+.di-position-inline-stats > div {
+  display: grid;
+  gap: 2px;
+}
+
+.di-position-inline-stats dt {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+/* The three numbers are the card's content, not metadata — body-plus size. */
+.di-position-inline-stats dd {
+  margin: 0;
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.di-position-inline-stats dd.is-payout {
+  font-weight: 700;
+}
+
+.di-position-inline-stats dd.is-reward {
+  color: var(--grass);
+}
+
+.di-position-inline-stats dd em {
+  margin-left: 5px;
+  color: var(--copper-deep);
+  font-style: normal;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.di-position-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--navy);
+}
+
+.di-position-toggle:hover {
+  background: var(--gold-tint);
+}
+
+.di-position-toggle:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--navy);
+}
+
+.di-position-toggle svg {
+  transition: transform 160ms ease;
+}
+
+.di-position-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+/* Inline Claim — the summary row owns the action for claimable Positions. */
+.di-position-claim {
+  flex: 0 0 auto;
+  min-height: 38px;
+}
+
+/* Claim submitted/error line — sits between the summary and the detail fold. */
+.di-position-claim-message {
+  margin: 0;
+}
+
+.di-position-detail {
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+  border-top: var(--bw) solid rgba(32, 48, 77, 0.14);
+}
+
+/* Detail facts — plain hairline rows, not the boxed .oracle-meta tiles: the
+   detail fold is supporting reading, so it stays visually quiet. */
+.di-position-facts {
+  margin-top: 0;
+}
+
+.di-position-facts > div {
+  min-height: 0;
+  padding: 5px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(32, 48, 77, 0.14);
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Two-branch outcome — the per-Position numbers plugged into the shared rule. */
+.di-position-outcomes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.di-position-outcomes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.di-position-outcomes li svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.di-position-outcomes li.is-above svg {
+  color: var(--grass);
+}
+
+.di-position-outcomes li.is-below svg {
+  color: var(--copper-deep);
 }
 
 .di-position-strike {
@@ -3557,41 +3710,6 @@ dd {
   font-style: normal;
   font-weight: 800;
   font-size: 0.82rem;
-}
-
-/* Outcome explainer — mirrors the Buy Low worst-case banner */
-.di-position-outcome {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 14px 16px;
-  border: var(--bw) dashed var(--copper-line);
-  border-radius: var(--r-sm);
-  background: var(--copper-tint);
-  color: var(--copper-deep);
-}
-
-.di-position-outcome svg {
-  flex: 0 0 auto;
-  margin-top: 2px;
-}
-
-.di-position-outcome-text {
-  display: grid;
-  gap: 4px;
-}
-
-.di-position-outcome-main {
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1.5;
-}
-
-.di-position-outcome small {
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.45;
-  opacity: 0.82;
 }
 
 /* Claim area */
@@ -3703,13 +3821,32 @@ dd {
   color: var(--copper);
 }
 
+@media (max-width: 900px) {
+  /* Stack the row: stats drop under the title and spread across the width. */
+  .di-position-inline-stats {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .di-position-toggle {
+    margin-left: auto;
+  }
+}
+
 @media (max-width: 640px) {
   .di-portfolio,
   .di-position-stats {
     grid-template-columns: 1fr;
   }
 
-  .di-claim-button {
+  .di-position-inline-stats {
+    flex-wrap: wrap;
+    gap: 10px 18px;
+  }
+
+  .di-claim-button,
+  .di-position-claim {
     width: 100%;
   }
 }
@@ -4832,4 +4969,670 @@ mysten-dapp-kit-connect-button::part(trigger):hover {
 mysten-dapp-kit-connect-button::part(trigger):active {
   transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 var(--border-strong);
+}
+
+/* ============================================================
+   Embedded wallet — Portfolio wallet band, account panel, dialogs
+   ============================================================ */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Portfolio wallet band (Portfolio 即内置钱包 hero card) --- */
+
+.pf-wallet {
+  display: grid;
+  gap: 20px;
+  padding: 26px 28px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+}
+
+.pf-wallet-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.pf-wallet-total {
+  display: grid;
+  gap: 6px;
+}
+
+.pf-wallet-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.pf-wallet-amount-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pf-wallet-amount {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.pf-wallet-amount em {
+  color: var(--copper-deep);
+  font-size: 1.05rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+/* Expected rewards — a pill beside the hero number, not a footnote under it:
+   the one figure that grows while positions are open deserves the eye. */
+.pf-wallet-expected {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: var(--bw) solid var(--gold-3);
+  border-radius: 999px;
+  background: var(--gold-tint);
+  color: var(--gold-3);
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Equal-width pair: content length ("Receive" vs "Send") must not skew size. */
+.pf-wallet-actions {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Four tiles: Available / In position answer "where the money is",
+   Expected / Cumulative rewards answer "what it earns". */
+.pf-tiles {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pf-tiles > div small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pf-rewards-positive {
+  color: var(--grass);
+}
+
+.pf-rewards-expected {
+  color: var(--gold-3);
+}
+
+@media (max-width: 1080px) {
+  .pf-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .pf-tiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .pf-wallet {
+    padding: 20px;
+  }
+
+  .pf-wallet-top {
+    flex-direction: column;
+  }
+
+  .pf-wallet-actions {
+    display: grid;
+    width: 100%;
+  }
+
+  .pf-wallet-amount {
+    font-size: 2.1rem;
+  }
+}
+
+/* --- Top-right account panel (connected wallet control) --- */
+
+.account-control {
+  position: relative;
+  display: inline-flex;
+}
+
+.account-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 var(--space-5, 16px);
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  color: var(--navy);
+  font: inherit;
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.account-trigger:hover {
+  background: var(--gold-tint);
+}
+
+.account-trigger:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--navy);
+}
+
+.account-trigger-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--grass);
+  border: 2px solid var(--navy);
+}
+
+.account-trigger > svg:last-child {
+  transition: transform 160ms ease;
+}
+
+.account-trigger[aria-expanded='true'] > svg:last-child {
+  transform: rotate(180deg);
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  gap: 12px;
+  width: 312px;
+  padding: 16px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+  transform-origin: top right;
+  animation: account-menu-pop 160ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes account-menu-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+/* Identity row — the sign-in identity (Google email / wallet name) is the
+   panel's header; the Sui address is demoted beneath it; copy is icon-only. */
+.account-menu-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-menu-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: var(--bw) solid var(--navy);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.account-menu-who {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.account-menu-who strong {
+  color: var(--navy);
+  font-size: 0.9rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-who code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.account-menu-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  padding: 0;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.account-menu-copy:hover {
+  background: var(--gold-tint);
+}
+
+/* Available / In position — label left, number right: the two rows that
+   compose the Total assets figure above them. */
+.account-menu-breakdown {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: var(--bw) solid var(--paper-2);
+}
+
+.account-menu-breakdown > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.account-menu-breakdown dt {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.account-menu-breakdown dd {
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.88rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.account-menu-balance {
+  display: grid;
+  gap: 4px;
+}
+
+.account-menu-balance span {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.account-menu-balance strong {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.account-menu-skeleton {
+  display: inline-block;
+  width: 96px;
+  height: 0.9em;
+  border-radius: 8px;
+  background: var(--paper-2);
+  vertical-align: baseline;
+  animation: account-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes account-skeleton-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.account-menu-balance strong em {
+  color: var(--copper-deep);
+  font-size: 0.85rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.account-menu-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.account-menu-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--navy);
+}
+
+.account-menu-actions button:hover {
+  background: var(--gold-tint);
+}
+
+.account-menu-actions button:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--navy);
+}
+
+/* Footer — Portfolio link and Disconnect share one row to keep the panel short. */
+.account-menu-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: var(--bw) solid var(--paper-2);
+}
+
+.account-menu-link {
+  color: var(--navy);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.account-menu-disconnect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--coral);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.account-menu-disconnect:hover {
+  color: var(--navy);
+}
+
+/* --- Receive / Send dialogs --- */
+
+/* Width lives on the Dialog card (.wallet-dialog-shell), never on the content:
+ * a content min-width wider than the card's inner box overflows and gets
+ * clipped at the card border. */
+.wallet-dialog-shell {
+  width: min(480px, 100%);
+}
+
+.wallet-dialog {
+  display: grid;
+  gap: 14px;
+}
+
+.wallet-dialog-title {
+  margin: 0;
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.wallet-dialog-intro {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.wallet-receive-qr {
+  justify-self: center;
+  width: 190px;
+  padding: 10px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: #fff;
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.wallet-receive-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.wallet-address-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wallet-address-row:hover {
+  background: var(--gold-tint);
+}
+
+.wallet-address-row code {
+  color: var(--navy);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.72rem;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.wallet-copy-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.wallet-network-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: var(--bw) solid var(--coral);
+  border-radius: var(--r-sm);
+  background: var(--coral-tint);
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.wallet-network-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--coral);
+}
+
+.wallet-testnet-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.wallet-send-form {
+  display: grid;
+  gap: 8px;
+}
+
+.wallet-max-button {
+  border: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--gold-tint);
+  color: var(--copper-deep);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.wallet-max-button:hover {
+  background: var(--gold-2);
+}
+
+.wallet-amount-suffix {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wallet-amount-unit {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+/* A button (tap = fill Max), styled as the quiet hint line it replaces. */
+.wallet-balance-hint {
+  justify-self: start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wallet-balance-hint:hover:not(:disabled) {
+  color: var(--navy);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wallet-balance-hint:disabled {
+  cursor: default;
+}
+
+.wallet-field-error {
+  margin: 0;
+  color: var(--coral);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.wallet-field-warning {
+  margin: 0;
+  color: var(--copper-deep);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.wallet-error {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: var(--bw) solid var(--coral);
+  border-radius: var(--r-sm);
+  background: var(--coral-tint);
+}
+
+.wallet-error p {
+  margin: 0;
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.wallet-error summary {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.wallet-error code {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.wallet-cta-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: wallet-cta-spin 700ms linear infinite;
+}
+
+@keyframes wallet-cta-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.wallet-gas-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.wallet-dialog-cta {
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  .account-menu {
+    width: min(312px, calc(100vw - 32px));
+  }
 }

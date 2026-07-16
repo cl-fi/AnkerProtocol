@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
 import {
-  AllocatedPositionsValue,
   IndexedTransactionDigestValue,
   OracleLastUpdateValue,
   SettlementRangeValue,
@@ -141,29 +140,6 @@ describe('IndexedTransactionDigestValue', () => {
 
   it('shows when a lifecycle transaction has not been indexed', () => {
     render(<IndexedTransactionDigestValue />);
-
-    expect(screen.getByText('Not indexed')).toBeVisible();
-  });
-});
-
-describe('AllocatedPositionsValue', () => {
-  it('shows event-indexed allocated quantity and mint cost', () => {
-    const entry: ProductNoteEventIndexEntry = {
-      noteId: `0x${'c'.repeat(64)}`,
-      transactionDigests: [],
-      allocatedPositions: [
-        { strikeBaseUnits: 64_667_000_000_000n, quantityBaseUnits: 63_588n, costBaseUnits: 56_135n },
-        { strikeBaseUnits: 65_000_000_000_000n, quantityBaseUnits: 12_345n, costBaseUnits: 10_000n },
-      ],
-    };
-
-    render(<AllocatedPositionsValue entry={entry} />);
-
-    expect(screen.getByText('2 indexed / 0.075933 dUSDC qty / 0.066135 dUSDC cost')).toBeVisible();
-  });
-
-  it('shows when allocated position events have not been indexed', () => {
-    render(<AllocatedPositionsValue />);
 
     expect(screen.getByText('Not indexed')).toBeVisible();
   });

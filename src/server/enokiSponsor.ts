@@ -1,5 +1,6 @@
 import { EnokiClient, EnokiClientError } from '@mysten/enoki';
-import { normalizeSuiAddress } from '@mysten/sui/utils';
+import { Transaction } from '@mysten/sui/transactions';
+import { normalizeStructTag, normalizeSuiAddress } from '@mysten/sui/utils';
 import { SUI_NETWORK } from '../config/deepbook';
 import { DEFAULT_ANKER_CONFIG, type AnkerProtocolConfig } from '../sui/ankerProtocolConfig';
 
@@ -67,6 +68,94 @@ export function sponsoredMoveCallTargets(config: AnkerProtocolConfig = DEFAULT_A
   ];
 }
 
+/**
+ * The only Move calls a sponsored Send may contain: the optional sweep of the
+ * sender's own AccountWrapper balance (generate_auth + withdraw_funds) and the
+ * framework calls that coinWithBalance resolution can emit. Deliberately
+ * excludes every subscribe/claim target so the send door cannot be used to
+ * sponsor protocol flows aimed at a third-party recipient.
+ */
+export function sendSponsoredMoveCallTargets(config: AnkerProtocolConfig = DEFAULT_ANKER_CONFIG): string[] {
+  return [
+    `${config.accountPackageId}::account::generate_auth`,
+    `${config.accountPackageId}::account::withdraw_funds`,
+    `${normalizeSuiAddress('0x2')}::coin::redeem_funds`,
+    `${normalizeSuiAddress('0x2')}::coin::send_funds`,
+    `${normalizeSuiAddress('0x2')}::coin::destroy_zero`,
+  ];
+}
+
+type CommandArgument = { $kind: string };
+
+function collectCommandArguments(command: Record<string, unknown>): CommandArgument[] {
+  const args: CommandArgument[] = [];
+  const push = (value: unknown) => {
+    if (Array.isArray(value)) value.forEach(push);
+    else if (typeof value === 'object' && value !== null && '$kind' in value) args.push(value as CommandArgument);
+  };
+  for (const body of Object.values(command)) {
+    if (typeof body !== 'object' || body === null) continue;
+    for (const value of Object.values(body)) push(value);
+  }
+  return args;
+}
+
+/**
+ * Structural gate for sponsored Sends (ADR-0010): the transaction kind may
+ * contain only coin plumbing (SplitCoins/MergeCoins/TransferObjects) plus the
+ * send allowlist's Move calls, every Move type argument must be the quote
+ * asset, and the sponsor's gas coin must never be touched. Coin *objects*
+ * passed as inputs cannot be type-checked without chain lookups; that residual
+ * gap (a stranger moving their own non-dUSDC coins on our gas) is accepted on
+ * testnet and recorded in ADR-0010.
+ */
+export function assertSendTransactionShape(
+  transactionKindBytes: string,
+  config: AnkerProtocolConfig = DEFAULT_ANKER_CONFIG,
+): void {
+  let data: ReturnType<Transaction['getData']>;
+  try {
+    data = Transaction.fromKind(transactionKindBytes).getData();
+  } catch {
+    throw new SponsorshipInputError('transactionKindBytes is not a parsable transaction kind.');
+  }
+
+  const allowedTargets = new Set(sendSponsoredMoveCallTargets(config));
+  const quoteType = normalizeStructTag(config.quoteAssetType);
+  const commands = data.commands ?? [];
+  if (commands.length === 0) {
+    throw new SponsorshipInputError('Send transaction must contain at least one command.');
+  }
+
+  let transfers = 0;
+  for (const command of commands) {
+    const kind = command.$kind;
+    if (kind === 'TransferObjects') transfers += 1;
+    if (kind === 'MoveCall') {
+      const call = command.MoveCall;
+      const target = `${normalizeSuiAddress(call.package)}::${call.module}::${call.function}`;
+      if (!allowedTargets.has(target)) {
+        throw new SponsorshipInputError(`Send transactions may not call ${target}.`);
+      }
+      for (const typeArgument of call.typeArguments ?? []) {
+        if (normalizeStructTag(typeArgument) !== quoteType) {
+          throw new SponsorshipInputError('Send transactions may only move the quote asset.');
+        }
+      }
+    } else if (kind !== 'SplitCoins' && kind !== 'MergeCoins' && kind !== 'TransferObjects') {
+      throw new SponsorshipInputError(`Send transactions may not contain ${kind} commands.`);
+    }
+    for (const argument of collectCommandArguments(command as unknown as Record<string, unknown>)) {
+      if (argument.$kind === 'GasCoin') {
+        throw new SponsorshipInputError('Send transactions may not touch the sponsored gas coin.');
+      }
+    }
+  }
+  if (transfers === 0) {
+    throw new SponsorshipInputError('Send transaction must transfer to a recipient.');
+  }
+}
+
 function enokiClient(): EnokiClient {
   const apiKey = process.env.ENOKI_PRIVATE_API_KEY;
   if (!apiKey) {
@@ -78,6 +167,7 @@ function enokiClient(): EnokiClient {
 export async function createAppSponsoredTransaction(input: {
   transactionKindBytes: unknown;
   sender: unknown;
+  recipient?: unknown;
 }): Promise<{ bytes: string; digest: string }> {
   if (typeof input.sender !== 'string' || !SUI_ADDRESS_PATTERN.test(input.sender)) {
     throw new SponsorshipInputError('sender must be a 32-byte Sui address.');
@@ -89,6 +179,23 @@ export async function createAppSponsoredTransaction(input: {
   ) {
     throw new SponsorshipInputError('transactionKindBytes must be a non-empty base64 string.');
   }
+
+  if (input.recipient !== undefined) {
+    // Send path (ADR-0010): a recipient other than the sender is only ever
+    // sponsored for the pure-transfer shape, under the reduced send allowlist.
+    if (typeof input.recipient !== 'string' || !SUI_ADDRESS_PATTERN.test(input.recipient)) {
+      throw new SponsorshipInputError('recipient must be a 32-byte Sui address.');
+    }
+    assertSendTransactionShape(input.transactionKindBytes);
+    return enokiClient().createSponsoredTransaction({
+      network: SUI_NETWORK,
+      transactionKindBytes: input.transactionKindBytes,
+      sender: input.sender,
+      allowedAddresses: [input.sender, input.recipient],
+      allowedMoveCallTargets: sendSponsoredMoveCallTargets(),
+    });
+  }
+
   return enokiClient().createSponsoredTransaction({
     network: SUI_NETWORK,
     transactionKindBytes: input.transactionKindBytes,

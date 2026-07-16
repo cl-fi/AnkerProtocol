@@ -20,23 +20,49 @@ _Avoid_: duration, term, expiry length
 ### Lifecycle
 
 **Subscribe (订阅)**:
-A user enters a product: deposits principal and receives a Note in one transaction.
+A user enters a product: deposits principal and opens a Position in one transaction.
 _Avoid_: buy, invest, mint (mint refers to the underlying Predict legs)
 
-**Note (产品凭证)**:
-The on-chain receipt for one subscription; records the product terms and the underlying legs. Owned by the subscriber.
-_Avoid_: position, receipt, ticket
+**Position (仓位)**:
+One structured-product holding: opened by Subscribe, closed by Claim. The user-facing unit of the portfolio — users have Positions, see Position cards, and track each Position's yield. Backed on-chain by a ProductNote object, which is implementation vocabulary only (contracts, code, on-chain proof disclosures) — never user-facing copy, same treatment as AccountWrapper.
+_Avoid_: note / 产品凭证 (retired user-facing name — structured-note jargon foreign to CEX users), receipt, ticket
 
 **Leg (腿)**:
-One DeepBook Predict order minted as part of a subscription. A product subscription is composed of one or more legs.
+One DeepBook Predict order minted as part of a subscription. A Position is composed of one or more legs.
 _Avoid_: option, bet
 
 **Settlement (结算)**:
 The moment the underlying expiry market fixes its settlement price after expiry. Settlement is protocol-side and permissionless; it is not an Anker action.
 
 **Claim (领取)**:
-The user (or a keeper on their behalf) redeems the settled legs and withdraws principal plus payout, closing the Note.
+The user (or a keeper on their behalf) redeems the settled legs and withdraws principal plus payout, closing the Position.
 _Avoid_: redeem (reserved for the Predict-level leg operation), withdraw
+
+### Wallet
+
+**Receive (收款)**:
+Wallet-level action: present the connected wallet's own Sui address (with QR) so assets on the Sui network can be sent to it — e.g. a CEX withdrawal landing in the user's address. Funds arrive in the user's own wallet, never an app-side account.
+_Avoid_: deposit / 充值 (implies a platform account holding the funds; "deposit" is reserved for Subscribe's principal deposit)
+
+**Send (转出)**:
+Wallet-level action: transfer an asset from the connected wallet to another Sui address — e.g. back to a CEX deposit address. Send moves Available funds only; it never touches a Position, which is closed only by Claim.
+_Avoid_: withdraw / 提现 (already banned for Claim; wallet-out is Send), transfer (reserved for the low-level PTB operation)
+
+**Available (可用)**:
+The dUSDC a user can Send or Subscribe with right now. Always one number, everywhere in the app — the wallet's coins plus any idle AccountWrapper balance are never shown as separate pools.
+_Avoid_: wallet balance (undercounts idle wrapper funds), spendable, free balance
+
+**In Position (持仓中)**:
+The principal currently locked inside open Positions: money that has left Available at Subscribe and returns — plus payout — only at Claim.
+_Avoid_: total deposited / 总存入 (retired metric label), locked, staked
+
+**Total Assets (总资产)**:
+Available plus In Position principal. Expected rewards are displayed separately and are never counted into Total Assets before Claim.
+_Avoid_: portfolio value, net worth, balance (ambiguous with Available)
+
+**Cumulative Rewards (累计收益)**:
+The realized sum of payout minus principal across every Claim the user has made — money already in hand, distinct from expected rewards on open Positions. Counted from the current deployment onward.
+_Avoid_: total earnings, historical yield, PnL (implies mark-to-market of open Positions)
 
 ### Benchmarking
 
@@ -65,7 +91,7 @@ The subsystem that executes Runs and persists Benchmark Samples, feeding the ana
 ### Upstream (DeepBook Predict)
 
 **AccountWrapper**:
-The DeepBook Predict custody object that holds a subscriber's deposited funds and minted legs. One wrapper per subscriber; Anker Notes record its object id. Created invisibly as a one-time setup step inside the first subscription flow — never presented to users as an account they own or manage; the wallet is the only user-facing identity.
+The DeepBook Predict custody object that holds a subscriber's deposited funds and minted legs. One wrapper per subscriber; Anker ProductNotes record its object id. Created invisibly as a one-time setup step inside the first subscription flow — never presented to users as an account they own or manage; the wallet is the only user-facing identity.
 _Avoid_: Manager, PredictManager, product container, Predict account (retired user-facing name — implies a manageable account concept)
 
 **Cadence**:
