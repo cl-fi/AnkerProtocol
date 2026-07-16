@@ -4298,10 +4298,15 @@ dd {
   font-weight: 700;
 }
 
-/* Reference ladder — top sub-panel of the ticket. All 8 rungs render with no
-   internal scroll: the full APR-decay curve (down to ~5% below spot) must be
-   visible at a glance, and a scroll cut mid-row reads as a broken table. */
+/* Reference ladder — top sub-panel of the ticket. No internal scroll: the full
+   APR-decay curve must be visible at a glance. The table shell is pinned to the
+   hard-cap row budget (MAX_REFERENCE_SCAN_ROWS = 8) so fewer fillable rungs
+   don't yank the controls divider up. --di-ref-max-rows stays in sync with that
+   constant; --di-ref-row-h is the two-line price+delta footprint. */
 .di-reference {
+  --di-ref-row-h: 2.85rem;
+  --di-ref-head-h: 1.9rem;
+  --di-ref-max-rows: 8;
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
@@ -4337,6 +4342,15 @@ dd {
   border-radius: 0;
   box-shadow: none;
   background: transparent;
+  /* Header tips escape the shell; desktop ladder never scrolls horizontally. */
+  overflow: visible;
+}
+
+/* Desktop table only — mobile flattens offer-table into stacked cards. */
+@media (min-width: 641px) {
+  .di-reference .table-shell {
+    min-height: calc(var(--di-ref-head-h) + var(--di-ref-max-rows) * var(--di-ref-row-h));
+  }
 }
 
 .di-reference-table {
@@ -4434,12 +4448,6 @@ dd {
 .di-equiv-note:focus-visible::after {
   opacity: 1;
   transform: translateY(0);
-}
-
-/* Header tooltips must escape the table shell; the reference ladder never
-   scrolls horizontally on desktop, so visible overflow is safe here. */
-.di-reference .table-shell {
-  overflow: visible;
 }
 
 /* ④ Ticket bottom — two-outcome summary + subscribe CTA.
