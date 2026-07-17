@@ -21,7 +21,7 @@ export function ClaimSuccessDialog({
   locale = DEFAULT_LOCALE,
   onClose,
 }: {
-  note: Pick<AnkerProductNoteRecord, 'principal' | 'targetPrice'>;
+  note: Pick<AnkerProductNoteRecord, 'principal' | 'targetPrice' | 'coupon'>;
   /** Settlement snapshot of the confirmed claim; null keeps the dialog closed. */
   success: ClaimSuccessSummary | null;
   locale?: Locale;
@@ -31,12 +31,19 @@ export function ClaimSuccessDialog({
   const copy = copyForLocale(locale);
   const dialogCopy = copy.portfolio.claim.successDialog;
   const fmt = formattersForLocale(locale);
-  // Same rule as the portfolio card: a net payout below principal means the
-  // legs went unrealized and the principal converted at the target price.
-  const converted = success.netPayout < note.principal;
-  const btcAmount = note.targetPrice > 0 ? success.netPayout / note.targetPrice : 0;
+  // Same rule as the portfolio card: the deposit converted iff the market
+  // fixed below the target. Payout size can't decide this — a settle just
+  // under the target still pays above the principal once the coupon lands.
+  // Only the deposit converts — the coupon reward stays a dUSDC amount on top.
+  const converted = success.settlementPrice < note.targetPrice;
+  const btcAmount = note.targetPrice > 0 ? note.principal / note.targetPrice : 0;
   const outcome = converted
-    ? dialogCopy.outcomeConverted(fmt.usd(success.settlementPrice), fmt.usd(note.targetPrice), fmt.btcAmount(btcAmount))
+    ? dialogCopy.outcomeConverted(
+        fmt.usd(success.settlementPrice),
+        fmt.usd(note.targetPrice),
+        fmt.btcAmount(btcAmount),
+        fmt.cashAmount(note.coupon - success.feeAmount),
+      )
     : dialogCopy.outcomeReturned(fmt.usd(success.settlementPrice));
 
   return (

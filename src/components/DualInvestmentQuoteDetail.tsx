@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { isSubDayTenor } from '../products/dualInvestmentScan';
-import { netAprAfterCouponFee } from '../products/feePolicy';
+import { DEFAULT_PROTOCOL_FEE_BPS, netAprAfterCouponFee, netCouponAfterFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel, type ConfirmedSubscription } from './TargetBuyExecutionPanel';
@@ -96,25 +96,41 @@ export function ReturnOverview({
   const copy = copyForLocale(locale);
   const format = formattersForLocale(locale);
   const targetPrice = quote.targetPrice ?? productInput.targetPrice;
-  const total = quote.principal + quote.coupon;
-  const btcEquivalent = targetPrice > 0 ? total / targetPrice : 0;
+  // Only the deposit converts at the Buy Low price — the reward is paid in
+  // dUSDC on top, never folded into the BTC figure.
+  const btcEquivalent = targetPrice > 0 ? quote.principal / targetPrice : 0;
   const netApr = netAprAfterCouponFee(quote.apr);
-  const periodReturn = quote.principal > 0 ? quote.coupon / quote.principal : 0;
+  // Receipts show the arithmetic in full — gross reward, minus fee, equals
+  // what lands — while the headline yield is net, pairing with the net result.
+  // Rendered lines must sum exactly as printed, so round the endpoints to
+  // display cents first and derive the fee/total lines from those: rounding
+  // each line independently can drift the printed sum by a cent.
+  const cents = (value: number) => Math.round(value * 100);
+  const rewardNet = cents(netCouponAfterFee(quote.coupon)) / 100;
+  const rewardGross = cents(quote.coupon) / 100;
+  const feeAmount = rewardGross - rewardNet;
+  const feePct = `${DEFAULT_PROTOCOL_FEE_BPS / 100}%`;
+  const total = cents(quote.principal) / 100 + rewardNet;
+  const periodReturn = quote.principal > 0 ? netCouponAfterFee(quote.coupon) / quote.principal : 0;
   const subDay = isSubDayTenor(quote.oracle.expiryMs);
-  const rewardMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
+  const yieldMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
   const isAbove = scenario === 'above';
   const chartClassName = isAbove ? 'return-chart-visual above' : 'return-chart-visual below';
   const pricePathD = isAbove
     ? 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 138 504 152 C 558 164 586 72 642 48'
     : 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 98 504 110 C 558 122 514 236 642 230';
   const btcCompact = format.btcAmountCompact(btcEquivalent);
-  const belowOutcomeLabel = `≈ ${format.btcAmount(btcEquivalent)} BTC. ${copy.dualInvestment.testnetSettlementNote}`;
-  const belowValueTip = `≈ ${format.btcAmount(btcEquivalent)} BTC · ${copy.dualInvestment.testnetSettlementNote}`;
+  const belowReceiveText = `≈ ${format.btcAmount(btcEquivalent)} BTC + ${format.fixedTokenAmount(rewardNet, 2)} dUSDC`;
+  const belowOutcomeLabel = `${belowReceiveText}. ${copy.dualInvestment.testnetSettlementNote}`;
+  const belowValueTip = `${belowReceiveText} · ${copy.dualInvestment.testnetSettlementNote}`;
 
   return (
     <Card as="article" className="return-overview-panel">
       <div className="return-overview-heading">
         <h3>{copy.dualInvestment.returnOverviewTitle(format.shortDateTime(quote.oracle.expiryMs))}</h3>
+        {/* The yield is outcome-independent, so it lives here once — panel
+            level — instead of repeating inside both receipt cards. */}
+        <Badge tone="positive">{copy.dualInvestment.yieldAfterFee(yieldMeta)}</Badge>
         <Badge tone={estimated ? 'warning' : 'positive'}>
           {estimated ? copy.dualInvestment.estimate : copy.dualInvestment.liveQuote}
         </Badge>
@@ -169,7 +185,11 @@ export function ReturnOverview({
         </div>
         <div className="return-receive-chip">
           <span>{copy.dualInvestment.youWillReceive}</span>
-          <strong>{isAbove ? `${format.fixedTokenAmount(total, 2)} dUSDC` : `≈ ${btcCompact} BTC`}</strong>
+          <strong>
+            {isAbove
+              ? `${format.fixedTokenAmount(total, 2)} dUSDC`
+              : `≈ ${btcCompact} BTC + ${format.fixedTokenAmount(rewardNet, 2)} dUSDC`}
+          </strong>
         </div>
         {/* The price path is a drawn scenario, not a forecast — say so on the chart. */}
         <span className="return-chart-note">{copy.dualInvestment.illustrativeOnly}</span>
@@ -192,8 +212,12 @@ export function ReturnOverview({
               <strong>{format.fixedTokenAmount(quote.principal, 2)}</strong>
             </span>
             <span className="return-receipt-row">
-              <span>{copy.dualInvestment.receiptReward(rewardMeta)}</span>
-              <strong>+{format.fixedTokenAmount(quote.coupon, 2)}</strong>
+              <span>{copy.dualInvestment.receiptReward}</span>
+              <strong>+{format.fixedTokenAmount(rewardGross, 2)}</strong>
+            </span>
+            <span className="return-receipt-row is-fee">
+              <span>{copy.dualInvestment.receiptFee(feePct)}</span>
+              <strong>−{format.fixedTokenAmount(feeAmount, 2)}</strong>
             </span>
             {/* No conversion step in this outcome — the sum IS what you get, so
                 the terminal line says "You receive", mirroring the below card. */}
@@ -215,26 +239,28 @@ export function ReturnOverview({
             {copy.dualInvestment.outcomeAtOrBelow(format.usd(targetPrice))}
           </span>
           <span className="return-outcome-receipt">
+            {/* Deposit ÷ price is the conversion; the reward never enters the
+                division — it rides along in dUSDC. */}
             <span className="return-receipt-row">
               <span>{copy.dualInvestment.receiptDeposit}</span>
               <strong>{format.fixedTokenAmount(quote.principal, 2)}</strong>
-            </span>
-            <span className="return-receipt-row">
-              <span>{copy.dualInvestment.receiptReward(rewardMeta)}</span>
-              <strong>+{format.fixedTokenAmount(quote.coupon, 2)}</strong>
-            </span>
-            <span className="return-receipt-row is-total">
-              <span>{copy.dualInvestment.receiptTotal}</span>
-              <strong>{format.fixedTokenAmount(total, 2)} dUSDC</strong>
             </span>
             <span className="return-receipt-row is-divide">
               <span>{copy.dualInvestment.receiptDividePrice}</span>
               <strong>{format.usd(targetPrice)}</strong>
             </span>
+            <span className="return-receipt-row">
+              <span>{copy.dualInvestment.receiptReward}</span>
+              <strong>+{format.fixedTokenAmount(rewardGross, 2)}</strong>
+            </span>
+            <span className="return-receipt-row is-fee">
+              <span>{copy.dualInvestment.receiptFee(feePct)}</span>
+              <strong>−{format.fixedTokenAmount(feeAmount, 2)}</strong>
+            </span>
             <span className="return-receipt-row is-receive">
               <span>{copy.dualInvestment.youWillReceive}</span>
               <strong className="di-equiv-note" data-tip={belowValueTip}>
-                ≈ {btcCompact} BTC
+                ≈ {btcCompact} BTC + {format.fixedTokenAmount(rewardNet, 2)} dUSDC
               </strong>
             </span>
           </span>

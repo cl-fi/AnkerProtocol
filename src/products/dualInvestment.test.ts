@@ -29,9 +29,14 @@ describe('compileDualInvestment', () => {
     });
 
     expect(quote.legs).toHaveLength(8);
-    expect(quote.reserve).toBeCloseTo(794.5205479452);
+    // Quantities are lot-floored at the source, and the reserve absorbs the
+    // lot dust so reserve + Σ quantity = principal stays exact.
+    const maxLegPayout = quote.legs.reduce((sum, leg) => sum + leg.quantity, 0);
+    expect(maxLegPayout).toBeCloseTo(205.42);
+    expect(quote.reserve).toBeCloseTo(794.58);
+    expect(quote.reserve + maxLegPayout).toBeCloseTo(1_000, 9);
     expect(quote.totalLegCost).toBe(24);
-    expect(quote.coupon).toBeCloseTo(181.4794520548);
+    expect(quote.coupon).toBeCloseTo(181.42);
     expect(quote.executable).toBe(true);
   });
 
@@ -49,9 +54,16 @@ describe('compileDualInvestment', () => {
 
     expect(legs.map((leg) => leg.strike)).toEqual([58_000, 60_500, 63_000, 65_500, 68_000, 70_500]);
     expect(legs).toHaveLength(6);
-    expect(legs.reduce((sum, leg) => sum + leg.quantity, 0)).toBeCloseTo(
-      (1_000 / 73_000) * (73_000 - 58_000),
-    );
+    // Every quantity sits on Predict's 0.01 mint lot grid — floored, so the
+    // ladder never promises more than the mint can deliver.
+    legs.forEach((leg) => {
+      expect(Math.round(leg.quantity * 100)).toBeCloseTo(leg.quantity * 100, 9);
+    });
+    const rawLadder = (1_000 / 73_000) * (73_000 - 58_000);
+    const total = legs.reduce((sum, leg) => sum + leg.quantity, 0);
+    expect(total).toBeCloseTo(205.44);
+    expect(total).toBeLessThanOrEqual(rawLadder);
+    expect(rawLadder - total).toBeLessThan(0.01 * legs.length);
   });
 
   it('matches quoted legs by identity instead of array position', () => {

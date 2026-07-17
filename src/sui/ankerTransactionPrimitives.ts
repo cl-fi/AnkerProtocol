@@ -99,8 +99,10 @@ export function assertQuoteMatchesConfig(quote: StructuredProductQuote, config: 
 /**
  * Client-side mirror of `order::assert_valid_quantity` (abort 4): the order book
  * only stores quantity in fixed-width "lots", so mint_exact_quantity requires an
- * exact multiple of the lot size or the mint aborts. Ladder math produces
- * arbitrary floats, so floor to the lot boundary after scaling to base units.
+ * exact multiple of the lot size or the mint aborts. Quote construction already
+ * floors quantities to this grid (`floorQuantityToOrderLot` in
+ * products/predictPricing.ts) so the quoted payout matches the mint; the floor
+ * here only absorbs float→base-unit conversion noise.
  */
 const ORDER_QUANTITY_LOT_SIZE_BASE_UNITS = 10_000n;
 

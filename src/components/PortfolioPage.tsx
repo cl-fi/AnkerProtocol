@@ -9,6 +9,7 @@ import { useProductNoteEventIndex } from '../hooks/useProductNoteEventIndex';
 import { useWalletFunds } from '../hooks/useWalletFunds';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
 import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
+import { netCouponAfterFee } from '../products/feePolicy';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
@@ -45,14 +46,7 @@ function positionBucket(
 }
 
 export { ClaimActionView, claimActionViewModel, claimEstimateForNote } from './PortfolioClaimAction';
-export {
-  IndexedTransactionDigestValue,
-  OracleLastUpdateValue,
-  SettlementRangeValue,
-  SubscriptionDigestValue,
-  depositedCashText,
-  noteStatusBadge,
-} from './PortfolioProductNoteCard';
+export { SubscriptionDigestValue, depositedCashText, noteStatusBadge } from './PortfolioProductNoteCard';
 
 export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
   const copy = copyForLocale(locale);
@@ -75,7 +69,9 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
 
   const nowMs = Date.now();
   const openNotes = notes.filter((note) => note.status === 'open');
-  const expectedRewards = openNotes.reduce((sum, note) => sum + note.coupon, 0);
+  // Net of the fee, like Cumulative Rewards below — the two tiles must share
+  // one basis or "expected" never reconciles with "received".
+  const expectedRewards = openNotes.reduce((sum, note) => sum + netCouponAfterFee(note.coupon, note.feeBps), 0);
   // Cumulative Rewards (累计收益): realized payout − principal across every
   // Claim on the current deployment — from the redeemed fields the claimed
   // ProductNote objects keep on-chain.

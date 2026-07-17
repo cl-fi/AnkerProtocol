@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ClaimSuccessDialog, type ClaimSuccessSummary } from './ClaimSuccessDialog';
 
 const DIGEST = 'F1b2C3d4E5f6G7h8I9j0A1b2C3d4E5f6G7h8I9j0WXYZ';
-const NOTE = { principal: 5, targetPrice: 65_500 };
+const NOTE = { principal: 5, targetPrice: 65_500, coupon: 0.007453 };
 
 function returnedSuccess(): ClaimSuccessSummary {
   return {
@@ -11,7 +11,7 @@ function returnedSuccess(): ClaimSuccessSummary {
     grossPayout: 5.006708,
     feeAmount: 0.000745,
     netPayout: 5.005963,
-    settlementPrice: 65_000,
+    settlementPrice: 65_600,
   };
 }
 
@@ -40,7 +40,7 @@ describe('ClaimSuccessDialog', () => {
     expect(screen.getAllByText('5.01 dUSDC')).toHaveLength(2);
     expect(screen.getByText('−<0.01 dUSDC')).toBeVisible();
     expect(
-      screen.getByText('Settled at $65,000 — your principal was returned in dUSDC, coupon included.'),
+      screen.getByText('Settled at $65,600 — your principal was returned in dUSDC, coupon included.'),
     ).toBeVisible();
     expect(screen.getByRole('link', { name: /View transaction/ })).toHaveAttribute(
       'href',
@@ -53,9 +53,23 @@ describe('ClaimSuccessDialog', () => {
 
     expect(
       screen.getByText(
-        'Settled at $64,200 — your principal converted at the $65,500 target (≈ 0.00007547 BTC), cash-settled in dUSDC on testnet.',
+        'Settled at $64,200 — your deposit converted at the $65,500 target (≈ 0.00007634 BTC) plus your 0.01 dUSDC reward, cash-settled in dUSDC on testnet.',
       ),
     ).toBeVisible();
+  });
+
+  it('classifies by the settlement price even when the payout beats the principal', () => {
+    // Settled just below the target: the ladder still paid in full, so the net
+    // payout exceeds the principal — the outcome is a conversion regardless.
+    render(
+      <ClaimSuccessDialog
+        note={NOTE}
+        success={{ ...returnedSuccess(), settlementPrice: 65_400 }}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText(/Settled at \$65,400 — your deposit converted at the \$65,500 target/)).toBeVisible();
   });
 
   it('renders the card in Chinese and closes via the Done button', () => {
@@ -64,7 +78,7 @@ describe('ClaimSuccessDialog', () => {
 
     expect(screen.getByRole('dialog', { name: '领取成功' })).toBeVisible();
     expect(screen.getByText('你已收到')).toBeVisible();
-    expect(screen.getByText('结算价 $65,000：本金以 dUSDC 返还，票息照付。')).toBeVisible();
+    expect(screen.getByText('结算价 $65,600：本金以 dUSDC 返还，票息照付。')).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
     expect(onClose).toHaveBeenCalledTimes(1);

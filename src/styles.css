@@ -2167,6 +2167,14 @@ a {
   border-top: 1.5px dashed rgba(32, 48, 77, 0.28);
 }
 
+/* Fee is a middle step of the arithmetic, not a result — mute it so the eye
+   lands on Reward and You receive. */
+.return-receipt-row.is-fee,
+.return-receipt-row.is-fee strong {
+  color: var(--slate);
+  font-weight: 640;
+}
+
 .return-receipt-row.is-total strong {
   font-size: 0.95rem;
 }
@@ -3533,6 +3541,11 @@ dd {
   font-weight: 700;
 }
 
+/* The dUSDC reward under a converted payout keeps the reward green. */
+.di-position-inline-stats dd em.is-reward-note {
+  color: var(--grass);
+}
+
 /* Claim + chevron (or Details) share a fixed slot, right-edge aligned. */
 .di-position-actions {
   display: flex;
@@ -3593,51 +3606,144 @@ dd {
   border-top: var(--bw) solid rgba(32, 48, 77, 0.14);
 }
 
-/* Detail facts — plain hairline rows, not the boxed .oracle-meta tiles: the
-   detail fold is supporting reading, so it stays visually quiet. */
-.di-position-facts {
-  margin-top: 0;
-}
-
-.di-position-facts > div {
-  min-height: 0;
-  padding: 5px 0;
-  border: 0;
-  border-bottom: 1px solid rgba(32, 48, 77, 0.14);
-  border-radius: 0;
-  background: transparent;
-}
-
-/* Two-branch outcome — the per-Position numbers plugged into the shared rule. */
-.di-position-outcomes {
+/* Outcome fork — the two branches settlement can pick between. The skeleton
+   never changes across the lifecycle: settlement adds .is-won / .is-lost,
+   never a new layout. */
+.di-outcome-fork {
   display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.di-position-outcomes li {
-  display: flex;
-  align-items: flex-start;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 10px;
+  align-items: stretch;
+}
+
+.di-fork-branch {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  justify-items: start;
+  padding: 12px 14px;
+  border: 1.5px solid rgba(32, 48, 77, 0.25);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+}
+
+.di-fork-cond {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--ink);
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
-.di-position-outcomes li svg {
-  flex: 0 0 auto;
-  margin-top: 3px;
-}
-
-.di-position-outcomes li.is-above svg {
+.di-fork-branch.is-above .di-fork-cond svg {
   color: var(--grass);
 }
 
-.di-position-outcomes li.is-below svg {
+.di-fork-branch.is-below .di-fork-cond svg {
   color: var(--copper-deep);
+}
+
+.di-fork-label {
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.di-fork-amount {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The reward survives both branches — same green as the summary Reward stat,
+   so the two read as the same number. */
+.di-fork-reward {
+  color: var(--grass);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.di-fork-sub {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.di-fork-or {
+  align-self: center;
+  padding: 3px 9px;
+  border: 1.5px solid rgba(32, 48, 77, 0.25);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.di-fork-branch.is-won {
+  border: var(--bw) solid var(--grass);
+  background: var(--grass-tint);
+}
+
+.di-fork-branch.is-lost {
+  opacity: 0.45;
+}
+
+.di-fork-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 3px;
+  padding: 2px 9px;
+  border: 1.5px solid var(--grass);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--grass);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+/* Awaiting-settlement status line above the fork; the layout stays put. */
+.di-fork-status {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Fee + proof links — one quiet footer line closes the detail fold. */
+.di-position-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 18px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(32, 48, 77, 0.14);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.di-position-fee {
+  font-weight: 600;
+}
+
+.di-proof-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.di-proof-links .di-proof-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .di-position-strike {
@@ -3863,6 +3969,15 @@ dd {
   .di-portfolio,
   .di-position-stats {
     grid-template-columns: 1fr;
+  }
+
+  /* Branches stack; the "or" pill re-centers between them. */
+  .di-outcome-fork {
+    grid-template-columns: 1fr;
+  }
+
+  .di-fork-or {
+    justify-self: center;
   }
 
   .di-position-inline-stats {

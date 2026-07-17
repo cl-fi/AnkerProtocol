@@ -7,7 +7,7 @@ import type {
 } from './types';
 import { aprFromCoupon, daysBetween } from './units';
 import { alignToGrid, buildStrikeLadder } from './strikeGrid';
-import { MIN_LEG_PREMIUM_USD, estimateBinaryUpPremiumUsd } from './predictPricing';
+import { MIN_LEG_PREMIUM_USD, estimateBinaryUpPremiumUsd, floorQuantityToOrderLot } from './predictPricing';
 import { simulatePayoff } from './payoff';
 import { assertValidDualInvestmentInput, assertValidDualInvestmentQuote } from './dualInvestmentValidation';
 import { legIdentityKey } from './legIdentity';
@@ -120,7 +120,10 @@ export function buildDualInvestmentLegIntents(
     expiryMs: oracle.expiryMs,
     strike,
     isUp: true,
-    quantity: targetBtcAmount * width,
+    // Floored to the mintable lot grid here, at the source: downstream layers
+    // (pricing, reserve, tx building, settlement) must all see the same
+    // quantity, or the quoted payout drifts from what the note actually pays.
+    quantity: floorQuantityToOrderLot(targetBtcAmount * width),
     description: `UP ${strike.toLocaleString('en-US')}`,
   }));
 }
@@ -158,8 +161,12 @@ export function compileDualInvestment(input: {
       error: quotedLeg?.error,
     };
   });
-  const targetBtcAmount = validInput.principal / validInput.targetPrice;
-  const reserve = targetBtcAmount * validInput.floorPrice;
+  // The reserve backs the payoff identity, not the floor formula: with lot-
+  // floored quantities, `principal − Σ quantity` keeps `reserve + max ladder
+  // payout = principal` exact, so an above-target settle pays precisely
+  // deposit + coupon (the lot dust stays in cash instead of leaking).
+  const maxLegPayout = legs.reduce((sum, leg) => sum + leg.quantity, 0);
+  const reserve = validInput.principal - maxLegPayout;
   const totalLegCost = legs.reduce((sum, leg) => sum + leg.askCost, 0);
   const coupon = input.input.principal - reserve - totalLegCost;
   const days = daysBetween(input.nowMs ?? Date.now(), input.oracle.expiryMs);

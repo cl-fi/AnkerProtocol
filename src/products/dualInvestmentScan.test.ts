@@ -136,6 +136,7 @@ describe('scanQuoteDisplayMetrics', () => {
   it('zeros coupon and hides protocol economics when a scan quote is missing', () => {
     expect(scanQuoteDisplayMetrics({ quote: null })).toEqual({
       coupon: 0,
+      couponAfterFee: 0,
       apr: null,
       referenceApr: null,
       periodReturn: null,
@@ -158,6 +159,7 @@ describe('scanQuoteDisplayMetrics', () => {
       }),
     ).toEqual({
       coupon: 0,
+      couponAfterFee: 0,
       apr: null,
       referenceApr: null,
       periodReturn: null,
@@ -168,6 +170,7 @@ describe('scanQuoteDisplayMetrics', () => {
   });
 
   it('shows net APR after the protocol coupon fee for multi-day quotes', () => {
+    // Period return is net of the fee, matching the net APR beside it.
     expect(
       scanQuoteDisplayMetrics({
         quote: {
@@ -180,10 +183,11 @@ describe('scanQuoteDisplayMetrics', () => {
       }),
     ).toEqual({
       coupon: 0.04,
+      couponAfterFee: expect.closeTo(0.036, 10),
       apr: 1.69749,
       referenceApr: 1.69749,
-      periodReturn: 0.04,
-      periodReturnBps: 400,
+      periodReturn: expect.closeTo(0.036, 10),
+      periodReturnBps: expect.closeTo(360, 8),
       totalLegCost: 0.34,
       showApr: true,
     });
@@ -203,10 +207,11 @@ describe('scanQuoteDisplayMetrics', () => {
       }),
     ).toEqual({
       coupon: 0.04,
+      couponAfterFee: expect.closeTo(0.036, 10),
       apr: null,
       referenceApr: 157.68,
-      periodReturn: 0.04,
-      periodReturnBps: 400,
+      periodReturn: expect.closeTo(0.036, 10),
+      periodReturnBps: expect.closeTo(360, 8),
       totalLegCost: 0.34,
       showApr: false,
     });
@@ -231,8 +236,8 @@ describe('scanQuoteDisplayMetrics', () => {
         nowMs,
       }),
     ).toMatchObject({
-      periodReturn: 0.02,
-      periodReturnBps: 200,
+      periodReturn: expect.closeTo(0.018, 10),
+      periodReturnBps: expect.closeTo(180, 8),
       apr: null,
       showApr: false,
     });

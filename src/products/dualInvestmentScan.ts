@@ -2,7 +2,7 @@ import type { DualInvestmentInput, OracleMarket, StructuredProductQuote } from '
 import { alignToGrid } from './strikeGrid';
 import { estimateTargetBuyFloorPrice } from './predictPricing';
 import { minQuotableTargetPrice } from './dualInvestmentValidation';
-import { netAprAfterCouponFee } from './feePolicy';
+import { netAprAfterCouponFee, netCouponAfterFee } from './feePolicy';
 
 /** Browse/UI target ladder for Turbo — not the on-chain admission grid (~$1). */
 export const TURBO_DISPLAY_TARGET_STEP = 50;
@@ -152,6 +152,7 @@ export function scanQuoteDisplayMetrics(input: {
   if (!input.quote || input.quote.coupon <= 0) {
     return {
       coupon: 0,
+      couponAfterFee: 0,
       apr: null as number | null,
       referenceApr: null as number | null,
       periodReturn: null as number | null,
@@ -161,12 +162,16 @@ export function scanQuoteDisplayMetrics(input: {
     };
   }
 
-  const periodReturn = input.quote.principal > 0 ? input.quote.coupon / input.quote.principal : 0;
+  // Every display metric is net of the protocol fee — same basis as the APR,
+  // so a row's yield, reward, and APR always describe the same money.
+  const couponAfterFee = netCouponAfterFee(input.quote.coupon);
+  const periodReturn = input.quote.principal > 0 ? couponAfterFee / input.quote.principal : 0;
   const netApr = netAprAfterCouponFee(input.quote.apr);
   const showApr = !isSubDayTenor(input.quote.oracle.expiryMs, input.nowMs);
 
   return {
     coupon: input.quote.coupon,
+    couponAfterFee,
     apr: showApr ? netApr : null,
     // Secondary magnitude cue for Turbo; never the primary column (ADR-0002).
     referenceApr: netApr,
@@ -187,7 +192,9 @@ export function filterMeaningfulScanRows(
     if (!row.quote) return true;
     if (!isSubDayTenor(row.quote.oracle.expiryMs, input.nowMs)) return true;
     if (row.quote.coupon <= 0 || row.quote.principal <= 0) return false;
-    const periodReturn = row.quote.coupon / row.quote.principal;
+    // Net basis, matching the displayed per-period yield — a row must not pass
+    // the filter on a gross figure the UI never shows.
+    const periodReturn = netCouponAfterFee(row.quote.coupon) / row.quote.principal;
     return isMeaningfulTurboPeriodReturn(periodReturn, minBps);
   });
 }

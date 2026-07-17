@@ -20,6 +20,10 @@ export function formatBtcAmount(value: number, locale: Locale = DEFAULT_LOCALE) 
   return formattersForLocale(locale).btcAmount(value);
 }
 
+export function formatBtcAmountCompact(value: number, locale: Locale = DEFAULT_LOCALE) {
+  return formattersForLocale(locale).btcAmountCompact(value);
+}
+
 export function formatQuoteBaseUnits(value: bigint, locale: Locale = DEFAULT_LOCALE) {
   return formattersForLocale(locale).quoteBaseUnits(value);
 }

@@ -49,9 +49,6 @@ vi.mock('./PortfolioClaimAction', () => ({
 
 vi.mock('./PortfolioProductNoteCard', () => ({
   ProductNoteCard: ({ note }: { note: { noteId: string } }) => <article data-testid={`card-${note.noteId}`} />,
-  IndexedTransactionDigestValue: () => null,
-  OracleLastUpdateValue: () => null,
-  SettlementRangeValue: () => null,
   SubscriptionDigestValue: () => null,
   depositedCashText: vi.fn(),
   noteStatusBadge: vi.fn(),
@@ -81,6 +78,7 @@ const openNote = {
   status: 'open',
   principal: 800,
   coupon: 12.34,
+  feeBps: 1_000,
   redeemedPayout: 0,
   redeemedFee: 0,
   oracleId: `0x${'2'.repeat(64)}`,
@@ -112,10 +110,12 @@ describe('PortfolioPage wallet band (connected)', () => {
     render(<PortfolioPage />);
 
     // Total Assets (总资产) = 200 Available + 800 In Position — expected
-    // rewards are never counted in; they render twice (hero pill + tile).
+    // rewards are never counted in; they render twice (hero pill + tile),
+    // net of the 10% fee (12.34 × 0.9) like the Cumulative tile beside them.
     expect(screen.getByText('Total assets')).toBeInTheDocument();
     expect(screen.getByText(/1,000/)).toBeInTheDocument();
-    expect(screen.getAllByText(/12\.34/)).toHaveLength(2);
+    expect(screen.getAllByText(/11\.11/)).toHaveLength(2);
+    expect(screen.queryByText(/12\.34/)).not.toBeInTheDocument();
     expect(screen.getByText('Expected rewards')).toBeInTheDocument();
 
     expect(screen.getByText('Available')).toBeInTheDocument();

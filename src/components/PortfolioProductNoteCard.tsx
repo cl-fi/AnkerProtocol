@@ -1,21 +1,18 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { ArrowDown, Check, ChevronDown } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, ExternalLink } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { settlementNoteForProductNote } from '../application/settleProductNote';
 import { isDemoMode } from '../config/runtimeModes';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
-import { fetchOracleMarket } from '../deepbook/predictServer';
 import { copyForLocale, DEFAULT_LOCALE, formatTimeToExpiry, type Locale } from '../i18n';
 import { netAprAfterCouponFee } from '../products/feePolicy';
-import { settlementPayoutRange } from '../products/settlement';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
 import { lifecycleForProductNote, type ProductNoteLifecycle } from '../sui/productNoteLifecycle';
 import { subscriptionDigestForQuote } from '../sui/subscriptionDigestStore';
 import {
   ClaimActionView,
+  claimAboveEstimate,
   claimEstimateForNote,
   claimRowPayout,
   useClaimNote,
@@ -24,8 +21,8 @@ import {
 import {
   formatApr,
   formatBtcAmount,
+  formatBtcAmountCompact,
   formatExpiry,
-  formatOracleTimestamp,
   formatCashAmount,
   formatPrice,
   formatQuoteBaseUnits,
@@ -33,7 +30,7 @@ import {
   suiExplorerObjectUrl,
   suiExplorerTxUrl,
 } from './PortfolioFormat';
-import { Badge, Button, Card, Disclosure, KeyValue, KeyValueList, type Tone } from '../ui';
+import { Badge, Button, Card, type Tone } from '../ui';
 
 function ProofLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -65,35 +62,32 @@ function useSubscriptionDigest(owner: string, quoteHash: string) {
   return digest;
 }
 
+/** Proof-footer link for the subscription transaction; renders nothing until a digest is known. */
 export function SubscriptionDigestValue({
   owner,
   quoteHash,
   eventDigest,
-  locale = DEFAULT_LOCALE,
+  label,
 }: {
   owner: string;
   quoteHash: string;
   eventDigest?: string;
-  locale?: Locale;
+  label?: string;
 }) {
-  const copy = copyForLocale(locale);
   const localDigest = useSubscriptionDigest(owner, quoteHash);
   const digest = eventDigest || localDigest;
+  if (!digest) return null;
   return (
-    <dd>{digest ? <ProofLink href={suiExplorerTxUrl(digest)}>{shortId(digest)}</ProofLink> : copy.common.notIndexed}</dd>
-  );
-}
-
-export function IndexedTransactionDigestValue({
-  digest,
-  locale = DEFAULT_LOCALE,
-}: {
-  digest?: string;
-  locale?: Locale;
-}) {
-  const copy = copyForLocale(locale);
-  return (
-    <dd>{digest ? <ProofLink href={suiExplorerTxUrl(digest)}>{shortId(digest)}</ProofLink> : copy.common.notIndexed}</dd>
+    <ProofLink href={suiExplorerTxUrl(digest)}>
+      {label ? (
+        <>
+          {label}
+          <ExternalLink size={12} aria-hidden="true" />
+        </>
+      ) : (
+        <span>{shortId(digest)}</span>
+      )}
+    </ProofLink>
   );
 }
 
@@ -104,37 +98,87 @@ export function depositedCashText(
   return formatQuoteBaseUnits(entry?.principalBaseUnits ?? note.principalBaseUnits);
 }
 
-export function OracleLastUpdateValue({ oracleId, locale = DEFAULT_LOCALE }: { oracleId: string; locale?: Locale }) {
-  const copy = copyForLocale(locale);
-  const oracleQuery = useQuery({
-    queryKey: ['oracle-last-update', oracleId],
-    queryFn: () => fetchOracleMarket(oracleId, { serverLagSeconds: 0 }),
-    enabled: Boolean(oracleId),
-    retry: 1,
-    refetchInterval: 60_000,
-  });
-
-  if (oracleQuery.isPending) return <dd>{copy.common.checking}</dd>;
-  if (oracleQuery.error || !oracleQuery.data) return <dd>{copy.common.unavailable}</dd>;
-
-  return (
-    <dd>{formatOracleTimestamp(Math.max(oracleQuery.data.spotTimestampMs, oracleQuery.data.sviTimestampMs), locale)}</dd>
-  );
-}
-
-export function SettlementRangeValue({
+/**
+ * The two-branch outcome panel. Settlement only decides the deposit's form —
+ * dUSDC back, or BTC bought at the target — while the coupon reward is earned
+ * either way, so the below branch lists the reward as its own dUSDC line
+ * instead of folding it into the BTC figure (which is deposit ÷ target,
+ * exactly what the claim delivers). The skeleton is identical across the
+ * lifecycle: settlement lights up the branch that happened and dims the other.
+ */
+function OutcomeFork({
   note,
-  locale = DEFAULT_LOCALE,
+  marketState,
+  lifecycle,
+  locale,
 }: {
   note: AnkerProductNoteRecord;
-  locale?: Locale;
+  marketState?: PredictMarketState;
+  lifecycle: ProductNoteLifecycle;
+  locale: Locale;
 }) {
-  const range = settlementPayoutRange(settlementNoteForProductNote(note));
+  const copy = copyForLocale(locale);
+  const cardCopy = copy.portfolio.card;
+  const estimate = claimEstimateForNote(note);
+  const outcomeKnown = lifecycle === 'claimable' || lifecycle === 'claimed';
+  const actual = outcomeKnown ? claimRowPayout(note, marketState) : null;
+  const aboveWon = actual ? !actual.settledBelow : false;
+  const belowWon = actual ? actual.settledBelow : false;
+  const feeText = formatCashAmount(estimate.feeAmount, locale);
+  const targetText = formatPrice(note.targetPrice, locale);
+  // Same arithmetic as the claim flow, and always through the settlement
+  // engine: the projected figure must equal the settled payout to the base
+  // unit, or the branch amount jumps the moment the market fixes.
+  const aboveAmount = actual && aboveWon ? actual.netPayout : claimAboveEstimate(note).netPayout;
+  const btcIfBelow = note.targetPrice > 0 ? note.principal / note.targetPrice : 0;
+  const rewardAfterFee = note.coupon - estimate.feeAmount;
+  const wonLabel = lifecycle === 'claimed' ? copy.portfolio.claim.youReceived : copy.portfolio.claim.youllReceive;
+  const settledTag =
+    marketState?.settlementPrice != null
+      ? cardCopy.forkSettledAt(formatPrice(marketState.settlementPrice, locale))
+      : null;
+
   return (
-    <dd>
-      {formatQuoteBaseUnits(range.minGrossPayoutBaseUnits)} - {formatQuoteBaseUnits(range.maxGrossPayoutBaseUnits)}{' '}
-      dUSDC
-    </dd>
+    <div className="di-outcome-fork">
+      <div className={`di-fork-branch is-above${aboveWon ? ' is-won' : belowWon ? ' is-lost' : ''}`}>
+        {aboveWon && settledTag ? (
+          <span className="di-fork-tag">
+            <Check size={12} aria-hidden="true" />
+            {settledTag}
+          </span>
+        ) : null}
+        <span className="di-fork-cond">
+          {aboveWon ? null : <Check size={15} aria-hidden="true" />}
+          {aboveWon ? cardCopy.forkAboveSettled(targetText) : cardCopy.forkAbove(targetText)}
+        </span>
+        {aboveWon ? <span className="di-fork-label">{wonLabel}</span> : null}
+        <strong className="di-fork-amount">{formatCashAmount(aboveAmount, locale)} dUSDC</strong>
+        <span className="di-fork-sub">{belowWon ? cardCopy.forkDidntHappen : cardCopy.forkAboveSub(feeText)}</span>
+      </div>
+      <span className="di-fork-or">{cardCopy.forkOr}</span>
+      <div className={`di-fork-branch is-below${belowWon ? ' is-won' : aboveWon ? ' is-lost' : ''}`}>
+        {belowWon && settledTag ? (
+          <span className="di-fork-tag">
+            <ArrowDown size={12} aria-hidden="true" />
+            {settledTag}
+          </span>
+        ) : null}
+        <span className="di-fork-cond">
+          {belowWon ? null : <ArrowDown size={15} aria-hidden="true" />}
+          {belowWon ? cardCopy.forkBelowSettled(targetText) : cardCopy.forkBelow(targetText)}
+        </span>
+        {belowWon ? <span className="di-fork-label">{wonLabel}</span> : null}
+        <strong className="di-fork-amount">≈ {formatBtcAmount(btcIfBelow, locale)} BTC</strong>
+        <strong className="di-fork-reward">{cardCopy.forkReward(formatCashAmount(rewardAfterFee, locale))}</strong>
+        <span className="di-fork-sub">
+          {aboveWon
+            ? cardCopy.forkDidntHappen
+            : belowWon
+              ? cardCopy.forkBelowSettledSub(targetText, feeText)
+              : cardCopy.forkBelowSub(formatCashAmount(note.principal, locale), targetText)}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -180,9 +224,6 @@ export function ProductNoteCard({
         : `in ${formatTimeToExpiry(note.expiryMs, locale)}`
       : formatExpiry(note.expiryMs, locale);
   const estimate = claimEstimateForNote(note);
-  // Same arithmetic as the claim block: deposit + reward, net of the fee.
-  const netIfAbove = note.principal + note.coupon - estimate.feeAmount;
-  const btcIfBelow = note.targetPrice > 0 ? netIfAbove / note.targetPrice : 0;
   const feePct = `${note.feeBps / 100}%`;
 
   return (
@@ -200,17 +241,27 @@ export function ProductNoteCard({
           </div>
           <div>
             <dt>{copy.portfolio.card.reward}</dt>
+            {/* Net of the fee, like the APR beside it — the pair must describe
+                the same money or the stat contradicts itself. */}
             <dd className="is-reward">
-              +{formatCashAmount(note.coupon, locale)} <em>{formatApr(rewardApr, locale)} APR</em>
+              +{formatCashAmount(note.coupon - estimate.feeAmount, locale)}{' '}
+              <em>{formatApr(rewardApr, locale)} APR</em>
             </dd>
           </div>
           {rowPayout ? (
             <div>
               <dt>{copy.portfolio.claim.youllReceive}</dt>
               <dd className="is-payout">
-                {rowPayout.settledBelow
-                  ? `~${formatBtcAmount(rowPayout.btcAmount, locale)} BTC`
-                  : `${formatCashAmount(rowPayout.netPayout, locale)} dUSDC`}
+                {rowPayout.settledBelow ? (
+                  <>
+                    ~{formatBtcAmountCompact(rowPayout.btcAmount, locale)} BTC
+                    <em className="is-reward-note">
+                      {copy.portfolio.card.forkReward(formatCashAmount(rowPayout.rewardAfterFee, locale))}
+                    </em>
+                  </>
+                ) : (
+                  `${formatCashAmount(rowPayout.netPayout, locale)} dUSDC`
+                )}
               </dd>
             </div>
           ) : (
@@ -265,48 +316,14 @@ export function ProductNoteCard({
         <div className="di-position-detail">
           {isDual ? (
             <>
-              <ul className="di-position-outcomes">
-                <li className="is-above">
-                  <Check size={15} aria-hidden="true" />
-                  <span>
-                    {copy.portfolio.card.outcomeAbove(
-                      formatPrice(note.targetPrice, locale),
-                      formatCashAmount(netIfAbove, locale),
-                    )}
-                  </span>
-                </li>
-                <li className="is-below">
-                  <ArrowDown size={15} aria-hidden="true" />
-                  <span>
-                    {copy.portfolio.card.outcomeBelow(
-                      formatPrice(note.targetPrice, locale),
-                      formatBtcAmount(btcIfBelow, locale),
-                    )}
-                  </span>
-                </li>
-              </ul>
-              <KeyValueList className="di-position-facts">
-                <KeyValue
-                  label={copy.portfolio.card.feeLabel}
-                  value={copy.portfolio.card.feeValue(formatCashAmount(estimate.feeAmount, locale), feePct)}
-                />
-                <div>
-                  <span>{copy.portfolio.card.payoutRange}</span>
-                  <SettlementRangeValue note={note} locale={locale} />
-                </div>
-                {marketState?.settlementPrice != null ? (
-                  <KeyValue
-                    label={copy.portfolio.card.settlementPrice}
-                    value={formatPrice(marketState.settlementPrice, locale)}
-                  />
-                ) : null}
-              </KeyValueList>
+              {lifecycle === 'awaiting_settle' ? (
+                <p className="di-fork-status">{copy.portfolio.claim.awaitingSettlement}</p>
+              ) : null}
+              <OutcomeFork note={note} marketState={marketState} lifecycle={lifecycle} locale={locale} />
             </>
-          ) : null}
-
-          {/* The claimable payout + button already live in the summary row;
-              the detail keeps the info-only block for every other lifecycle. */}
-          {showRowClaim ? null : (
+          ) : (
+            // Legacy products have no dual outcome to fork on — keep the
+            // info-only claim block for them.
             <ClaimActionView
               note={note}
               nowMs={Date.now()}
@@ -319,43 +336,38 @@ export function ProductNoteCard({
             />
           )}
 
-          <Disclosure summary={copy.portfolio.card.onChainProof}>
-            <KeyValueList>
-              <KeyValue
-                label={copy.portfolio.card.noteId}
-                value={<ProofLink href={suiExplorerObjectUrl(note.noteId)}>{shortId(note.noteId)}</ProofLink>}
-              />
+          {/* Proof links are audit affordances — label + external icon only;
+              the explorer URL is the payload, truncated IDs are redundant. */}
+          <div className="di-position-meta">
+            {isDual ? (
+              <span className="di-position-fee">
+                {copy.portfolio.card.feeLabel}{' '}
+                {copy.portfolio.card.feeValue(formatCashAmount(estimate.feeAmount, locale), feePct)}
+              </span>
+            ) : null}
+            <span className="di-proof-links">
+              <ProofLink href={suiExplorerObjectUrl(note.noteId)}>
+                {copy.portfolio.card.noteId}
+                <ExternalLink size={12} aria-hidden="true" />
+              </ProofLink>
               {isDual ? (
-                <div>
-                  <span>{copy.portfolio.card.subscriptionTx}</span>
-                  <SubscriptionDigestValue
-                    owner={note.owner}
-                    quoteHash={note.productId}
-                    eventDigest={eventIndexEntry?.subscriptionDigest}
-                    locale={locale}
-                  />
-                </div>
+                <SubscriptionDigestValue
+                  owner={note.owner}
+                  quoteHash={note.productId}
+                  eventDigest={eventIndexEntry?.subscriptionDigest}
+                  label={copy.portfolio.card.subscriptionTx}
+                />
               ) : (
-                <KeyValue label={copy.portfolio.card.productId} value={note.productId || '--'} />
+                <span>
+                  {copy.portfolio.card.productId} {note.productId || '--'}
+                </span>
               )}
-              {isDual ? (
-                <div>
-                  <span>{copy.portfolio.card.settlementTx}</span>
-                  <IndexedTransactionDigestValue digest={eventIndexEntry?.settlementDigest} locale={locale} />
-                </div>
-              ) : null}
-              <KeyValue
-                label={copy.portfolio.card.priceFeed}
-                value={<ProofLink href={suiExplorerObjectUrl(note.oracleId)}>{shortId(note.oracleId)}</ProofLink>}
-              />
-              {isDual ? (
-                <div>
-                  <span>{copy.portfolio.card.priceFeedUpdated}</span>
-                  <OracleLastUpdateValue oracleId={note.oracleId} locale={locale} />
-                </div>
-              ) : null}
-            </KeyValueList>
-          </Disclosure>
+              <ProofLink href={suiExplorerObjectUrl(note.oracleId)}>
+                {copy.portfolio.card.priceFeed}
+                <ExternalLink size={12} aria-hidden="true" />
+              </ProofLink>
+            </span>
+          </div>
         </div>
       ) : null}
     </Card>

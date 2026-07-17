@@ -9,6 +9,22 @@ export const DEFAULT_MAX_PREDICT_ASK = DEEPBOOK_PREDICT.maxAskPrice;
  * at least 1_000_000 base units (1 DUSDC). Hardcoded in the 6-24 bytecode.
  */
 export const MIN_LEG_PREMIUM_USD = 1;
+/**
+ * Predict's order book stores quantity in fixed 0.01-dUSDC lots (mirror of
+ * `order::assert_valid_quantity`; base-unit twin lives in
+ * `sui/ankerTransactionPrimitives.ts`). Quotes floor every leg to this grid up
+ * front so the ladder geometry, the reserve, and the minted note all share the
+ * same numbers — keeping `reserve + Σ quantity = principal` true on-chain, not
+ * just in the quote.
+ */
+export const ORDER_QUANTITY_LOT_SIZE = 0.01;
+const LOTS_PER_UNIT = Math.round(1 / ORDER_QUANTITY_LOT_SIZE);
+
+export function floorQuantityToOrderLot(quantity: number): number {
+  if (!Number.isFinite(quantity) || quantity <= 0) return 0;
+  // The epsilon absorbs float noise on exact lot boundaries (0.29 * 100 → 28.999…).
+  return Math.floor(quantity * LOTS_PER_UNIT + 1e-6) / LOTS_PER_UNIT;
+}
 export const DEFAULT_PREDICT_BASE_SPREAD = DEEPBOOK_PREDICT.baseSpread;
 export const DEFAULT_PREDICT_MIN_SPREAD = DEEPBOOK_PREDICT.minSpread;
 export const DEFAULT_PREDICT_UTILIZATION_MULTIPLIER = DEEPBOOK_PREDICT.utilizationMultiplier;

@@ -30,11 +30,6 @@ export interface SettlementResult {
   realizedLegs: readonly RealizedLeg[];
 }
 
-export interface SettlementPayoutRange {
-  minGrossPayoutBaseUnits: bigint;
-  maxGrossPayoutBaseUnits: bigint;
-}
-
 const BPS_DENOMINATOR = 10_000n;
 
 function feeBpsValue(note: DualInvestmentSettlementNote) {
@@ -100,14 +95,5 @@ export function calculateSettlementFromGrossPayout(
     performanceFeeBaseUnits,
     netPayoutBaseUnits: grossPayoutBaseUnits - performanceFeeBaseUnits,
     realizedLegs: [],
-  };
-}
-
-export function settlementPayoutRange(note: DualInvestmentSettlementNote): SettlementPayoutRange {
-  const minGrossPayoutBaseUnits = note.reserveBaseUnits + note.couponBaseUnits;
-  const maxLegPayoutBaseUnits = note.legs.reduce((sum, leg) => sum + leg.quantityBaseUnits, 0n);
-  return {
-    minGrossPayoutBaseUnits,
-    maxGrossPayoutBaseUnits: minGrossPayoutBaseUnits + maxLegPayoutBaseUnits,
   };
 }

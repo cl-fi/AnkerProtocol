@@ -4,7 +4,11 @@ import { useCurrentAccount, useCurrentClient, useCurrentWallet, useDAppKit } fro
 import { isEnokiWallet } from '@mysten/enoki';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { settlementEstimateForNote, settlementForProductNote } from '../application/settleProductNote';
+import {
+  settlementEstimateForNote,
+  settlementForProductNote,
+  settlementIfAboveTarget,
+} from '../application/settleProductNote';
 import { isDemoMode } from '../config/runtimeModes';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
 import { fetchLivePredictOrderIds } from '../deepbook/predictPositions';
@@ -27,7 +31,7 @@ import type { ClaimSuccessSummary } from './ClaimSuccessDialog';
  * local dialog state) when the user is on a filter tab.
  */
 export interface ConfirmedClaim {
-  note: Pick<AnkerProductNoteRecord, 'principal' | 'targetPrice'>;
+  note: Pick<AnkerProductNoteRecord, 'principal' | 'targetPrice' | 'coupon'>;
   summary: ClaimSuccessSummary;
 }
 
@@ -73,6 +77,11 @@ export function claimEstimateForNote(note: AnkerProductNoteRecord) {
   return settlementEstimateFromResult(settlementEstimateForNote(note));
 }
 
+/** What an above-target settle pays for this note — the fork/claim projection. */
+export function claimAboveEstimate(note: AnkerProductNoteRecord) {
+  return settlementEstimateFromResult(settlementIfAboveTarget(note));
+}
+
 function settlementResultForView(note: AnkerProductNoteRecord, marketState?: PredictMarketState): SettlementResult {
   if (note.status === 'redeemed') {
     return {
@@ -89,6 +98,23 @@ function settlementResultForView(note: AnkerProductNoteRecord, marketState?: Pre
 }
 
 /**
+ * Which side of the target the market fixed on. The settlement price is the
+ * authority: a settle just below the target can still pay more than the
+ * principal (the ladder rounds payouts up to the next strike boundary, and
+ * the coupon is earned either way), so payout size must not decide the
+ * direction. The payout fallback only covers keeper-redeemed notes whose
+ * market state is unreachable.
+ */
+function settledBelowTarget(
+  note: Pick<AnkerProductNoteRecord, 'targetPrice' | 'principal'>,
+  settlementPrice: number | null | undefined,
+  netPayout: number,
+) {
+  if (settlementPrice != null) return settlementPrice < note.targetPrice;
+  return netPayout < note.principal;
+}
+
+/**
  * What a claimable Position pays out right now — exact once the settlement
  * price is known, the estimate before. Feeds the summary-row payout stat,
  * with the same arithmetic as the expanded claim block.
@@ -97,8 +123,11 @@ export function claimRowPayout(note: AnkerProductNoteRecord, marketState?: Predi
   const estimate = settlementEstimateFromResult(settlementResultForView(note, marketState));
   return {
     ...estimate,
-    settledBelow: estimate.netPayout < note.principal,
-    btcAmount: note.targetPrice > 0 ? estimate.netPayout / note.targetPrice : 0,
+    settledBelow: settledBelowTarget(note, marketState?.settlementPrice, estimate.netPayout),
+    // Only the deposit converts at the target; the coupon is paid in dUSDC on
+    // top, so the BTC figure must never fold the reward in.
+    btcAmount: note.targetPrice > 0 ? note.principal / note.targetPrice : 0,
+    rewardAfterFee: note.coupon - estimate.feeAmount,
   };
 }
 
@@ -134,9 +163,12 @@ export function ClaimActionView({
   const claimed = action.lifecycle === 'claimed';
   const outcomeKnown = claimed || action.lifecycle === 'claimable';
   // Until settlement fixes the direction, show both sides of the product:
-  // full dUSDC if BTC holds above target, or that value in BTC at the target if it converts.
-  const projectedDusdc = note.principal + note.coupon - estimate.feeAmount;
-  const settledBelow = outcomeKnown && estimate.netPayout < note.principal;
+  // full dUSDC if BTC holds above target, or that value in BTC at the target if
+  // it converts. The dUSDC side comes from the settlement engine so the
+  // projection equals the eventual settled payout to the base unit.
+  const projectedDusdc = claimAboveEstimate(note).netPayout;
+  const settledBelow =
+    outcomeKnown && settledBelowTarget(note, marketState?.settlementPrice, estimate.netPayout);
   const mode = settledBelow ? 'btc' : outcomeKnown ? 'dusdc' : 'projected';
   const dusdcAmount = outcomeKnown ? estimate.netPayout : projectedDusdc;
   const amountLabel = claimed
@@ -145,7 +177,9 @@ export function ClaimActionView({
       ? copy.portfolio.claim.youllReceive
       : copy.portfolio.claim.projectedPayout;
   const feeText = copy.portfolio.claim.fee(formatCashAmount(estimate.feeAmount, locale));
-  const btcAmount = note.targetPrice > 0 ? dusdcAmount / note.targetPrice : 0;
+  // The deposit alone converts at the target price; the coupon reward stays dUSDC.
+  const btcAmount = note.targetPrice > 0 ? note.principal / note.targetPrice : 0;
+  const rewardAfterFee = note.coupon - estimate.feeAmount;
   const statusText = demoMode && action.canClaim ? copy.demo.claimDisabled : action.status;
   const showStatus = action.lifecycle === 'awaiting_settle' || (demoMode && action.canClaim);
 
@@ -156,7 +190,9 @@ export function ClaimActionView({
         <span className="di-claim-label">{amountLabel}</span>
         {mode === 'btc' ? (
           <>
-            <strong className="di-claim-amount">~{formatBtcAmount(btcAmount, locale)} BTC</strong>
+            <strong className="di-claim-amount">
+              ~{formatBtcAmount(btcAmount, locale)} BTC + {formatCashAmount(rewardAfterFee, locale)} dUSDC
+            </strong>
             <small className="di-claim-fee">
               {copy.portfolio.claim.onTestnetAfterFee(formatCashAmount(estimate.netPayout, locale), feeText)}
             </small>
@@ -165,7 +201,10 @@ export function ClaimActionView({
           <>
             <strong className="di-claim-amount">~{formatCashAmount(dusdcAmount, locale)} dUSDC</strong>
             <small className="di-claim-fee">
-              {copy.portfolio.claim.orBtcAfterFee(formatBtcAmount(btcAmount, locale), feeText)}
+              {copy.portfolio.claim.orBtcPlusReward(
+                formatBtcAmount(btcAmount, locale),
+                formatCashAmount(rewardAfterFee, locale),
+              )}
             </small>
           </>
         ) : (
@@ -254,7 +293,7 @@ export function useClaimNote({
       });
       setDigest(nextDigest);
       onClaimSuccess({
-        note: { principal: note.principal, targetPrice: note.targetPrice },
+        note: { principal: note.principal, targetPrice: note.targetPrice, coupon: note.coupon },
         summary: {
           digest: nextDigest,
           ...settlementEstimateFromResult(settlement),

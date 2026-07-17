@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateSettlement,
   calculateSettlementFromGrossPayout,
-  settlementPayoutRange,
   settledLegsFromPrice,
   type DualInvestmentSettlementNote,
 } from './settlement';
@@ -91,10 +90,4 @@ describe('calculateSettlement', () => {
     );
   });
 
-  it('summarizes the possible payout range from reserve, coupon, and all note legs', () => {
-    expect(settlementPayoutRange(noteFixture())).toEqual({
-      minGrossPayoutBaseUnits: 910_000_000n,
-      maxGrossPayoutBaseUnits: 1_010_000_000n,
-    });
-  });
 });

@@ -1,15 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { recordSubscriptionDigest } from '../sui/subscriptionDigestStore';
-import {
-  IndexedTransactionDigestValue,
-  OracleLastUpdateValue,
-  SettlementRangeValue,
-  SubscriptionDigestValue,
-  depositedCashText,
-  claimEstimateForNote,
-} from './PortfolioPage';
+import { SubscriptionDigestValue, depositedCashText, claimEstimateForNote } from './PortfolioPage';
 import { ProductNoteCard } from './PortfolioProductNoteCard';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
@@ -63,12 +56,6 @@ function renderWithQuery(ui: React.ReactElement) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
-function rpcResponse(result: unknown) {
-  return new Response(JSON.stringify(result), {
-    headers: { 'content-type': 'application/json' },
-  });
-}
-
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -96,6 +83,21 @@ describe('ProductNoteCard', () => {
 
     expect(screen.getByText('82.44% APR')).toBeVisible();
     expect(screen.queryByText('91.6% APR')).not.toBeInTheDocument();
+  });
+
+  it('expands into the outcome fork with the deposit-only BTC conversion and a separate reward line', () => {
+    renderWithQuery(<ProductNoteCard note={noteFixture()} onClaimSuccess={() => {}} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    expect(screen.getByText('BTC ends < $65,500')).toBeVisible();
+    // 5 dUSDC deposit ÷ $65,500 target — the coupon must never inflate the BTC figure.
+    expect(screen.getByText('≈ 0.00007634 BTC')).toBeVisible();
+    // The coupon survives the below branch as its own dUSDC line, net of the fee.
+    expect(screen.getByText('+ 0.01 dUSDC reward')).toBeVisible();
+    expect(screen.queryByText('Payout range')).not.toBeInTheDocument();
+    expect(screen.queryByText('On-chain proof')).not.toBeInTheDocument();
+    expect(screen.queryByText('Not indexed')).not.toBeInTheDocument();
   });
 });
 
@@ -131,20 +133,6 @@ describe('SubscriptionDigestValue', () => {
   });
 });
 
-describe('IndexedTransactionDigestValue', () => {
-  it('shows an event-indexed lifecycle transaction digest', () => {
-    render(<IndexedTransactionDigestValue digest="0xabcdef1234567890" />);
-
-    expect(screen.getByText('0xabcdef...567890')).toBeVisible();
-  });
-
-  it('shows when a lifecycle transaction has not been indexed', () => {
-    render(<IndexedTransactionDigestValue />);
-
-    expect(screen.getByText('Not indexed')).toBeVisible();
-  });
-});
-
 describe('depositedCashText', () => {
   it('prefers event-indexed deposited cash from ProductSubscribed events', () => {
     const entry: ProductNoteEventIndexEntry = {
@@ -159,63 +147,5 @@ describe('depositedCashText', () => {
 
   it('falls back to the owned ProductNote principal before subscription events are indexed', () => {
     expect(depositedCashText(noteFixture())).toBe('5.00');
-  });
-});
-
-describe('OracleLastUpdateValue', () => {
-  it('loads and displays the last on-chain oracle update timestamp', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string | URL | Request) => {
-        const href = String(url);
-        if (href.startsWith('/api/oracles/0xoracle/market')) {
-          return rpcResponse({
-            predictId: '0xvault',
-            oracleId: '0xoracle',
-            underlyingAsset: 'BTC',
-            expiryMs: Date.now() + 3_600_000,
-            minStrike: 1,
-            tickSize: 0.01,
-            status: 'active',
-            spot: 65_000,
-            forward: 65_000,
-            spotTimestampMs: Date.UTC(2026, 5, 1, 1, 2, 0),
-            sviTimestampMs: Date.UTC(2026, 5, 1, 1, 2, 0),
-            serverLagSeconds: 0,
-          });
-        }
-        throw new Error(`Unexpected fetch: ${href}`);
-      }),
-    );
-
-    renderWithQuery(<OracleLastUpdateValue oracleId="0xoracle" />);
-
-    // Jun 1 01:02 UTC rendered in the viewer's timezone (tests pin Asia/Shanghai).
-    expect(await screen.findByText('Jun 01, 09:02 AM (UTC+8)')).toBeVisible();
-  });
-});
-
-describe('SettlementRangeValue', () => {
-  it('shows the current estimated gross payout range for a Target Buy note', () => {
-    render(<SettlementRangeValue note={noteFixture()} />);
-
-    expect(screen.getByText('4.94 - 5.01 dUSDC')).toBeVisible();
-  });
-
-  it('formats large base-unit payout ranges without losing bigint precision', () => {
-    render(
-      <SettlementRangeValue
-        note={noteFixture({
-          principalBaseUnits: 9_007_199_254_740_993n,
-          reserveBaseUnits: 9_007_199_254_740_993n,
-          couponBaseUnits: 1n,
-          legs: [{ strike: 64_667, quantity: 0.000001, quantityBaseUnits: 1n, cost: 0, costBaseUnits: 0n }],
-        })}
-      />,
-    );
-
-    // Values above 2^53 base units stay exact via the bigint path; a float
-    // detour would drift the cents.
-    expect(screen.getByText('9,007,199,254.74 - 9,007,199,254.74 dUSDC')).toBeVisible();
   });
 });
