@@ -21,13 +21,17 @@ async function fetchCuratedBtcOracles(): Promise<CuratedOracleMarketResponse> {
   return response.json() as Promise<CuratedOracleMarketResponse>;
 }
 
-/** Landing default: nearest day row (primary product), else nearest tradable hourly row. */
+/**
+ * Landing default: furthest day row (primary product), else nearest tradable
+ * hourly row. Near-term day tenors often have no Binance match; the long end
+ * of the ladder (e.g. ~48d) is the better first paint.
+ */
 export function defaultOracleSelection(
   oracles: CuratedOracleListItem[],
   nowMs = Date.now(),
 ): CuratedOracleListItem | undefined {
   const dayRows = oracles.filter((oracle) => oracle.group === 'day');
-  if (dayRows.length > 0) return dayRows[0];
+  if (dayRows.length > 0) return dayRows[dayRows.length - 1];
   return selectNearestTradableOracle(oracles, nowMs, 0);
 }
 

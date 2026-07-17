@@ -17,7 +17,7 @@ describe('loadDaySnapshot', () => {
       expect(oracle.svi.b).toBeGreaterThan(0);
       expect(oracle.settled).toBe(false);
     }
-    // Sorted by expiry so the first row is the default day selection.
+    // Sorted by expiry ascending; default selection picks the last (furthest) day.
     const expiries = snapshot.oracles.map((oracle) => oracle.expiryMs);
     expect([...expiries].sort((a, b) => a - b)).toEqual(expiries);
 
