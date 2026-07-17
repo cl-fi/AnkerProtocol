@@ -7,13 +7,32 @@ export const alt = 'Anker Protocol — Drop anchor on your yield.';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const logoSrc = `data:image/png;base64,${readFileSync(
-  join(process.cwd(), 'public', 'anker-logo.png'),
-).toString('base64')}`;
+/**
+ * Asset reads stay inside the render path and fail soft. Next executes this
+ * module while resolving every page's metadata, so a module-scope read that
+ * throws (Vercel file tracing shipped the lambda without the font — ENOENT)
+ * 500s every dynamically rendered page, not just this image route.
+ * next.config.mjs pins these files into the bundle via
+ * outputFileTracingIncludes; the fallbacks keep rendering even without them.
+ */
+function loadLogoSrc(): string | null {
+  try {
+    return `data:image/png;base64,${readFileSync(
+      join(process.cwd(), 'public', 'anker-logo.png'),
+    ).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
 
 // TTF only — @vercel/og / Satori rejects wOF2.
-const fontsDir = join(process.cwd(), 'src', 'fonts', 'og');
-const fredokaBold = readFileSync(join(fontsDir, 'Fredoka-Bold.ttf'));
+function loadFredokaBold(): Buffer | null {
+  try {
+    return readFileSync(join(process.cwd(), 'src', 'fonts', 'og', 'Fredoka-Bold.ttf'));
+  } catch {
+    return null;
+  }
+}
 
 /** Brand tokens mirrored from src/styles.css cartoon palette */
 const C = {
@@ -33,6 +52,8 @@ const C = {
  * Instead: keep 1200×630 and make the mark dominate the frame.
  */
 export default function OpengraphImage() {
+  const logoSrc = loadLogoSrc();
+  const fredokaBold = loadFredokaBold();
   return new ImageResponse(
     (
       <div
@@ -92,7 +113,7 @@ export default function OpengraphImage() {
             boxShadow: `10px 10px 0 ${C.navy}`,
           }}
         >
-          <img src={logoSrc} width={340} height={340} alt="" />
+          {logoSrc ? <img src={logoSrc} width={340} height={340} alt="" /> : null}
         </div>
 
         {/* Compact wordmark under the tile — secondary to the mark */}
@@ -125,7 +146,8 @@ export default function OpengraphImage() {
     ),
     {
       ...size,
-      fonts: [{ name: 'Fredoka', data: fredokaBold, weight: 700, style: 'normal' }],
+      // Without the brand font Satori falls back to its bundled default.
+      ...(fredokaBold ? { fonts: [{ name: 'Fredoka', data: fredokaBold, weight: 700, style: 'normal' }] } : {}),
     },
   );
 }
