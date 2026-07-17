@@ -3,6 +3,7 @@ import { join } from 'path';
 import { ImageResponse } from 'next/og';
 
 export const alt = 'Anker Protocol — Drop anchor on your yield.';
+/** Industry standard for OG + X summary_large_image (≈1.91:1). */
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -10,6 +11,27 @@ const logoSrc = `data:image/png;base64,${readFileSync(
   join(process.cwd(), 'public', 'anker-logo.png'),
 ).toString('base64')}`;
 
+// TTF only — @vercel/og / Satori rejects wOF2.
+const fontsDir = join(process.cwd(), 'src', 'fonts', 'og');
+const fredokaBold = readFileSync(join(fontsDir, 'Fredoka-Bold.ttf'));
+
+/** Brand tokens mirrored from src/styles.css cartoon palette */
+const C = {
+  cream: '#f4ecd6',
+  cream2: '#efe3c6',
+  paper2: '#fbf3df',
+  navy: '#20304d',
+  gold: '#eaa53a',
+} as const;
+
+/**
+ * Logo-forward social card on the industry-standard 1200×630 canvas.
+ *
+ * Square assets are fine for app icons / summary cards, but X
+ * `summary_large_image` and Facebook/LinkedIn OG all expect ~1.91:1.
+ * A square source gets letterboxed or center-cropped — logo looks smaller.
+ * Instead: keep 1200×630 and make the mark dominate the frame.
+ */
 export default function OpengraphImage() {
   return new ImageResponse(
     (
@@ -18,119 +40,92 @@ export default function OpengraphImage() {
           width: '100%',
           height: '100%',
           display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
           position: 'relative',
-          background: '#20304d',
-          fontFamily: 'sans-serif',
+          overflow: 'hidden',
+          background: `radial-gradient(120% 90% at 50% -10%, ${C.paper2} 0%, ${C.cream} 55%, ${C.cream2} 100%)`,
+          fontFamily: 'Fredoka',
         }}
       >
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: 16, background: '#eaa53a' }} />
+        {/* Soft ambient washes — keep edges warm without stealing focus */}
+        <div
+          style={{
+            position: 'absolute',
+            top: -120,
+            right: -100,
+            width: 520,
+            height: 520,
+            borderRadius: 999,
+            background: 'rgba(234, 165, 58, 0.16)',
+            display: 'flex',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -160,
+            left: -120,
+            width: 480,
+            height: 480,
+            borderRadius: 999,
+            background: 'rgba(32, 48, 77, 0.06)',
+            display: 'flex',
+          }}
+        />
+
+        {/*
+          Sticker tile ~420px on a 630px canvas → logo occupies most of the
+          vertical space so timeline/thumbnail crops still read as the mark.
+        */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 420,
+            height: 420,
+            borderRadius: 44,
+            border: `5px solid ${C.navy}`,
+            background: C.cream,
+            boxShadow: `10px 10px 0 ${C.navy}`,
+          }}
+        >
+          <img src={logoSrc} width={340} height={340} alt="" />
+        </div>
+
+        {/* Compact wordmark under the tile — secondary to the mark */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginTop: 28,
+            color: C.navy,
+            fontSize: 40,
+            fontWeight: 700,
+            letterSpacing: -0.6,
+            lineHeight: 1,
+          }}
+        >
+          Anker Protocol
+        </div>
 
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            width: 700,
-            padding: '64px 48px 64px 76px',
+            marginTop: 12,
+            width: 64,
+            height: 5,
+            borderRadius: 999,
+            background: C.gold,
           }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignSelf: 'flex-start',
-              alignItems: 'center',
-              padding: '8px 18px',
-              borderRadius: 999,
-              border: '2px solid #eaa53a',
-              color: '#f4c061',
-              fontSize: 24,
-              fontWeight: 600,
-              letterSpacing: 1,
-            }}
-          >
-            ANKER PROTOCOL
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              marginTop: 28,
-              color: '#ffffff',
-              fontSize: 80,
-              fontWeight: 800,
-              lineHeight: 1.02,
-              letterSpacing: -1,
-            }}
-          >
-            Drop anchor on your yield.
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              marginTop: 26,
-              maxWidth: 560,
-              color: '#c9d2e0',
-              fontSize: 30,
-              fontWeight: 500,
-              lineHeight: 1.32,
-            }}
-          >
-            CEX-style Dual Investment, built transparently on DeepBook Predict.
-          </div>
-
-          <div style={{ display: 'flex', marginTop: 36 }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '10px 18px',
-                borderRadius: 999,
-                background: '#eaa53a',
-                color: '#20304d',
-                fontSize: 22,
-                fontWeight: 700,
-              }}
-            >
-              Sui testnet · BTC Buy Low
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-          <div style={{ position: 'relative', display: 'flex', width: 372, height: 372 }}>
-            <div
-              style={{
-                position: 'absolute',
-                top: 16,
-                left: 16,
-                width: 340,
-                height: 340,
-                borderRadius: 40,
-                background: '#16223a',
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: 340,
-                height: 340,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 40,
-                background: '#f4ecd6',
-                border: '4px solid #16223a',
-              }}
-            >
-              <img src={logoSrc} width={268} height={268} alt="" />
-            </div>
-          </div>
-        </div>
+        />
       </div>
     ),
-    { ...size },
+    {
+      ...size,
+      fonts: [{ name: 'Fredoka', data: fredokaBold, weight: 700, style: 'normal' }],
+    },
   );
 }
