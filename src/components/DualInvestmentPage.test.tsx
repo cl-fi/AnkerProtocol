@@ -304,20 +304,13 @@ describe('Dual Investment APR display', () => {
     render(<ReturnOverview quote={quote} productInput={productInput} />);
 
     // Total ÷ Buy Low price = You receive — the division is visible, not prose.
-    expect(screen.getByText('÷ Buy Low price')).toBeVisible();
-    // Target label on the chart + the divisor row in the receipt.
+    // (Above card keeps an invisible twin row for horizontal alignment.)
+    const divideRow = document.querySelector('.return-outcome.is-below .return-receipt-row.is-divide');
+    expect(divideRow).not.toBeNull();
+    expect(divideRow).toHaveTextContent('÷ Buy Low price');
+    // Target label on the chart + the divisor row in the receipt (+ spacer twin).
     expect(screen.getAllByText('$65,500').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('You receive').length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('shows net APR after protocol fee in the return overview', () => {
-    const quote = pageQuoteFixture({ coupon: 0.03 });
-    const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
-
-    render(<ReturnOverview quote={quote} productInput={productInput} />);
-
-    expect(screen.getAllByText(/135% APR/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByText(/150% APR/)).not.toBeInTheDocument();
   });
 
   it('keeps the execution panel mounted when subscribeQuote briefly unmatches', async () => {
@@ -398,17 +391,17 @@ describe('Dual Investment APR display', () => {
     expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
   });
 
-  it('shows per-period return (not APR) in the return overview for Turbo sub-day tenors', () => {
+  it('omits the yield badge in the return overview (Live quote is enough)', () => {
     const market = marketFixture({ expiryMs: Date.now() + 2 * 3_600_000 });
     const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
     const quote = pageQuoteFixture({ market, productInput, coupon: 0.05 });
 
     render(<ReturnOverview quote={quote} productInput={productInput} />);
 
-    // Sub-day tenors show the per-period yield in bps — net of the fee, once,
-    // at panel level (the yield is outcome-independent) — never annualized APR.
-    expect(screen.getByText('+90 bps · after fee')).toBeVisible();
+    // Headline yield badge removed — Live quote / Estimate status remains.
+    expect(screen.queryByText(/after fee/)).not.toBeInTheDocument();
     expect(screen.queryByText(/% APR/)).not.toBeInTheDocument();
+    expect(screen.getByText('Live quote')).toBeVisible();
     // The receipt rows carry the arithmetic: gross reward, minus fee.
     expect(screen.getAllByText('Reward').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Fee (10% of reward)').length).toBeGreaterThanOrEqual(1);

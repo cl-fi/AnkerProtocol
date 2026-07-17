@@ -119,19 +119,24 @@ function OutcomeFork({
 }) {
   const copy = copyForLocale(locale);
   const cardCopy = copy.portfolio.card;
-  const estimate = claimEstimateForNote(note);
   const outcomeKnown = lifecycle === 'claimable' || lifecycle === 'claimed';
   const actual = outcomeKnown ? claimRowPayout(note, marketState) : null;
   const aboveWon = actual ? !actual.settledBelow : false;
   const belowWon = actual ? actual.settledBelow : false;
-  const feeText = formatCashAmount(estimate.feeAmount, locale);
   const targetText = formatPrice(note.targetPrice, locale);
   // Same arithmetic as the claim flow, and always through the settlement
   // engine: the projected figure must equal the settled payout to the base
   // unit, or the branch amount jumps the moment the market fixes.
   const aboveAmount = actual && aboveWon ? actual.netPayout : claimAboveEstimate(note).netPayout;
   const btcIfBelow = note.targetPrice > 0 ? note.principal / note.targetPrice : 0;
-  const rewardAfterFee = note.coupon - estimate.feeAmount;
+  // Reward = above amount − deposit, always: "above − deposit = reward" must
+  // hold on every card, so ladder-reconstruction dust lands in the reward
+  // rather than in a payout figure that must match the chain.
+  const rewardAfterFee = aboveAmount - note.principal;
+  const btcAmountText = `≈ ${formatBtcAmount(btcIfBelow, locale)} BTC`;
+  // Same dashed affordance + testnet tip as the Buy Low "You receive" line —
+  // BTC is illustrative on testnet until mainnet settles in wrapped BTC.
+  const btcValueTip = `${btcAmountText} + ${formatCashAmount(rewardAfterFee, locale)} dUSDC · ${cardCopy.outcomeTestnet}`;
   const wonLabel = lifecycle === 'claimed' ? copy.portfolio.claim.youReceived : copy.portfolio.claim.youllReceive;
   const settledTag =
     marketState?.settlementPrice != null
@@ -153,7 +158,7 @@ function OutcomeFork({
         </span>
         {aboveWon ? <span className="di-fork-label">{wonLabel}</span> : null}
         <strong className="di-fork-amount">{formatCashAmount(aboveAmount, locale)} dUSDC</strong>
-        <span className="di-fork-sub">{belowWon ? cardCopy.forkDidntHappen : cardCopy.forkAboveSub(feeText)}</span>
+        <span className="di-fork-sub">{belowWon ? cardCopy.forkDidntHappen : cardCopy.forkAboveSub}</span>
       </div>
       <span className="di-fork-or">{cardCopy.forkOr}</span>
       <div className={`di-fork-branch is-below${belowWon ? ' is-won' : aboveWon ? ' is-lost' : ''}`}>
@@ -168,14 +173,16 @@ function OutcomeFork({
           {belowWon ? cardCopy.forkBelowSettled(targetText) : cardCopy.forkBelow(targetText)}
         </span>
         {belowWon ? <span className="di-fork-label">{wonLabel}</span> : null}
-        <strong className="di-fork-amount">≈ {formatBtcAmount(btcIfBelow, locale)} BTC</strong>
+        <strong className="di-fork-amount di-equiv-note" data-tip={btcValueTip} tabIndex={0}>
+          {btcAmountText}
+        </strong>
         <strong className="di-fork-reward">{cardCopy.forkReward(formatCashAmount(rewardAfterFee, locale))}</strong>
         <span className="di-fork-sub">
           {aboveWon
             ? cardCopy.forkDidntHappen
             : belowWon
-              ? cardCopy.forkBelowSettledSub(targetText, feeText)
-              : cardCopy.forkBelowSub(formatCashAmount(note.principal, locale), targetText)}
+              ? cardCopy.forkBelowSettledSub(targetText)
+              : cardCopy.forkBelowSub(targetText)}
         </span>
       </div>
     </div>
@@ -210,7 +217,12 @@ export function ProductNoteCard({
   const claimFlow = useClaimNote({ note, marketState, onClaimSuccess, locale });
   const demoMode = isDemoMode();
   const showRowClaim = isDual && lifecycle === 'claimable';
-  const rowPayout = showRowClaim ? claimRowPayout(note, marketState) : null;
+  // Once the outcome is known, every figure on the card reads from the actual
+  // settlement result — mixing it with subscription-time estimates lets the
+  // header reward drift from the settled branch amount.
+  const outcomeKnown = lifecycle === 'claimable' || lifecycle === 'claimed';
+  const settledPayout = isDual && outcomeKnown ? claimRowPayout(note, marketState) : null;
+  const rowPayout = showRowClaim ? settledPayout : null;
 
   function toggle() {
     setExpanded((value) => !value);
@@ -223,8 +235,14 @@ export function ProductNoteCard({
         ? formatTimeToExpiry(note.expiryMs, locale)
         : `in ${formatTimeToExpiry(note.expiryMs, locale)}`
       : formatExpiry(note.expiryMs, locale);
-  const estimate = claimEstimateForNote(note);
-  const feePct = `${note.feeBps / 100}%`;
+  // Reward = above-branch payout − deposit (same identity as the fork), so the
+  // header stat, the branches, and the settled amount all reconcile. Legacy
+  // products have no fork to reconcile against — net coupon is all there is.
+  const rewardEarned = !isDual
+    ? note.coupon - claimEstimateForNote(note).feeAmount
+    : settledPayout
+      ? settledPayout.rewardAfterFee
+      : claimAboveEstimate(note).netPayout - note.principal;
 
   return (
     <Card as="article" className="di-position-row">
@@ -244,7 +262,7 @@ export function ProductNoteCard({
             {/* Net of the fee, like the APR beside it — the pair must describe
                 the same money or the stat contradicts itself. */}
             <dd className="is-reward">
-              +{formatCashAmount(note.coupon - estimate.feeAmount, locale)}{' '}
+              +{formatCashAmount(rewardEarned, locale)}{' '}
               <em>{formatApr(rewardApr, locale)} APR</em>
             </dd>
           </div>
@@ -337,14 +355,9 @@ export function ProductNoteCard({
           )}
 
           {/* Proof links are audit affordances — label + external icon only;
-              the explorer URL is the payload, truncated IDs are redundant. */}
+              the explorer URL is the payload, truncated IDs are redundant.
+              No fee line here: the fee breakdown lives in the claim dialog. */}
           <div className="di-position-meta">
-            {isDual ? (
-              <span className="di-position-fee">
-                {copy.portfolio.card.feeLabel}{' '}
-                {copy.portfolio.card.feeValue(formatCashAmount(estimate.feeAmount, locale), feePct)}
-              </span>
-            ) : null}
             <span className="di-proof-links">
               <ProofLink href={suiExplorerObjectUrl(note.noteId)}>
                 {copy.portfolio.card.noteId}

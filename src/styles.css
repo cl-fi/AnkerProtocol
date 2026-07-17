@@ -2138,10 +2138,13 @@ a {
   background: var(--gold);
 }
 
+/* Both cards share the same receipt row order (Deposit → divide/spacer →
+   Reward → Fee → You receive) so corresponding lines align horizontally. */
 .return-outcome-receipt {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-height: 0;
 }
 
 .return-receipt-row {
@@ -2149,6 +2152,7 @@ a {
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+  min-height: 1.15em;
   color: var(--ink-soft);
   font-size: 0.74rem;
   font-weight: 680;
@@ -2159,6 +2163,12 @@ a {
   color: var(--navy);
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+/* Above card has no conversion — reserve the same slot as "÷ Buy Low price". */
+.return-receipt-row.is-spacer {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .return-receipt-row.is-total {
@@ -2183,23 +2193,12 @@ a {
   color: var(--grass);
 }
 
-/* Terminal "You receive" line of both outcome cards. margin-top:auto pins it
-   to the card's bottom edge, so the two lines share a baseline across cards
-   even though the below card has extra conversion rows above it. */
+/* Terminal "You receive" — same dashed rule + spacing on both cards. With
+   matching row counts above, the rule and label align across the pair. */
 .return-receipt-row.is-receive {
   margin-top: auto;
   padding-top: 8px;
   border-top: 1.5px dashed rgba(32, 48, 77, 0.28);
-}
-
-/* Below card: the slack must sit BEFORE the conversion block, never inside
-   it — Total ÷ price = receive reads as one uninterrupted calculation. */
-.return-outcome.is-below .return-receipt-row.is-total {
-  margin-top: auto;
-}
-
-.return-outcome.is-below .return-receipt-row.is-receive {
-  margin-top: 2px;
 }
 
 .return-receipt-row.is-receive strong {
@@ -3659,6 +3658,18 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 
+/* BTC amount tip opens upward; anchor left so a wide tip doesn't clip off
+   the fork branch's left edge (amounts are start-aligned here). */
+.di-fork-amount.di-equiv-note {
+  outline: none;
+}
+
+.di-fork-amount.di-equiv-note::after {
+  right: auto;
+  left: 0;
+  width: min(260px, 70vw);
+}
+
 /* The reward survives both branches — same green as the summary Reward stat,
    so the two read as the same number. */
 .di-fork-reward {
@@ -3717,21 +3728,17 @@ dd {
   font-weight: 600;
 }
 
-/* Fee + proof links — one quiet footer line closes the detail fold. */
+/* Proof links — one quiet footer line closes the detail fold. */
 .di-position-meta {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: baseline;
   gap: 8px 18px;
   padding-top: 12px;
   border-top: 1px solid rgba(32, 48, 77, 0.14);
   color: var(--ink-soft);
   font-size: 0.78rem;
-}
-
-.di-position-fee {
-  font-weight: 600;
 }
 
 .di-proof-links {

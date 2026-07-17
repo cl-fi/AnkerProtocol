@@ -121,13 +121,18 @@ function settledBelowTarget(
  */
 export function claimRowPayout(note: AnkerProductNoteRecord, marketState?: PredictMarketState) {
   const estimate = settlementEstimateFromResult(settlementResultForView(note, marketState));
+  const settledBelow = settledBelowTarget(note, marketState?.settlementPrice, estimate.netPayout);
   return {
     ...estimate,
-    settledBelow: settledBelowTarget(note, marketState?.settlementPrice, estimate.netPayout),
+    settledBelow,
     // Only the deposit converts at the target; the coupon is paid in dUSDC on
     // top, so the BTC figure must never fold the reward in.
     btcAmount: note.targetPrice > 0 ? note.principal / note.targetPrice : 0,
-    rewardAfterFee: note.coupon - estimate.feeAmount,
+    // Reward is defined as the above-branch payout minus the deposit, so
+    // "amount − deposit = reward" reconciles on every card. Ladder
+    // reconstruction dust (pre-lot-identity notes) lands in the reward, never
+    // in a payout figure that must match the chain.
+    rewardAfterFee: (settledBelow ? claimAboveEstimate(note).netPayout : estimate.netPayout) - note.principal,
   };
 }
 

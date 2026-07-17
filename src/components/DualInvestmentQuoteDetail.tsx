@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { isSubDayTenor } from '../products/dualInvestmentScan';
-import { DEFAULT_PROTOCOL_FEE_BPS, netAprAfterCouponFee, netCouponAfterFee } from '../products/feePolicy';
+import { DEFAULT_PROTOCOL_FEE_BPS, netCouponAfterFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel, type ConfirmedSubscription } from './TargetBuyExecutionPanel';
@@ -99,21 +99,16 @@ export function ReturnOverview({
   // Only the deposit converts at the Buy Low price — the reward is paid in
   // dUSDC on top, never folded into the BTC figure.
   const btcEquivalent = targetPrice > 0 ? quote.principal / targetPrice : 0;
-  const netApr = netAprAfterCouponFee(quote.apr);
   // Receipts show the arithmetic in full — gross reward, minus fee, equals
-  // what lands — while the headline yield is net, pairing with the net result.
-  // Rendered lines must sum exactly as printed, so round the endpoints to
-  // display cents first and derive the fee/total lines from those: rounding
-  // each line independently can drift the printed sum by a cent.
+  // what lands. Rendered lines must sum exactly as printed, so round the
+  // endpoints to display cents first and derive the fee/total lines from
+  // those: rounding each line independently can drift the printed sum by a cent.
   const cents = (value: number) => Math.round(value * 100);
   const rewardNet = cents(netCouponAfterFee(quote.coupon)) / 100;
   const rewardGross = cents(quote.coupon) / 100;
   const feeAmount = rewardGross - rewardNet;
   const feePct = `${DEFAULT_PROTOCOL_FEE_BPS / 100}%`;
   const total = cents(quote.principal) / 100 + rewardNet;
-  const periodReturn = quote.principal > 0 ? netCouponAfterFee(quote.coupon) / quote.principal : 0;
-  const subDay = isSubDayTenor(quote.oracle.expiryMs);
-  const yieldMeta = subDay ? format.periodReturnBps(periodReturn) : `${format.apr(netApr)} APR`;
   const isAbove = scenario === 'above';
   const chartClassName = isAbove ? 'return-chart-visual above' : 'return-chart-visual below';
   const pricePathD = isAbove
@@ -128,9 +123,6 @@ export function ReturnOverview({
     <Card as="article" className="return-overview-panel">
       <div className="return-overview-heading">
         <h3>{copy.dualInvestment.returnOverviewTitle(format.shortDateTime(quote.oracle.expiryMs))}</h3>
-        {/* The yield is outcome-independent, so it lives here once — panel
-            level — instead of repeating inside both receipt cards. */}
-        <Badge tone="positive">{copy.dualInvestment.yieldAfterFee(yieldMeta)}</Badge>
         <Badge tone={estimated ? 'warning' : 'positive'}>
           {estimated ? copy.dualInvestment.estimate : copy.dualInvestment.liveQuote}
         </Badge>
@@ -210,6 +202,12 @@ export function ReturnOverview({
             <span className="return-receipt-row">
               <span>{copy.dualInvestment.receiptDeposit}</span>
               <strong>{format.fixedTokenAmount(quote.principal, 2)}</strong>
+            </span>
+            {/* Invisible twin of the below card's "÷ Buy Low price" row so Reward,
+                Fee, the dashed rule, and You receive share one horizontal grid. */}
+            <span className="return-receipt-row is-divide is-spacer" aria-hidden="true">
+              <span>{copy.dualInvestment.receiptDividePrice}</span>
+              <strong>{format.usd(targetPrice)}</strong>
             </span>
             <span className="return-receipt-row">
               <span>{copy.dualInvestment.receiptReward}</span>

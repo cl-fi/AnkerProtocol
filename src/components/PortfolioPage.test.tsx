@@ -92,12 +92,78 @@ describe('ProductNoteCard', () => {
 
     expect(screen.getByText('BTC ends < $65,500')).toBeVisible();
     // 5 dUSDC deposit ÷ $65,500 target — the coupon must never inflate the BTC figure.
-    expect(screen.getByText('≈ 0.00007634 BTC')).toBeVisible();
+    const btcLine = screen.getByText('≈ 0.00007634 BTC');
+    expect(btcLine).toBeVisible();
+    // Same dashed affordance + testnet tip as the product-page "You receive" line.
+    expect(btcLine).toHaveClass('di-equiv-note');
+    expect(btcLine).toHaveAttribute('data-tip', expect.stringMatching(/testnet/i));
     // The coupon survives the below branch as its own dUSDC line, net of the fee.
     expect(screen.getByText('+ 0.01 dUSDC reward')).toBeVisible();
     expect(screen.queryByText('Payout range')).not.toBeInTheDocument();
     expect(screen.queryByText('On-chain proof')).not.toBeInTheDocument();
     expect(screen.queryByText('Not indexed')).not.toBeInTheDocument();
+  });
+
+  it('reads every settled-card figure from the actual settlement, never the subscription-time estimate', () => {
+    // On-chain fee (0.05) deliberately differs from the coupon-based estimate
+    // (10% of 0.26 ≈ 0.03): the reward must satisfy the card identity
+    // "settled amount − deposit = reward" against the recorded settlement.
+    const note = noteFixture({
+      principal: 200,
+      principalBaseUnits: 200_000_000n,
+      coupon: 0.26,
+      couponBaseUnits: 260_000n,
+      targetPrice: 62_000,
+      status: 'redeemed',
+      redeemedPayout: 200.26,
+      redeemedPayoutBaseUnits: 200_260_000n,
+      redeemedFee: 0.05,
+      redeemedFeeBaseUnits: 50_000n,
+    });
+
+    renderWithQuery(<ProductNoteCard note={note} onClaimSuccess={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    // Header reward, won branch, and the dimmed branch's reward line agree:
+    // 200.00 + 0.21 = 200.21.
+    expect(screen.getByText('+0.21')).toBeVisible();
+    expect(screen.getByText('You received')).toBeVisible();
+    expect(screen.getByText('200.21 dUSDC')).toBeVisible();
+    expect(screen.getByText('+ 0.21 dUSDC reward')).toBeVisible();
+    // No fee line on the card — the breakdown lives in the claim dialog.
+    expect(screen.queryByText(/10% of reward/)).not.toBeInTheDocument();
+    expect(screen.queryByText('+0.23')).not.toBeInTheDocument();
+  });
+
+  it('keeps "above amount − deposit = reward" even when ladder dust shrinks the above payout', () => {
+    // Pre-lot-identity note: reserve + legs reconstruct 197.99, not 198.00.
+    // Above branch: 185.266125 + 12.72 + 1.60 − 0.16 fee = 199.426125. The
+    // reward must read 1.43 (= 199.43 − 198.00), not net coupon 1.44.
+    const note = noteFixture({
+      principal: 198,
+      principalBaseUnits: 198_000_000n,
+      reserve: 185.266125,
+      reserveBaseUnits: 185_266_125n,
+      coupon: 1.6,
+      couponBaseUnits: 1_600_000n,
+      targetPrice: 64_500,
+      legs: [59_884, 60_570, 61_256, 61_942, 62_628, 63_314].map((strike) => ({
+        strike,
+        quantity: 2.12,
+        quantityBaseUnits: 2_120_000n,
+        cost: 0,
+        costBaseUnits: 0n,
+      })),
+    });
+
+    renderWithQuery(<ProductNoteCard note={note} onClaimSuccess={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+
+    expect(screen.getByText('199.43 dUSDC')).toBeVisible();
+    expect(screen.getByText('+1.43')).toBeVisible();
+    expect(screen.getByText('+ 1.43 dUSDC reward')).toBeVisible();
+    expect(screen.queryByText('+1.44')).not.toBeInTheDocument();
+    expect(screen.queryByText('+ 1.44 dUSDC reward')).not.toBeInTheDocument();
   });
 });
 

@@ -175,7 +175,6 @@ export const enCopy = {
     receiptFee: (pct: string) => `Fee (${pct} of reward)`,
     receiptDividePrice: '÷ Buy Low price',
     youWillReceive: 'You receive',
-    yieldAfterFee: (meta: string) => `+${meta} · after fee`,
     testnetSettlementNote:
       "On testnet this settles in dUSDC, not BTC — if BTC ends below your price you'd receive slightly less cash than you deposited (e.g. ~990 from 1,000 dUSDC). On mainnet, positions settle in real wrapped BTC.",
     confirmingLiveQuote: 'Confirming live quote…',
@@ -253,11 +252,9 @@ export const enCopy = {
       forkAboveSettled: (targetPrice: string) => `BTC ended ≥ ${targetPrice}`,
       forkBelow: (targetPrice: string) => `BTC ends < ${targetPrice}`,
       forkBelowSettled: (targetPrice: string) => `BTC ended < ${targetPrice}`,
-      forkAboveSub: (fee: string) => `deposit back + reward · after ${fee} fee`,
-      forkBelowSub: (deposit: string, targetPrice: string) =>
-        `your ${deposit} deposit buys BTC at ${targetPrice} · reward stays in dUSDC`,
-      forkBelowSettledSub: (targetPrice: string, fee: string) =>
-        `deposit converted at your ${targetPrice} price · after ${fee} fee`,
+      forkAboveSub: 'deposit back + reward',
+      forkBelowSub: (targetPrice: string) => `deposit converts at ${targetPrice}`,
+      forkBelowSettledSub: (targetPrice: string) => `deposit converted at ${targetPrice}`,
       forkReward: (amount: string) => `+ ${amount} dUSDC reward`,
       forkOr: 'or',
       forkDidntHappen: "didn't happen",
@@ -268,8 +265,6 @@ export const enCopy = {
       productId: 'Product ID',
       subscriptionTx: 'Subscription tx',
       priceFeed: 'Price feed',
-      feeLabel: 'Fee',
-      feeValue: (amount: string, pct: string) => `${amount} dUSDC (${pct} of reward) · already deducted above`,
     },
     claim: {
       alreadyClaimed: 'Already claimed.',
@@ -631,7 +626,6 @@ export const zhCnCopy: AppCopy = {
     receiptFee: (pct: string) => `手续费（收益的 ${pct}）`,
     receiptDividePrice: '÷ 低买价格',
     youWillReceive: '你将收到',
-    yieldAfterFee: (meta: string) => `+${meta} · 已扣费`,
     testnetSettlementNote:
       '测试网上当前以 dUSDC 结算，而不是 BTC。如果 BTC 低于你的价格，你收到的现金可能略少于本金。主网上仓位将以真实封装 BTC 结算。',
     confirmingLiveQuote: '正在确认实时报价…',
@@ -708,11 +702,9 @@ export const zhCnCopy: AppCopy = {
       forkAboveSettled: (targetPrice: string) => `结算时 BTC ≥ ${targetPrice}`,
       forkBelow: (targetPrice: string) => `结算时 BTC < ${targetPrice}`,
       forkBelowSettled: (targetPrice: string) => `结算时 BTC < ${targetPrice}`,
-      forkAboveSub: (fee: string) => `拿回本金 + 收益 · 扣 ${fee} 费用`,
-      forkBelowSub: (deposit: string, targetPrice: string) =>
-        `${deposit} 本金按 ${targetPrice} 买入 BTC · 收益仍以 dUSDC 支付`,
-      forkBelowSettledSub: (targetPrice: string, fee: string) =>
-        `本金已按你选择的 ${targetPrice} 转换 · 扣 ${fee} 费用`,
+      forkAboveSub: '拿回本金 + 收益',
+      forkBelowSub: (targetPrice: string) => `本金按 ${targetPrice} 买入 BTC`,
+      forkBelowSettledSub: (targetPrice: string) => `本金已按 ${targetPrice} 转换`,
       forkReward: (amount: string) => `+ ${amount} dUSDC 收益`,
       forkOr: '或',
       forkDidntHappen: '未发生',
@@ -723,8 +715,6 @@ export const zhCnCopy: AppCopy = {
       productId: '产品 ID',
       subscriptionTx: '认购交易',
       priceFeed: '价格源',
-      feeLabel: '费用',
-      feeValue: (amount: string, pct: string) => `${amount} dUSDC（收益的 ${pct}·以上数字已扣除）`,
     },
     claim: {
       alreadyClaimed: '已领取。',
