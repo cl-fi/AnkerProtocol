@@ -1,6 +1,7 @@
-import { HomePage } from '../../src/components/HomePage';
-import { normalizeLocale } from '../../src/i18n';
+import { redirect } from 'next/navigation';
+import { localizedPath, normalizeLocale } from '../../src/i18n';
 
+/** The product is the landing: the root routes straight to the live ladder. */
 export default function Page({ params }: { params: { locale: string } }) {
-  return <HomePage locale={normalizeLocale(params.locale)} />;
+  redirect(localizedPath(normalizeLocale(params.locale), '/app/dual-investment'));
 }

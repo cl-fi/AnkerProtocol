@@ -37,22 +37,14 @@ async function waitForReferenceRows(page: Page) {
   return rows;
 }
 
-test('landing page launches the Dual Investment workspace', async ({ page }) => {
+test('root redirects straight to the Dual Investment workspace', async ({ page }) => {
+  // Allow a long URL wait — CI cold-compiles the workspace under parallel workers.
   await page.goto('/');
-
-  const hero = page.getByRole('region', { name: 'Anker Protocol' });
-  await expect(hero.getByRole('heading', { name: 'Drop anchor on your yield.' })).toBeVisible();
-  await expect(hero.getByText('DeepBook Predict prices volatility on-chain.')).toBeVisible();
-
-  // Prefer the header CTA class so we don't race LanguageSwitcher links, and allow
-  // a long URL wait — CI cold-compiles /en/app under parallel workers.
-  const launch = page.locator('header a.landing-launch');
-  await expect(launch).toHaveAttribute('href', '/en/app');
-  await Promise.all([
-    page.waitForURL(/\/en\/app\/?$/, { timeout: 30_000 }),
-    launch.click(),
-  ]);
+  await page.waitForURL(/\/en\/app\/dual-investment\/?$/, { timeout: 30_000 });
   await expectDualInvestmentWorkspace(page);
+
+  await page.goto('/zh-CN');
+  await page.waitForURL(/\/zh-CN\/app\/dual-investment\/?$/, { timeout: 30_000 });
 });
 
 test('renders the Dual Investment market controls and quote reference table', async ({ page }) => {

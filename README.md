@@ -143,7 +143,7 @@ without giving up custody.
 
 This isn't a mockup — the full path works end to end on Sui testnet.
 
-- **Next.js app**: landing page, Dual Investment workspace, portfolio.
+- **Next.js app**: Dual Investment workspace, portfolio, analytics.
 - **Live BTC expiry-market discovery** via a narrow Predict API wrapper (8s timeout, 1 MB cap, cache headers, per-client rate limit; only proxies the endpoints the app uses).
 - **Product compiler**: Buy Low → Predict legs, with live `devInspect` quote previews and full risk fields.
 - **Live Binance benchmark and aggregate Analytics** — `Est. APR / Binance APR / Edge` on the product ladder, plus the 15-minute Benchmark Recorder feeding the Analytics page.
@@ -269,7 +269,7 @@ The testnet contract is deliberately scoped: it records product terms, fee polic
 ### Routes
 
 ```text
-/                      Landing page
+/                      Redirect → /app/dual-investment (the product is the landing)
 /app                   Alias → same workspace page
 /app/dual-investment   BTC Buy Low Dual Investment (hourly + day tenors)
 /app/portfolio         Wallet ProductNote portfolio
