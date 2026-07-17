@@ -9,14 +9,17 @@ async function expectDualInvestmentWorkspace(page: Page) {
   await expect(market.getByRole('link', { name: 'Buy Low' })).toBeVisible();
   await expect(market.getByRole('button', { name: 'Sell High' })).toHaveAttribute('aria-disabled', 'true');
 
-  // Merged page: one tenor dropdown, day group first (primary product), hourly group tradable.
-  const tenor = market.getByLabel('Tenor');
-  await expect(tenor).toBeVisible();
-  await expect(tenor.locator('optgroup').first()).toHaveAttribute(
+  // Merged page: one settlement-date dropdown, day group first (primary product), hourly group tradable.
+  const settlementDate = market.getByLabel('Settlement date');
+  await expect(settlementDate).toBeVisible();
+  await expect(settlementDate.locator('optgroup').first()).toHaveAttribute(
     'label',
     'Days — primary product · snapshot',
   );
-  await expect(tenor.locator('optgroup').nth(1)).toHaveAttribute('label', 'Hours — tradable now');
+  await expect(settlementDate.locator('optgroup').nth(1)).toHaveAttribute(
+    'label',
+    'Hours — tradable now',
+  );
 
   // Day-scale copy vs sub-day yield copy — `isSubDayTenor` is wall-clock based, so a
   // default day snapshot sitting on the 24h boundary can render either branch.
@@ -66,14 +69,17 @@ test('supports selecting a Buy Low reference row and changing payoff smoothness'
   await expectDualInvestmentWorkspace(page);
 
   const rows = await waitForReferenceRows(page);
+  const selectedPrice = (await rows.nth(1).locator('strong').first().textContent())?.replace(/[$,]/g, '');
+  expect(selectedPrice).toBeTruthy();
   await rows.nth(1).click();
 
   const controls = page.getByRole('region', { name: 'Set your Buy Low' });
-  const inputs = controls.locator('input[type="number"]');
-  await expect(inputs.nth(0)).toHaveValue('5');
-  await expect(inputs.nth(1)).not.toHaveValue('0');
+  await expect(controls.getByRole('spinbutton', { name: /Buy Low price/ })).toHaveValue(
+    selectedPrice!,
+  );
+  await expect(controls.getByRole('spinbutton', { name: /Amount/ })).not.toHaveValue('0');
 
-  await expect(page.getByRole('heading', { name: /Where will BTC land by/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /What you'll receive on/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Confirm your Buy Low' })).toBeVisible();
 
   const advanced = page.locator('details.di-advanced');
@@ -92,7 +98,7 @@ test('renders the wallet portfolio entry point when disconnected', async ({ page
   await expect(page.locator('main#wallet-portfolio')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Products' }).getByRole('link', { name: 'Portfolio' })).toBeVisible();
-  await expect(page.getByText('Connect your wallet to see your Notes.')).toBeVisible();
+  await expect(page.getByText('Connect your wallet to see your assets and positions.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Refresh' })).toBeDisabled();
 });
 
@@ -122,14 +128,14 @@ test('renders the Analytics page with fixture headline stats, Edge chart, and me
 
   const stats = page.getByLabel('Headline statistics');
   await expect(stats).toBeVisible();
-  await expect(stats.getByText('Samples')).toBeVisible();
+  await expect(stats.getByText('Samples', { exact: true })).toBeVisible();
   await expect(stats.getByText('6', { exact: true })).toBeVisible();
   await expect(stats.getByText('83.3%')).toBeVisible();
   await expect(stats.getByText('+7.50 pts')).toBeVisible();
   await expect(stats.locator('.analytics-stats > div').filter({ hasText: 'Leading streak' })).toContainText(
     '2',
   );
-  await expect(stats.getByText('Runs')).toBeVisible();
+  await expect(stats.getByText('Runs', { exact: true })).toBeVisible();
   await expect(stats.getByText('85.7%')).toBeVisible();
 
   const chart = page.getByRole('region', { name: 'Edge Track' });
@@ -151,7 +157,6 @@ test('renders the Analytics page with fixture headline stats, Edge chart, and me
 
   // Zero axis stays in frame; the Track band sits above it.
   await expect(chart.getByText('0.00 pts', { exact: true })).toBeVisible();
-  await expect(chart.getByText('0', { exact: true })).toBeVisible();
 
   // Hover the chart to surface the aggregated per-Run tooltip (no settlement offset).
   await chart.getByTestId('analytics-edge-chart').hover();
@@ -177,7 +182,7 @@ test('renders the Analytics page with fixture headline stats, Edge chart, and me
   await expect(methodology.getByText(/net after protocol fee/i)).toBeVisible();
   await expect(methodology.getByText(/live-source matched Samples/i)).toBeVisible();
   await expect(methodology.getByText(/Failed Runs record no Samples/i)).toBeVisible();
-  await expect(methodology.getByText(/Sample start date:/i)).toBeVisible();
+  await expect(methodology.getByText('Sample start date', { exact: true })).toBeVisible();
   await expect(methodology.getByRole('link', { name: 'Source repository' })).toHaveAttribute(
     'href',
     'https://github.com/cl-fi/AnkerProtocol',
