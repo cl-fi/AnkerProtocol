@@ -31,6 +31,8 @@ async function expectDualInvestmentWorkspace(page: Page) {
 }
 
 async function waitForReferenceRows(page: Page) {
+  const disclosure = page.getByRole('button', { name: /Show price reference/ });
+  if (await disclosure.isVisible().catch(() => false)) await disclosure.click();
   const rows = page.locator('.di-reference-table tbody tr');
   await expect(rows.first()).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => rows.count(), { timeout: 30_000 }).toBeGreaterThan(1);
@@ -169,6 +171,10 @@ test('renders the Analytics page with fixture headline stats, Edge chart, and me
 
   const methodology = page.getByRole('region', { name: 'Methodology' });
   await expect(methodology).toBeVisible();
+  const methodologyDisclosure = methodology.getByRole('button', {
+    name: /View \d+ methodology details/,
+  });
+  if (await methodologyDisclosure.isVisible().catch(() => false)) await methodologyDisclosure.click();
   await expect(methodology.getByText(/every 15 minutes/i)).toBeVisible();
   await expect(methodology.getByText(/exceeds 50%/i)).toBeVisible();
   await expect(methodology.getByText(/net after protocol fee/i)).toBeVisible();

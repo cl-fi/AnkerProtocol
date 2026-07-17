@@ -140,6 +140,9 @@ export const enCopy = {
     updatedMinutesAgo: (minutes: number) => `Updated ${minutes}m ago`,
     autoRefreshEvery: (seconds: number) => `auto-refresh every ${seconds}s`,
     referenceHint: 'Click a price to load it into your Buy Low.',
+    currentReference: 'Current reference',
+    showPriceReference: 'Show price reference',
+    hidePriceReference: 'Hide price reference',
     aprReferenceLabel: 'APR reference',
     estApr: 'Est. Net APR',
     netAprStatLabel: 'Est. Net APR',
@@ -349,6 +352,9 @@ export const enCopy = {
     tooltipBinanceApr: 'Nearest-expiry Binance APR',
     methodologyTitle: 'Methodology',
     methodologyIntro: 'How these figures are defined and what they include.',
+    methodologySummary: 'Methodology definitions',
+    methodologyShow: (count: number) => `View ${count} methodology details`,
+    methodologyHide: 'Hide methodology details',
     methodologyEntries: [
       {
         term: 'Sampling cadence',
@@ -596,6 +602,9 @@ export const zhCnCopy: AppCopy = {
     updatedMinutesAgo: (minutes: number) => `${minutes} 分钟前更新`,
     autoRefreshEvery: (seconds: number) => `每 ${seconds} 秒自动更新`,
     referenceHint: '点击价格，将其载入你的低买设置。',
+    currentReference: '当前参考',
+    showPriceReference: '展开价格参考',
+    hidePriceReference: '收起价格参考',
     aprReferenceLabel: 'APR 参考',
     estApr: '预估净 APR',
     netAprStatLabel: '预估净 APR',
@@ -798,6 +807,9 @@ export const zhCnCopy: AppCopy = {
     tooltipBinanceApr: '最近到期 Binance APR',
     methodologyTitle: '方法说明',
     methodologyIntro: '这些数字如何定义，以及它们包含什么。',
+    methodologySummary: '方法说明定义',
+    methodologyShow: (count: number) => `查看 ${count} 项方法说明`,
+    methodologyHide: '收起方法说明',
     methodologyEntries: [
       { term: '采样节奏', def: '每 15 分钟一次。每一轮记录展示 APR 与基准对比的日期限阶梯行。' },
       {

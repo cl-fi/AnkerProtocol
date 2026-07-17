@@ -4196,7 +4196,9 @@ dd {
   border-radius: var(--r);
   box-shadow: var(--shadow-hard-sm);
   color: var(--ink);
+  height: 340px;
   min-height: 320px;
+  box-sizing: border-box;
 }
 
 .analytics-edge-tooltip {

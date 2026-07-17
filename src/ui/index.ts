@@ -16,3 +16,7 @@ export { InputField } from './Field';
 export type { InputFieldProps } from './Field';
 export { Tabs, Tab, tabClassName } from './Tabs';
 export type { TabProps } from './Tabs';
+export { MobileDisclosure } from './MobileDisclosure';
+export type { MobileDisclosureProps } from './MobileDisclosure';
+export { MobileActionDock } from './MobileActionDock';
+export type { MobileActionDockProps } from './MobileActionDock';

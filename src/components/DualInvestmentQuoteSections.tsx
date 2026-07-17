@@ -19,7 +19,7 @@ import {
 } from '../products/dualInvestmentScan';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
-import { InputField, Tabs, tabClassName } from '../ui';
+import { InputField, MobileDisclosure, Tabs, tabClassName } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
@@ -371,12 +371,17 @@ export function ReferenceTable({
 }) {
   const copy = copyForLocale(locale);
   const format = formattersForLocale(locale);
+  const [mobileReferenceOpen, setMobileReferenceOpen] = useState(false);
   const subDay = market ? isSubDayTenor(market.expiryMs) : false;
   const yieldHeader = subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.estApr;
+  const selectInput = (input: DualInvestmentInput) => {
+    onSelect(input);
+    setMobileReferenceOpen(false);
+  };
   const handleKey = (input: DualInvestmentInput) => (event: KeyboardEvent<HTMLTableRowElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onSelect(input);
+      selectInput(input);
     }
   };
 
@@ -418,6 +423,25 @@ export function ReferenceTable({
         })
       : ({ kind: 'no_product' } as const),
   );
+  const activeIndex = Math.max(
+    0,
+    rows.findIndex((row) => row.input.targetPrice === activeTargetPrice),
+  );
+  const activeRow = rows[activeIndex];
+  const activeMetrics = activeRow ? scanQuoteDisplayMetrics(activeRow) : null;
+  const activeYield = activeMetrics
+    ? activeMetrics.showApr
+      ? activeMetrics.apr !== null
+        ? format.referenceApr(activeMetrics.apr)
+        : '--'
+      : activeMetrics.periodReturn !== null
+        ? format.periodReturnBps(activeMetrics.periodReturn)
+        : '--'
+    : '--';
+  const activeEdge =
+    !subDay && activeMetrics
+      ? edgeDisplay({ displayApr: activeMetrics.apr, match: rowMatches[activeIndex] ?? { kind: 'no_product' } }).label
+      : null;
 
   return (
     <section className="di-reference" aria-label={subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.aprReferenceLabel}>
@@ -431,7 +455,32 @@ export function ReferenceTable({
         />
       </div>
       <p className="di-reference-hint">{copy.dualInvestment.referenceHint}</p>
-      <div className="table-shell">
+      <MobileDisclosure
+        className="di-reference-disclosure"
+        contentClassName="table-shell"
+        open={mobileReferenceOpen}
+        onOpenChange={setMobileReferenceOpen}
+        expandLabel={copy.dualInvestment.showPriceReference}
+        collapseLabel={copy.dualInvestment.hidePriceReference}
+        summary={
+          <span className="di-reference-mobile-summary">
+            <span>
+              <small>{copy.dualInvestment.currentReference}</small>
+              <strong>{activeRow ? format.usd(activeRow.input.targetPrice) : '--'}</strong>
+            </span>
+            <span>
+              <small>{yieldHeader}</small>
+              <strong>{activeYield}</strong>
+            </span>
+            {activeEdge && activeEdge !== '--' ? (
+              <span>
+                <small>{copy.dualInvestment.edge}</small>
+                <strong>{activeEdge}</strong>
+              </span>
+            ) : null}
+          </span>
+        }
+      >
         <table className="offer-table di-reference-table">
           <thead>
             <tr>
@@ -486,7 +535,7 @@ export function ReferenceTable({
                   role="button"
                   tabIndex={0}
                   aria-pressed={isActive}
-                  onClick={() => onSelect(row.input)}
+                  onClick={() => selectInput(row.input)}
                   onKeyDown={handleKey(row.input)}
                 >
                   <td data-label={copy.common.buyLow}>
@@ -519,7 +568,7 @@ export function ReferenceTable({
             })}
           </tbody>
         </table>
-      </div>
+      </MobileDisclosure>
     </section>
   );
 }

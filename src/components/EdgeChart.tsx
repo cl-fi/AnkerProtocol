@@ -221,7 +221,7 @@ function TrackChart({
 
   return (
     <div className="analytics-edge-chart-frame" data-testid="analytics-edge-chart">
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 8 }}>
           <CartesianGrid stroke="var(--copper-line)" strokeDasharray="3 3" vertical={false} />
           <XAxis

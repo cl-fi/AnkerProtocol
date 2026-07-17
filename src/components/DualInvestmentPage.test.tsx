@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DualInvestmentPage, QuoteRiskSummary } from './DualInvestmentPage';
 import { BuyLowControls, ReferenceTable } from './DualInvestmentQuoteSections';
@@ -452,7 +452,7 @@ describe('Dual Investment APR display', () => {
 
     expect(screen.getByRole('columnheader', { name: /Per-period yield/ })).toBeVisible();
     // 0.02 coupon on 5 principal = 40 bps gross → 36 bps net of the 10% fee.
-    expect(screen.getByText('36 bps')).toBeVisible();
+    expect(within(screen.getByRole('table')).getByText('36 bps')).toBeVisible();
     expect(screen.getByText('Ref. APR ≈ 135.00%')).toBeVisible();
     expect(screen.queryByRole('columnheader', { name: 'Binance APR' })).not.toBeInTheDocument();
   });
@@ -495,11 +495,44 @@ describe('Dual Investment APR display', () => {
     expect(screen.getByRole('columnheader', { name: /^Binance APR/ })).toBeVisible();
     expect(screen.getByRole('columnheader', { name: /^Edge/ })).toBeVisible();
     expect(screen.getByText('80.00%')).toBeVisible();
-    expect(screen.getByText('+55.00 pts')).toBeVisible();
+    expect(within(screen.getByRole('table')).getByText('+55.00 pts')).toBeVisible();
     // Methodology + "-- means no match" live in the Binance APR header tooltip.
     expect(screen.getByLabelText(/no comparable product/i)).toBeInTheDocument();
     // Edge gets the same header-tooltip treatment — the term is ours, not Binance's.
     expect(screen.getByLabelText(/percentage points/i)).toBeInTheDocument();
+  });
+
+  it('lets a mobile user expand the selected reference summary and closes it after choosing a price', () => {
+    const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
+    const firstInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
+    const secondInput = { principal: 5, targetPrice: 63_500, floorPrice: 58_500, targetLegCount: 6 };
+    const rows: DualInvestmentScanRow[] = [
+      { input: firstInput, quote: pageQuoteFixture({ market, productInput: firstInput, coupon: 0.02 }) },
+      { input: secondInput, quote: pageQuoteFixture({ market, productInput: secondInput, coupon: 0.018 }) },
+    ];
+    const onSelect = vi.fn();
+
+    render(
+      <ReferenceTable
+        market={market}
+        rows={rows}
+        activeTargetPrice={64_000}
+        isFetching={false}
+        onSelect={onSelect}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    const disclosure = screen.getByRole('button', { name: /Current reference.*Show price reference/i });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    expect(disclosure).toHaveAccessibleName(/\$64,000.*135.00%/i);
+
+    fireEvent.click(disclosure);
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: /\$63,500/ }));
+    expect(onSelect).toHaveBeenCalledWith(secondInput);
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('distinguishes missing products, incomparable offsets, and unavailable APR', () => {
@@ -582,7 +615,7 @@ describe('Dual Investment APR display', () => {
     );
 
     expect(screen.getByText('APR unavailable')).toBeVisible();
-    expect(screen.getByText('No APR')).toBeVisible();
+    expect(within(screen.getByRole('table')).getByText('No APR')).toBeVisible();
   });
 
   it('surfaces Binance APR fetch failures in the reference table', () => {
@@ -608,7 +641,7 @@ describe('Dual Investment APR display', () => {
     );
 
     expect(screen.getByText('APR fetch failed')).toBeVisible();
-    expect(screen.getByText('No benchmark')).toBeVisible();
+    expect(within(screen.getByRole('table')).getByText('No benchmark')).toBeVisible();
   });
 
   it('renders Chinese copy while keeping target prices in USD', () => {
@@ -646,7 +679,7 @@ describe('Dual Investment APR display', () => {
     expect(screen.getByText('低买价格')).toBeVisible();
     expect(screen.getByRole('columnheader', { name: '预估净 APR' })).toBeVisible();
     expect(screen.getByRole('columnheader', { name: /^Binance APR/ })).toBeVisible();
-    expect(screen.getByText('$64,000')).toBeVisible();
+    expect(within(screen.getByRole('table')).getByText('$64,000')).toBeVisible();
   });
 });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { DEFAULT_LOCALE, type Locale } from '../i18n';
+import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 import { Button, type ButtonVariant } from '../ui';
 import { ConnectWalletDialog } from './ConnectWalletDialog';
 
@@ -20,9 +20,10 @@ export function WalletConnectButton({
   variant?: ButtonVariant;
 }) {
   const [open, setOpen] = useState(false);
+  const copy = copyForLocale(locale);
   return (
     <>
-      <Button variant={variant} onClick={() => setOpen(true)}>
+      <Button aria-label={copy.common.connect} variant={variant} onClick={() => setOpen(true)}>
         {children}
       </Button>
       <ConnectWalletDialog open={open} locale={locale} onClose={() => setOpen(false)} />

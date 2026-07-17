@@ -113,13 +113,19 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
     <main className="dual-page" id="wallet-portfolio">
       <AppHeader activeProduct="portfolio" locale={locale} />
 
-      <section className="dual-hero calculation-hero">
+      <section className="dual-hero calculation-hero portfolio-hero">
         <div>
           <h1>{copy.portfolio.title}</h1>
         </div>
-        <Button variant="secondary" onClick={handleRefresh} disabled={!account}>
+        <Button
+          variant="secondary"
+          className="portfolio-refresh"
+          aria-label={copy.portfolio.refresh}
+          onClick={handleRefresh}
+          disabled={!account}
+        >
           <RefreshCw size={16} />
-          {copy.portfolio.refresh}
+          <span>{copy.portfolio.refresh}</span>
         </Button>
       </section>
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { aggregateHeadlineStats } from '../recorder/aggregateHeadlineStats';
 import { analyticsFixtureSamples } from '../recorder/analyticsFixtures';
@@ -81,6 +81,21 @@ describe('AnalyticsPage', () => {
       'href',
       '/en/app/dual-investment',
     );
+  });
+
+  it('lets a mobile user reveal the methodology definitions from one compact summary', () => {
+    render(<AnalyticsPage locale="en" load={fixtureLoad} />);
+
+    const toggle = screen.getByRole('button', { name: /View 6 methodology details/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Sampling cadence').closest('.mobile-disclosure__content')).toHaveAttribute(
+      'data-mobile-collapsed',
+      'true',
+    );
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveAccessibleName(/Hide methodology details/i);
   });
 
   it('renders Chinese copy on the analytics route shell', () => {

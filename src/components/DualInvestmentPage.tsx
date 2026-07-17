@@ -29,7 +29,7 @@ import {
 import { DualInvestmentAdvanced, DualInvestmentConfirm, ReturnOverview } from './DualInvestmentQuoteDetail';
 import { SubscribeSuccessDialog } from './SubscribeSuccessDialog';
 import type { ConfirmedSubscription } from './TargetBuyExecutionPanel';
-import { Card } from '../ui';
+import { Card, MobileActionDock } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteSections';
 
@@ -231,7 +231,7 @@ export function DualInvestmentPage({
       <AppHeader activeProduct="dual-investment" locale={locale} />
       <SnapshotBanner locale={locale} visible={isSnapshotRow} capturedAtLabel={capturedAtLabel} />
 
-      <section className="dual-hero calculation-hero">
+      <section className="dual-hero calculation-hero di-product-hero">
         <div>
           <h1>{copy.dualInvestment.title}</h1>
           <p>{copy.dualInvestment.subtitle}</p>
@@ -309,19 +309,24 @@ export function DualInvestmentPage({
             locale={locale}
           />
           {displayQuote && effectiveInput ? (
-            <DualInvestmentConfirm
-              quote={displayQuote}
-              productInput={effectiveInput}
-              subscribeQuote={subscribeQuote}
-              isVerifying={isVerifying}
-              insufficientFunds={insufficientFunds}
-              onSubscribeSuccess={setConfirmedSubscription}
-              error={verifyError}
-              demoMode={!tradingEnabled}
-              subscribeDisabledMessage={copy.demo.subscribeDisabled}
-              disabledAction={disabledAction}
-              locale={locale}
-            />
+            <MobileActionDock
+              className="di-mobile-confirm"
+              enabled={Boolean(subscribeQuote && tradingEnabled && !insufficientFunds)}
+            >
+              <DualInvestmentConfirm
+                quote={displayQuote}
+                productInput={effectiveInput}
+                subscribeQuote={subscribeQuote}
+                isVerifying={isVerifying}
+                insufficientFunds={insufficientFunds}
+                onSubscribeSuccess={setConfirmedSubscription}
+                error={verifyError}
+                demoMode={!tradingEnabled}
+                subscribeDisabledMessage={copy.demo.subscribeDisabled}
+                disabledAction={disabledAction}
+                locale={locale}
+              />
+            </MobileActionDock>
           ) : null}
         </div>
       </div>

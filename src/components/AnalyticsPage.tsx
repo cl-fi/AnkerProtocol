@@ -15,7 +15,7 @@ import { AnalyticsRecorderStatus } from './AnalyticsRecorderStatus';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { EdgeChart } from './EdgeChart';
-import { buttonClassName, Stat, StatGroup } from '../ui';
+import { buttonClassName, MobileDisclosure, Stat, StatGroup } from '../ui';
 
 function formatSampleStartDate(sampleStartMs: number | null, locale: Locale) {
   if (sampleStartMs === null) return null;
@@ -128,7 +128,7 @@ export function AnalyticsPage({
     <main className="dual-page" id="benchmark-analytics">
       <AppHeader activeProduct="analytics" locale={locale} />
 
-      <section className="dual-hero calculation-hero">
+      <section className="dual-hero calculation-hero analytics-hero">
         <div>
           <h1>{copy.analytics.title}</h1>
           <p>{copy.analytics.subtitle}</p>
@@ -149,27 +149,35 @@ export function AnalyticsPage({
           <h2 id="analytics-methodology-title">{copy.analytics.methodologyTitle}</h2>
         </div>
         <p className="analytics-methodology-intro">{copy.analytics.methodologyIntro}</p>
-        <dl className="analytics-methodology-grid">
-          {copy.analytics.methodologyEntries.map((entry) => (
-            <div key={entry.term}>
-              <dt>{entry.term}</dt>
-              <dd>{entry.def}</dd>
+        <MobileDisclosure
+          className="analytics-methodology-disclosure"
+          contentClassName="analytics-methodology-content"
+          summary={copy.analytics.methodologySummary}
+          expandLabel={copy.analytics.methodologyShow(copy.analytics.methodologyEntries.length + 1)}
+          collapseLabel={copy.analytics.methodologyHide}
+        >
+          <dl className="analytics-methodology-grid">
+            {copy.analytics.methodologyEntries.map((entry) => (
+              <div key={entry.term}>
+                <dt>{entry.term}</dt>
+                <dd>{entry.def}</dd>
+              </div>
+            ))}
+            <div>
+              <dt>{copy.analytics.methodologyStartTerm}</dt>
+              <dd>
+                {startDate
+                  ? copy.analytics.methodologyStartDate(startDate)
+                  : copy.analytics.methodologyStartPending}
+              </dd>
             </div>
-          ))}
-          <div>
-            <dt>{copy.analytics.methodologyStartTerm}</dt>
-            <dd>
-              {startDate
-                ? copy.analytics.methodologyStartDate(startDate)
-                : copy.analytics.methodologyStartPending}
-            </dd>
-          </div>
-        </dl>
-        <p className="analytics-methodology-source">
-          <a href={copy.analytics.methodologyRepoUrl} target="_blank" rel="noreferrer">
-            {copy.analytics.methodologyRepo}
-          </a>
-        </p>
+          </dl>
+          <p className="analytics-methodology-source">
+            <a href={copy.analytics.methodologyRepoUrl} target="_blank" rel="noreferrer">
+              {copy.analytics.methodologyRepo}
+            </a>
+          </p>
+        </MobileDisclosure>
       </section>
 
       {/* Close the loop: the Edge shown here historically is live, rung by

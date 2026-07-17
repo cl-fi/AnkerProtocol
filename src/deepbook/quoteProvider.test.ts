@@ -81,10 +81,17 @@ describe('SviBrowseQuoteProvider', () => {
 });
 
 describe('createDefaultQuoteProvider', () => {
-  it('uses snapshot quotes in fixture/demo mode', async () => {
+  it('uses snapshot quotes in demo mode', async () => {
     vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'true');
     const provider = createDefaultQuoteProvider();
     expect(provider).toBeInstanceOf(SnapshotQuoteProvider);
+  });
+
+  it('uses local SVI quotes for deterministic browser tests when a market is supplied', () => {
+    vi.stubEnv('NEXT_PUBLIC_ANKER_DEMO_MODE', 'false');
+    vi.stubEnv('NEXT_PUBLIC_ANKER_DETERMINISTIC_E2E', 'true');
+    const provider = createDefaultQuoteProvider(oracleMarketFromFixture());
+    expect(provider).toBeInstanceOf(SviBrowseQuoteProvider);
   });
 
   it('falls back to non-executable snapshot quotes when no market is provided', async () => {

@@ -1,5 +1,5 @@
 import { DEEPBOOK_PREDICT } from '../config/deepbook';
-import { isFixtureDataMode } from '../config/runtimeModes';
+import { isDemoMode, isDeterministicE2E } from '../config/runtimeModes';
 import { estimateBinaryUpAskPrice, DEFAULT_MAX_PREDICT_ASK, DEFAULT_MIN_PREDICT_ASK } from '../products/predictPricing';
 import type { LegIntent, LegQuote, OracleMarket } from '../products/types';
 
@@ -173,5 +173,9 @@ export class BatchedLivePreviewQuoteProvider implements QuoteProvider {
 }
 
 export function createDefaultQuoteProvider(market?: OracleMarket): QuoteProvider {
-  return isFixtureDataMode() ? new SnapshotQuoteProvider() : new BatchedLivePreviewQuoteProvider(market);
+  if (isDemoMode()) return new SnapshotQuoteProvider();
+  // Deterministic browser tests can supply a local SVI market and exercise the
+  // real executable-quote UI without touching a chain or changing production.
+  if (isDeterministicE2E() && market) return new SviBrowseQuoteProvider(market);
+  return isDeterministicE2E() ? new SnapshotQuoteProvider() : new BatchedLivePreviewQuoteProvider(market);
 }
