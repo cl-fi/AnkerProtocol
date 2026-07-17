@@ -1,7 +1,7 @@
 {
   "name": "anker-protocol",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
