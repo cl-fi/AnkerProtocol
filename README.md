@@ -2,7 +2,7 @@
 
 **Self-custody Binance-style Dual Investment on Sui, powered by DeepBook Predict.**
 
-![Anker live APR benchmark versus Binance](docs/screenshot-apr.png)
+![Anker aggregate APR benchmark analytics versus Binance](docs/screenshot-apr.png)
 
 Anker rebuilds Binance-style Dual Investment as a self-custodial Sui product:
 users can take a BTC Buy Low position with dUSDC, see the reward before
@@ -12,15 +12,17 @@ Predict legs behind the APR.
 > I have USDC. I want to buy BTC lower. Show me the reward, the risk, and the
 > construction before I sign.
 
-**Live benchmark snapshot:** in the screenshot above, every visible matched BTC
-Buy Low row shows a positive edge. Across those targets, Anker is roughly
-**15-29 APR points above Binance** while keeping the product self-custodial,
-transparent, and verifiable on Sui. The 63,500 target shows **118.41% Anker APR
-vs. 94.07% Binance APR**, a **+24.34 APR-point** edge.
+**Live aggregate benchmark:** the Benchmark Recorder samples the product ladder
+every 15 minutes. In the screenshot above, Anker net APR led the nearest-expiry
+Binance benchmark in **98% of 10,299 live-source matched samples**, with a
+**+6.09 APR-point median edge** and **92% comparable-ladder coverage** since
+July 14, 2026.
 
-This is a live, market-dependent comparison, not a promised fixed spread. The
-point is that Anker makes the edge visible in the product: for each matched row,
-users see Anker APR, Binance APR, and the APR-point difference before deciding.
+Rows are matched by target price and nearest Binance settlement time; unmatched
+rows, snapshot fallbacks, and failed runs are excluded from the headline
+statistics. These are time-bound testnet pricing observations, not a promised
+fixed spread or guaranteed return. The live ladder still shows the current
+Anker APR, Binance APR, and Edge before a user decides.
 
 Live on Sui testnet. First product: **BTC Buy Low**, denominated in dUSDC.
 
@@ -36,7 +38,7 @@ Anker keeps the familiar CEX flow and replaces the trust layer:
 
 - **Self-custody** — funds stay in a wallet-owned product container, not a CEX account.
 - **Transparent APR** — every quote is compiled from DeepBook Predict legs with live quote previews.
-- **Live CEX benchmark** — the UI shows Anker APR, Binance APR, and Edge side by side.
+- **Continuous CEX benchmark** — the live ladder shows Anker APR, Binance APR, and Edge, while Analytics records how consistently that edge appears over time.
 - **On-chain proof** — each subscription mints a wallet-owned `ProductNote` with terms, costs, expiry, fee snapshot, and status.
 - **Aligned revenue** — Anker charges a transparent performance fee on coupon actually earned.
 
@@ -165,7 +167,7 @@ This isn't a mockup — the full path works end to end on Sui testnet.
 - **Next.js app**: landing page, Dual Investment workspace, portfolio.
 - **Live BTC oracle discovery** via a narrow Predict API wrapper (8s timeout, 1 MB cap, cache headers, per-client rate limit; only proxies the endpoints the app uses).
 - **Product compiler**: Buy Low → Predict legs, with live `devInspect` quote previews and full risk fields (min payout, max loss, option budget, holding-period return, quote TTL, liquidity status, max-cost slippage).
-- **Live Binance benchmark** with `Est. APR / Binance APR / Edge` columns.
+- **Live Binance benchmark and aggregate Analytics** — `Est. APR / Binance APR / Edge` on the product ladder, plus 15-minute recorder history, matched-sample coverage, leading frequency, and median edge.
 - **Wallet flow**: create a PredictManager container → subscribe → mint a ProductNote.
 - **Event-indexed portfolio** with claim + settlement states and Sui explorer links.
 - **ProductNote Move package deployed on Sui testnet.**
@@ -231,7 +233,7 @@ A product that shows its risk is more credible than one that hides it behind a h
 
 ## Roadmap
 
-**1. Sharper benchmarking.** Build on the live Binance check: show target-discount and settlement-date matching quality, separate "benchmark unavailable" from "no edge," put holding-period return beside annualized APR, expose liquidity and freshness per row, and add historical snapshots so users can see how often an edge appears. Turn comparison into a decision tool.
+**1. Sharper benchmarking.** Build on the live ladder and shipped Benchmark Recorder: add longer retention, exportable evidence, target-discount and settlement-match distributions, holding-period return beside annualized APR, and liquidity/freshness history per row. Turn comparison into a durable decision and monitoring tool.
 
 **2. Sell High and a product shelf.** Next product is **BTC Sell High** (BTC collateral in, stablecoin out at the target). Then Discount Buy / Premium Sell notes, principal-protected range yield, capped participation notes, auto-roll series, and institutional quote screens across targets and expiries.
 
