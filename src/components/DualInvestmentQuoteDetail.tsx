@@ -3,12 +3,12 @@
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
-import { isSubDayTenor } from '../products/dualInvestmentScan';
+import { isSubDayTenor, scanQuoteDisplayMetrics } from '../products/dualInvestmentScan';
 import { DEFAULT_PROTOCOL_FEE_BPS, netCouponAfterFee } from '../products/feePolicy';
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel, type ConfirmedSubscription } from './TargetBuyExecutionPanel';
-import { Badge, Button, Card } from '../ui';
+import { Button, Card } from '../ui';
 
 /**
  * Stable product identity — used to decide when sticky subscribe state may drop.
@@ -115,6 +115,25 @@ export function ReturnOverview({
     ? 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 138 504 152 C 558 164 586 72 642 48'
     : 'M 70 48 C 95 132 138 50 178 88 C 228 134 248 14 302 74 C 350 130 332 248 416 238 C 484 230 442 98 504 110 C 558 122 514 236 642 230';
   const btcCompact = format.btcAmountCompact(btcEquivalent);
+  // Headline yield — the card's first visual, sized like a display stat, not a
+  // badge. Net-of-fee basis, same as the reference table: the receipts' gross
+  // Reward − Fee lines below are the on-screen audit trail for this figure.
+  // This is the only APR surface for Buy Low prices outside the table's rungs.
+  const metrics = scanQuoteDisplayMetrics({ quote });
+  const yieldStat = metrics.showApr
+    ? metrics.apr !== null
+      ? { label: copy.dualInvestment.netAprStatLabel, value: format.referenceApr(metrics.apr), refApr: null }
+      : null
+    : metrics.periodReturn !== null
+      ? {
+          label: copy.dualInvestment.periodReturn,
+          value: format.periodReturnBps(metrics.periodReturn),
+          refApr:
+            metrics.referenceApr !== null
+              ? copy.dualInvestment.referenceApr(format.referenceApr(metrics.referenceApr))
+              : null,
+        }
+      : null;
   const belowReceiveText = `≈ ${format.btcAmount(btcEquivalent)} BTC + ${format.fixedTokenAmount(rewardNet, 2)} dUSDC`;
   const belowOutcomeLabel = `${belowReceiveText}. ${copy.dualInvestment.testnetSettlementNote}`;
   const belowValueTip = `${belowReceiveText} · ${copy.dualInvestment.testnetSettlementNote}`;
@@ -122,10 +141,20 @@ export function ReturnOverview({
   return (
     <Card as="article" className="return-overview-panel">
       <div className="return-overview-heading">
-        <h3>{copy.dualInvestment.returnOverviewTitle(format.shortDateTime(quote.oracle.expiryMs))}</h3>
-        <Badge tone={estimated ? 'warning' : 'positive'}>
-          {estimated ? copy.dualInvestment.estimate : copy.dualInvestment.liveQuote}
-        </Badge>
+        <div className="return-overview-title">
+          <h3>{copy.dualInvestment.returnOverviewTitle(format.shortDateTime(quote.oracle.expiryMs))}</h3>
+          <span className={estimated ? 'di-live-flag is-stale' : 'di-live-flag'}>
+            <span className="di-live-dot" aria-hidden="true" />
+            {estimated ? copy.dualInvestment.estimate : copy.dualInvestment.liveQuote}
+          </span>
+        </div>
+        {yieldStat && (
+          <div className="return-apr-hero">
+            <strong>{yieldStat.value}</strong>
+            <span>{yieldStat.label}</span>
+            {yieldStat.refApr ? <small>{yieldStat.refApr}</small> : null}
+          </div>
+        )}
       </div>
 
       <div className="return-scenario-tabs" aria-label={copy.dualInvestment.scenarioLabel}>

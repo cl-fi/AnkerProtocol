@@ -2,7 +2,8 @@
 
 import { Info, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import type { ChangeEvent, KeyboardEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { MARKET_REFETCH_INTERVAL_MS } from '../hooks/useMarketData';
 import {
   findBinanceDualInvestmentMatch,
   type BinanceDualInvestmentMatchResult,
@@ -18,7 +19,7 @@ import {
 } from '../products/dualInvestmentScan';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
-import { Button, InputField, Tabs, tabClassName } from '../ui';
+import { InputField, Tabs, tabClassName } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
@@ -272,6 +273,75 @@ export function BuyLowControls({
   );
 }
 
+/** Countdown-ring refresh control. The ring fills over one market-poll interval
+    and resets when fresh data lands — the cycle itself is the freshness signal;
+    the precise age lives in the tooltip. The ring turns amber when the feed is
+    more than two intervals old (failed polls). */
+function AutoRefreshControl({
+  updatedAtMs,
+  isFetching,
+  onRefresh,
+  locale,
+}: {
+  updatedAtMs?: number;
+  isFetching: boolean;
+  onRefresh: () => void;
+  locale: Locale;
+}) {
+  const copy = copyForLocale(locale);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, []);
+  const ageMs = updatedAtMs ? Math.max(0, nowMs - updatedAtMs) : null;
+  const progress = ageMs === null ? 0 : Math.min(1, ageMs / MARKET_REFETCH_INTERVAL_MS);
+  const isStale = ageMs !== null && ageMs > MARKET_REFETCH_INTERVAL_MS * 2;
+  const ageSeconds = ageMs === null ? null : Math.floor(ageMs / 1_000);
+  const ageLabel =
+    ageSeconds === null
+      ? null
+      : ageSeconds < 60
+        ? copy.dualInvestment.updatedSecondsAgo(ageSeconds)
+        : copy.dualInvestment.updatedMinutesAgo(Math.floor(ageSeconds / 60));
+  const tip = ageLabel
+    ? `${ageLabel} · ${copy.dualInvestment.autoRefreshEvery(MARKET_REFETCH_INTERVAL_MS / 1_000)}`
+    : copy.dualInvestment.refresh;
+  const radius = 10;
+  const circumference = 2 * Math.PI * radius;
+  // One moving part at a time: the ring fills as the countdown; while a fetch
+  // is in flight it becomes a spinning arc (icon stays put); fresh data resets it.
+  const arcProgress = isFetching ? 0.25 : progress;
+  return (
+    <button
+      type="button"
+      className={['di-refresh-btn', isStale ? 'is-stale' : '', isFetching ? 'is-fetching' : '']
+        .filter(Boolean)
+        .join(' ')}
+      aria-label={copy.dualInvestment.refresh}
+      title={tip}
+      onClick={onRefresh}
+    >
+      {updatedAtMs ? (
+        <svg className="di-refresh-ring" viewBox="0 0 24 24" aria-hidden="true">
+          <circle className="di-refresh-ring-track" cx="12" cy="12" r={radius} />
+          <g transform="rotate(-90 12 12)">
+            <circle
+              className="di-refresh-ring-progress"
+              cx="12"
+              cy="12"
+              r={radius}
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference * (1 - arcProgress)}
+            />
+          </g>
+        </svg>
+      ) : null}
+      <RefreshCw size={13} aria-hidden="true" />
+    </button>
+  );
+}
+
 export function ReferenceTable({
   market,
   rows,
@@ -280,6 +350,7 @@ export function ReferenceTable({
   nowMs,
   activeTargetPrice,
   isFetching,
+  updatedAtMs,
   onSelect,
   onRefresh,
   locale = DEFAULT_LOCALE,
@@ -292,6 +363,8 @@ export function ReferenceTable({
   nowMs?: number;
   activeTargetPrice: number;
   isFetching: boolean;
+  /** Last successful market-feed fetch — powers the "Updated … ago" stamp. */
+  updatedAtMs?: number;
   onSelect: (input: DualInvestmentInput) => void;
   onRefresh: () => void;
   locale?: Locale;
@@ -350,10 +423,12 @@ export function ReferenceTable({
     <section className="di-reference" aria-label={subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.aprReferenceLabel}>
       <div className="di-reference-head">
         <h3>{subDay ? copy.dualInvestment.priceYieldReference : copy.dualInvestment.priceAprReference}</h3>
-        <Button variant="secondary" onClick={onRefresh}>
-          <RefreshCw size={15} />
-          {isFetching ? copy.dualInvestment.updating : copy.dualInvestment.refresh}
-        </Button>
+        <AutoRefreshControl
+          updatedAtMs={updatedAtMs}
+          isFetching={isFetching}
+          onRefresh={onRefresh}
+          locale={locale}
+        />
       </div>
       <p className="di-reference-hint">{copy.dualInvestment.referenceHint}</p>
       <div className="table-shell">

@@ -130,7 +130,7 @@ net_APR        = gross_APR * (1 - protocol_fee_bps / 10000)
 The quote model is layered for honesty:
 
 - An **instant local Estimate** for fast browsing.
-- Upgraded to a **verified Live quote** (badge) priced against the chain.
+- Upgraded to a **verified Live quote** (inline status flag) priced against the chain.
 - **Subscription is only enabled on a matched, executable live quote.** Legs that can't be live-quoted fall back to a clearly-marked, non-executable snapshot — never a fake APR.
 
 ---

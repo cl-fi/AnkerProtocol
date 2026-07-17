@@ -37,6 +37,15 @@ describe('i18n locale helpers', () => {
     expect(format.usd(65_000)).toBe('$65,000');
   });
 
+  it('formats BTC amounts with at most six decimal places', () => {
+    const format = formattersForLocale('en');
+
+    expect(format.btcAmount(0.123456789)).toBe('0.123457');
+    expect(format.btcAmount(0.00007634)).toBe('0.000076');
+    expect(format.btcAmount(1.5)).toBe('1.5');
+    expect(format.btcAmountCompact(0.00007634)).toBe('0.000076');
+  });
+
   // Tests pin TZ=Asia/Shanghai (vitest.config.ts), so the viewer offset is UTC+8.
   it('annotates expiry and time labels with the viewer UTC offset', () => {
     const format = formattersForLocale('en');

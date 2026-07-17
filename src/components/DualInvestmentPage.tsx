@@ -285,10 +285,15 @@ export function DualInvestmentPage({
             binanceStatus={binanceStatus}
             nowMs={frozenNowMs}
             activeTargetPrice={targetPrice}
-            isFetching={scanQuery.isFetching}
+            isFetching={marketQuery.isFetching}
+            updatedAtMs={isSnapshotRow ? undefined : marketQuery.dataUpdatedAt || undefined}
             onSelect={handleSelectPreset}
             onRefresh={() => {
-              void scanQuery.refetch();
+              // The ladder is derived locally from the market feed — refreshing
+              // means re-pulling the feed (and its Binance benchmark), not
+              // recomputing identical numbers from the same inputs.
+              void marketQuery.refetch();
+              if (!isSnapshotRow) void liveBinanceQuery.refetch();
             }}
             locale={locale}
           />

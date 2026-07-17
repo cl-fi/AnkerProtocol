@@ -124,7 +124,7 @@ describe('ClaimActionView settlement lifecycle', () => {
     // deposit + reward − fee in cash; or the deposit alone converted at the
     // chosen target price with the reward staying a separate dUSDC amount
     expect(screen.getByText('~5.01 dUSDC')).toBeVisible();
-    expect(screen.getByText('or ≈ 0.00007634 BTC + 0.01 dUSDC reward')).toBeVisible();
+    expect(screen.getByText('or ≈ 0.000076 BTC + 0.01 dUSDC reward')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Claim payout' })).toBeDisabled();
   });
 
@@ -156,8 +156,8 @@ describe('ClaimActionView settlement lifecycle', () => {
       />,
     );
 
-    // 198 / 64,000 BTC plus the coupon net of the 10% fee, cash-settled on testnet.
-    expect(screen.getByText('~0.00309375 BTC + 1.04 dUSDC')).toBeVisible();
+    // 198 / 64,000 BTC (shown to 6 decimals) plus the coupon net of the 10% fee, cash-settled on testnet.
+    expect(screen.getByText('~0.003094 BTC + 1.04 dUSDC')).toBeVisible();
     expect(screen.getByText('≈ 199.03 dUSDC on testnet · after 0.12 dUSDC fee')).toBeVisible();
   });
 

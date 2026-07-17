@@ -92,7 +92,7 @@ describe('ProductNoteCard', () => {
 
     expect(screen.getByText('BTC ends < $65,500')).toBeVisible();
     // 5 dUSDC deposit ÷ $65,500 target — the coupon must never inflate the BTC figure.
-    const btcLine = screen.getByText('≈ 0.00007634 BTC');
+    const btcLine = screen.getByText('≈ 0.000076 BTC');
     expect(btcLine).toBeVisible();
     // Same dashed affordance + testnet tip as the product-page "You receive" line.
     expect(btcLine).toHaveClass('di-equiv-note');

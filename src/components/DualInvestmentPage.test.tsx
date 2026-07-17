@@ -58,6 +58,7 @@ vi.mock('lucide-react', () => ({
 }));
 
 vi.mock('../hooks/useMarketData', () => ({
+  MARKET_REFETCH_INTERVAL_MS: 15_000,
   useMarketData: () => mocks.marketData,
 }));
 
@@ -262,6 +263,7 @@ describe('Dual Investment APR display', () => {
     expect(screen.queryByText('Balance')).not.toBeInTheDocument();
   });
 
+
   it('flags amounts over the connected balance with a visible error', () => {
     render(
       <BuyLowControls
@@ -391,20 +393,36 @@ describe('Dual Investment APR display', () => {
     expect(screen.queryByTestId('execution-panel')).not.toBeInTheDocument();
   });
 
-  it('omits the yield badge in the return overview (Live quote is enough)', () => {
+  it('headlines the net APR as the display stat in the card heading', () => {
+    // 7-day tenor (marketFixture default) — APR is the primary rate display.
+    // Net-of-fee basis: fixture apr 1.5 gross → 1.35 net of the 10% coupon fee.
+    const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
+    const quote = pageQuoteFixture({ productInput, coupon: 0.05 });
+
+    render(<ReturnOverview quote={quote} productInput={productInput} />);
+
+    expect(screen.getByText('Est. Net APR')).toBeVisible();
+    expect(screen.getByText('135.00%')).toBeVisible();
+    expect(screen.getByText('Live quote')).toBeVisible();
+    // The receipts stay pure amounts — the gross Reward − Fee lines are the
+    // on-screen audit trail for the net headline.
+    expect(screen.getAllByText('Reward').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Fee (10% of reward)').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('headlines per-period yield with a reference APR for sub-day tenors (ADR-0002)', () => {
     const market = marketFixture({ expiryMs: Date.now() + 2 * 3_600_000 });
     const productInput = { principal: 5, targetPrice: 65_500, floorPrice: 63_000, targetLegCount: 6 };
     const quote = pageQuoteFixture({ market, productInput, coupon: 0.05 });
 
     render(<ReturnOverview quote={quote} productInput={productInput} />);
 
-    // Headline yield badge removed — Live quote / Estimate status remains.
-    expect(screen.queryByText(/after fee/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/% APR/)).not.toBeInTheDocument();
-    expect(screen.getByText('Live quote')).toBeVisible();
-    // The receipt rows carry the arithmetic: gross reward, minus fee.
-    expect(screen.getAllByText('Reward').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Fee (10% of reward)').length).toBeGreaterThanOrEqual(1);
+    // 0.045 net coupon on 5 principal → 90 bps for the period; the annualized
+    // figure rides along as a muted line, mirroring the Turbo table cells.
+    expect(screen.getByText('Per-period yield')).toBeVisible();
+    expect(screen.getByText('90 bps')).toBeVisible();
+    expect(screen.getByText('Ref. APR ≈ 135.00%')).toBeVisible();
+    expect(screen.queryByText('Est. Net APR')).not.toBeInTheDocument();
   });
 
   it('shows period return and reference APR in the Turbo reference table', () => {
@@ -626,7 +644,7 @@ describe('Dual Investment APR display', () => {
     );
 
     expect(screen.getByText('低买价格')).toBeVisible();
-    expect(screen.getByRole('columnheader', { name: '预估 APR' })).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: '预估净 APR' })).toBeVisible();
     expect(screen.getByRole('columnheader', { name: /^Binance APR/ })).toBeVisible();
     expect(screen.getByText('$64,000')).toBeVisible();
   });

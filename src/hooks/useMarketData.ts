@@ -41,6 +41,8 @@ export interface MarketDataResult {
   snapshot?: DaySnapshotMeta;
 }
 
+export const MARKET_REFETCH_INTERVAL_MS = 15_000;
+
 export function useMarketData(selectedOracleId?: string) {
   return useQuery({
     queryKey: ['deepbook-market', selectedOracleId],
@@ -87,7 +89,7 @@ export function useMarketData(selectedOracleId?: string) {
         snapshot: curated.snapshot,
       };
     },
-    refetchInterval: 15_000,
+    refetchInterval: MARKET_REFETCH_INTERVAL_MS,
     retry: 1,
   });
 }

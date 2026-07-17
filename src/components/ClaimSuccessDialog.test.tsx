@@ -53,7 +53,7 @@ describe('ClaimSuccessDialog', () => {
 
     expect(
       screen.getByText(
-        'Settled at $64,200 — your deposit converted at the $65,500 target (≈ 0.00007634 BTC) plus your 0.01 dUSDC reward, cash-settled in dUSDC on testnet.',
+        'Settled at $64,200 — your deposit converted at the $65,500 target (≈ 0.000076 BTC) plus your 0.01 dUSDC reward, cash-settled in dUSDC on testnet.',
       ),
     ).toBeVisible();
   });

@@ -31,13 +31,14 @@ export function formatCashAmount(value: number, locale: Locale) {
   });
 }
 
+/** BTC amounts display with at most six decimals (e.g. 0.123456) everywhere. */
 export function formatBtcAmount(value: number, locale: Locale) {
-  return value.toLocaleString(numberLocale(locale), { maximumFractionDigits: 8 });
+  return value.toLocaleString(numberLocale(locale), { maximumFractionDigits: 6 });
 }
 
-/** Scannable BTC amount for previews (5 significant digits); pair with a full-precision tooltip. */
+/** Same six-decimal cap as formatBtcAmount (kept for call-site clarity on compact rows). */
 export function formatBtcAmountCompact(value: number, locale: Locale) {
-  return value.toLocaleString(numberLocale(locale), { maximumSignificantDigits: 5 });
+  return formatBtcAmount(value, locale);
 }
 
 export function formatFixedTokenAmount(value: number, decimals: number, locale: Locale) {
