@@ -13,9 +13,41 @@ import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
 import { WalletConnectButton } from './WalletConnectButton';
 
+function MobilePortfolioWalletLink({
+  identity,
+  locale,
+}: {
+  identity: ReturnType<typeof useWalletIdentity>;
+  locale: Locale;
+}) {
+  const copy = copyForLocale(locale);
+  return (
+    <Link
+      className="mobile-wallet-route"
+      href={`${localizedPath(locale, '/app/portfolio')}#wallet-portfolio`}
+      aria-label={copy.wallet.viewPortfolio}
+    >
+      {identity?.kind === 'social' ? (
+        <span className="account-trigger-avatar">
+          <GoogleMark size={16} />
+        </span>
+      ) : identity?.kind === 'extension' && identity.icon ? (
+        <span className="account-trigger-avatar">
+          {/* Wallet-standard icons are data: URIs, not remote assets. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={identity.icon} alt="" width={18} height={18} />
+        </span>
+      ) : (
+        <Wallet size={18} aria-hidden="true" />
+      )}
+    </Link>
+  );
+}
+
 /**
- * The top-right wallet control. Disconnected it is the connect CTA (opens the
- * app-owned sign-in dialog); connected it becomes the account panel — the
+ * The top-right wallet control. Phones always route to Portfolio, the mobile
+ * wallet hub. On larger screens, disconnected it is the connect CTA (opens
+ * the app-owned sign-in dialog); connected it becomes the account panel — the
  * quick embedded-wallet surface. The trigger leads with the sign-in identity
  * (Google mark + email for zkLogin, wallet icon + address for extensions);
  * the panel repeats that identity with the address demoted beneath it, Total
@@ -68,10 +100,15 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
 
   if (!account) {
     return (
-      <WalletConnectButton locale={locale}>
-        <Wallet size={15} aria-hidden="true" />
-        <span>{copy.common.connect}</span>
-      </WalletConnectButton>
+      <div className="account-control">
+        <MobilePortfolioWalletLink identity={identity} locale={locale} />
+        <div className="desktop-wallet-entry">
+          <WalletConnectButton locale={locale}>
+            <Wallet size={15} aria-hidden="true" />
+            <span>{copy.common.connect}</span>
+          </WalletConnectButton>
+        </div>
+      </div>
     );
   }
 
@@ -83,6 +120,7 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
         if (open && !rootRef.current?.contains(event.relatedTarget as Node)) setOpen(false);
       }}
     >
+      <MobilePortfolioWalletLink identity={identity} locale={locale} />
       <button
         type="button"
         ref={triggerRef}

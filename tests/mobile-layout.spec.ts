@@ -74,6 +74,23 @@ test.describe('phone layout', () => {
     await expect(navigation.getByRole('link', { name: 'Analytics' })).toHaveAttribute('aria-current', 'page');
   });
 
+  for (const width of phoneWidths) {
+    test(`${width}px wallet entry routes Dual Investment and Analytics users to Portfolio`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+
+      for (const sourcePath of ['/en/app/dual-investment', '/en/analytics']) {
+        await gotoReady(page, sourcePath);
+        const walletEntry = page.locator('.top-nav').getByRole('link', { name: 'View Portfolio' });
+        await expect(walletEntry).toBeVisible();
+        await expect(page.locator('.top-nav .desktop-wallet-entry')).toBeHidden();
+
+        await walletEntry.click();
+        await expect(page).toHaveURL(/\/en\/app\/portfolio#wallet-portfolio$/);
+        await expect(page.locator('.portfolio-connect-empty').getByRole('button', { name: 'Connect' })).toBeVisible();
+      }
+    });
+  }
+
   test('Chinese labels keep the 320px app bar and navigation inside the viewport', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
     for (const route of chineseRoutes) {
@@ -105,6 +122,63 @@ test.describe('phone layout', () => {
 
     await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByRole('spinbutton', { name: /Buy Low price/ })).toHaveValue(selectedPrice!);
+  });
+
+  test('settlement date keeps its text control vertically centered', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 900 });
+    await gotoReady(page, '/en/app/dual-investment');
+
+    const layout = await page.locator('.di-select-grow .expiry-select').evaluate((wrapper) => {
+      const select = wrapper.querySelector('select');
+      if (!select) throw new Error('Settlement select is missing');
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const selectRect = select.getBoundingClientRect();
+      const style = getComputedStyle(select);
+      return {
+        wrapperHeight: wrapperRect.height,
+        selectHeight: selectRect.height,
+        centerDelta: Math.abs(
+          wrapperRect.top + wrapperRect.height / 2 - (selectRect.top + selectRect.height / 2),
+        ),
+        paddingTop: style.paddingTop,
+        paddingBottom: style.paddingBottom,
+      };
+    });
+
+    expect(layout.wrapperHeight).toBe(48);
+    expect(layout.selectHeight).toBeGreaterThanOrEqual(42);
+    expect(layout.centerDelta).toBeLessThanOrEqual(1);
+    expect(layout.paddingTop).toBe('0px');
+    expect(layout.paddingBottom).toBe('0px');
+  });
+
+  test('mobile wallet footer and claim actions keep their compact alignment', async ({ page }) => {
+    await page.setViewportSize({ width: 430, height: 900 });
+    await page.goto('http://127.0.0.1:4124');
+    await expect(page.locator('main#portfolio-component-fixture')).toBeVisible();
+
+    await expect(page.locator('.pf-wallet-disconnect')).toBeVisible();
+    const claim = page.locator('.di-position-claim');
+    const details = page.locator('.di-position-toggle');
+    const geometry = await Promise.all([
+      claim.boundingBox(),
+      details.boundingBox(),
+    ]).then(([claimBox, detailsBox]) => {
+      if (!claimBox || !detailsBox) throw new Error('Portfolio action controls are not measurable');
+      return {
+        claimHeight: claimBox.height,
+        detailsWidth: detailsBox.width,
+        detailsHeight: detailsBox.height,
+        centerDelta: Math.abs(
+          claimBox.y + claimBox.height / 2 - (detailsBox.y + detailsBox.height / 2),
+        ),
+      };
+    });
+
+    expect(geometry.claimHeight).toBeGreaterThanOrEqual(44);
+    expect(geometry.detailsWidth).toBe(44);
+    expect(geometry.detailsHeight).toBe(44);
+    expect(geometry.centerDelta).toBeLessThanOrEqual(1);
   });
 
   test('subscribe action docks only after its inline position has been seen and passed', async ({ page }) => {
@@ -216,7 +290,7 @@ test.describe('phone layout', () => {
   test('connect dialog is a scrollable bottom sheet inside the dynamic viewport', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/en/app/portfolio');
-    await page.locator('.top-nav-actions').getByRole('button', { name: 'Connect' }).click();
+    await page.locator('.portfolio-connect-empty').getByRole('button', { name: 'Connect' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Sign in' });
     await expect(dialog).toBeVisible();
@@ -244,5 +318,22 @@ test.describe('phone layout', () => {
     expect(Math.abs(sheet.width - sheet.viewportWidth)).toBeLessThanOrEqual(1);
     expect(sheet.height).toBeLessThan(sheet.viewportHeight);
     expect(['auto', 'scroll']).toContain(sheet.overflowY);
+
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
   });
+});
+
+test('desktop keeps the existing header wallet dialog entry', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile', 'Desktop-only compatibility coverage.');
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('http://127.0.0.1:4124');
+  await expect(page.locator('.pf-wallet-disconnect')).toBeHidden();
+  await gotoReady(page, '/en/app/dual-investment');
+
+  await expect(page.locator('.top-nav').getByRole('link', { name: 'View Portfolio' })).toBeHidden();
+  const connect = page.locator('.top-nav').getByRole('button', { name: 'Connect' });
+  await expect(connect).toBeVisible();
+  await connect.click();
+  await expect(page.getByRole('dialog', { name: 'Sign in' })).toBeVisible();
 });

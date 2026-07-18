@@ -1,6 +1,6 @@
 'use client';
 
-import { useCurrentAccount } from '@mysten/dapp-kit-react';
+import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
 import { ArrowUpRight, QrCode, RefreshCw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
@@ -18,9 +18,11 @@ import { AppHeader } from './AppHeader';
 import { ClaimSuccessDialog } from './ClaimSuccessDialog';
 import type { ConfirmedClaim } from './PortfolioClaimAction';
 import { formatCashAmount, shortId } from './PortfolioFormat';
+import { PortfolioMobileDisconnect } from './PortfolioMobileDisconnect';
 import { ProductNoteCard } from './PortfolioProductNoteCard';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
+import { WalletConnectButton } from './WalletConnectButton';
 import { Badge, Button, Card } from '../ui';
 
 type PositionFilter = 'all' | 'ready' | 'active' | 'completed';
@@ -51,6 +53,7 @@ export { SubscriptionDigestValue, depositedCashText, noteStatusBadge } from './P
 export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
   const copy = copyForLocale(locale);
   const account = useCurrentAccount();
+  const dAppKit = useDAppKit();
   const portfolioQuery = useAnkerPortfolio();
   const funds = useWalletFunds();
   const [filter, setFilter] = useState<PositionFilter>('all');
@@ -129,7 +132,7 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
         </Button>
       </section>
 
-      {account && contractConfigured ? (
+      {account ? (
         <section className="calculation-section">
           <div className="pf-wallet">
             <div className="pf-wallet-top">
@@ -188,13 +191,21 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                 <small>{copy.portfolio.cumulativeRewardsHint}</small>
               </div>
             </div>
+            <PortfolioMobileDisconnect locale={locale} onDisconnect={() => void dAppKit.disconnectWallet()} />
           </div>
         </section>
       ) : null}
 
       {!account ? (
         <section className="calculation-section">
-          <Card variant="empty">{copy.portfolio.connectWallet}</Card>
+          <Card variant="empty">
+            <div className="portfolio-connect-empty">
+              <p>{copy.portfolio.connectWallet}</p>
+              <WalletConnectButton locale={locale} variant="primary">
+                {copy.common.connect}
+              </WalletConnectButton>
+            </div>
+          </Card>
         </section>
       ) : null}
 

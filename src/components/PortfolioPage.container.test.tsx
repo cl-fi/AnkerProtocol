@@ -1,24 +1,41 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { PortfolioPage } from './PortfolioPage';
 
 const OWNER = `0x${'a'.repeat(64)}`;
 
+const walletState = vi.hoisted(() => ({
+  account: { address: `0x${'a'.repeat(64)}` } as { address: string } | null,
+  connectWallet: vi.fn(),
+  disconnectWallet: vi.fn(),
+}));
+
+const ankerConfig = vi.hoisted(() => ({ packageId: '0xconfigured' }));
+
 vi.mock('lucide-react', () => ({
   ArrowUpRight: () => <span data-testid="icon" />,
   Check: () => <span data-testid="icon" />,
   Copy: () => <span data-testid="icon" />,
+  LogOut: () => <span data-testid="icon" />,
   QrCode: () => <span data-testid="icon" />,
   RefreshCw: () => <span data-testid="icon" />,
   Sparkles: () => <span data-testid="icon" />,
 }));
 
 vi.mock('@mysten/dapp-kit-react', () => ({
-  useCurrentAccount: () => ({ address: OWNER }),
+  useCurrentAccount: () => walletState.account,
   useCurrentClient: () => ({}),
   useCurrentWallet: () => null,
-  useDAppKit: () => ({}),
+  useDAppKit: () => ({
+    connectWallet: walletState.connectWallet,
+    disconnectWallet: walletState.disconnectWallet,
+  }),
+  useWallets: () => [],
+}));
+
+vi.mock('../sui/ankerTransactions', () => ({
+  DEFAULT_ANKER_CONFIG: ankerConfig,
 }));
 
 vi.mock('./AppHeader', () => ({
@@ -106,6 +123,12 @@ vi.mock('../hooks/useAnkerPortfolio', () => ({
 }));
 
 describe('PortfolioPage wallet band (connected)', () => {
+  beforeEach(() => {
+    walletState.account = { address: OWNER };
+    ankerConfig.packageId = '0xconfigured';
+    vi.clearAllMocks();
+  });
+
   it('shows Total Assets = Available + In Position, the tiles, and the wallet actions', () => {
     render(<PortfolioPage />);
 
@@ -142,5 +165,29 @@ describe('PortfolioPage wallet band (connected)', () => {
     expect(screen.queryByTestId('send-dialog')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Send/ }));
     expect(screen.getByTestId('send-dialog')).toBeInTheDocument();
+  });
+
+  it('lets a connected mobile user disconnect from the Portfolio wallet hub', () => {
+    render(<PortfolioPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    expect(walletState.disconnectWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Disconnect available when the product contract is not configured', () => {
+    ankerConfig.packageId = '0x0';
+    render(<PortfolioPage />);
+
+    expect(screen.getByText(/contract package is not configured/i)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    expect(walletState.disconnectWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a disconnected user start the wallet connection flow from Portfolio', () => {
+    walletState.account = null;
+    render(<PortfolioPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    expect(screen.getByRole('dialog', { name: 'Sign in' })).toBeVisible();
   });
 });

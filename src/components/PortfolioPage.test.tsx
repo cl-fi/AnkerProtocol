@@ -6,6 +6,7 @@ import { SubscriptionDigestValue, depositedCashText, claimEstimateForNote } from
 import { ProductNoteCard } from './PortfolioProductNoteCard';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import type { ProductNoteEventIndexEntry } from '../sui/productNoteEvents';
+import type { PredictMarketState } from '../deepbook/predictMarketState';
 
 vi.mock('@mysten/dapp-kit-react', () => ({
   useCurrentAccount: () => null,
@@ -102,6 +103,29 @@ describe('ProductNoteCard', () => {
     expect(screen.queryByText('Payout range')).not.toBeInTheDocument();
     expect(screen.queryByText('On-chain proof')).not.toBeInTheDocument();
     expect(screen.queryByText('Not indexed')).not.toBeInTheDocument();
+  });
+
+  it('keeps Claim separate from the optional details disclosure', () => {
+    const note = noteFixture();
+    const marketState: PredictMarketState = {
+      expiryMarketId: note.oracleId,
+      expiryMs: note.expiryMs,
+      settlementPrice: 66_000,
+      settlementPriceBaseUnits: 66_000_000_000_000n,
+      settledAtMs: note.expiryMs + 1,
+    };
+    renderWithQuery(
+      <ProductNoteCard note={note} marketState={marketState} onClaimSuccess={() => {}} />,
+    );
+
+    const details = screen.getByRole('button', { name: 'Details' });
+    expect(details).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Claim payout' }));
+    expect(details).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(details);
+    expect(details).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('reads every settled-card figure from the actual settlement, never the subscription-time estimate', () => {
