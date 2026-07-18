@@ -36,11 +36,11 @@ function loadFredokaBold(): Buffer | null {
 
 /** Brand tokens mirrored from src/styles.css cartoon palette */
 const C = {
-  cream: '#f4ecd6',
-  cream2: '#efe3c6',
-  paper2: '#fbf3df',
+  cream: '#f8f0df',
+  cream2: '#f1e6ce',
+  paper2: '#faf4ea',
   navy: '#20304d',
-  gold: '#eaa53a',
+  gold: '#eb9b2d',
 } as const;
 
 /**
@@ -79,7 +79,7 @@ export default function OpengraphImage() {
             width: 520,
             height: 520,
             borderRadius: 999,
-            background: 'rgba(234, 165, 58, 0.16)',
+            background: 'rgba(235, 155, 45, 0.16)',
             display: 'flex',
           }}
         />
