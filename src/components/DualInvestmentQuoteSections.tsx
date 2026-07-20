@@ -10,6 +10,7 @@ import {
   type BinanceDualInvestmentProduct,
 } from '../deepbook/binanceDualInvestment';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
+import { utcOffsetLabel } from '../i18n/formatters';
 import {
   displayTargetStepForMarket,
   TURBO_DISPLAY_TARGET_STEP,
@@ -20,12 +21,15 @@ import {
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
 import { InputField, MobileDisclosure, Tabs, tabClassName } from '../ui';
+import { SettlementSelect } from './SettlementSelect';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 
 export const DEFAULT_PRINCIPAL = 500;
 /** Quick-set deposit fractions of the connected balance — plus a Max chip. */
 export const AMOUNT_FRACTIONS = [0.25, 0.5, 0.75];
+/** Phone price chips show the top ladder rungs; the rest sit behind More. */
+const PRICE_CHIP_COUNT = 4;
 export type DualInvestmentMode = 'buy-low';
 export type BinanceBenchmarkStatus = 'loading' | 'error' | 'ready';
 
@@ -48,14 +52,17 @@ function formatBelowSpot(targetPrice: number, spot: number, locale: Locale) {
   });
 }
 
-function formatExpiryOption(oracle: CuratedOracleListItem, locale: Locale, snapshotCapturedAtMs?: number) {
+/** One ladder row's headline yield — APR for day tenors, bps for sub-day. */
+function scanRowYieldLabel(row: DualInvestmentScanRow, locale: Locale) {
   const format = formattersForLocale(locale);
-  // Snapshot rows freeze their countdown at the capture instant (photograph model).
-  const timeToExpiry =
-    oracle.source === 'snapshot' && snapshotCapturedAtMs
-      ? format.timeToExpiry(oracle.expiry, snapshotCapturedAtMs)
-      : format.timeToExpiry(oracle.expiry);
-  return `${timeToExpiry} · ${format.time(oracle.expiry)}`;
+  const metrics = scanQuoteDisplayMetrics(row);
+  return metrics.showApr
+    ? metrics.apr !== null
+      ? format.referenceApr(metrics.apr)
+      : '--'
+    : metrics.periodReturn !== null
+      ? format.periodReturnBps(metrics.periodReturn)
+      : '--';
 }
 
 export function DirectionPairBar({
@@ -79,12 +86,9 @@ export function DirectionPairBar({
   const dayGroupLabel =
     dayRows[0]?.source === 'live' ? copy.dayFallback.dayGroupLive : copy.dayFallback.dayGroupSnapshot;
   const showSparseTenorsHint = hourlyRows.length > 0 && hourlyRows.length < EXPECTED_HOURLY_TENORS;
-
-  const renderOption = (oracle: CuratedOracleListItem) => (
-    <option value={oracle.oracle_id} key={oracle.oracle_id}>
-      {formatExpiryOption(oracle, locale, snapshotCapturedAtMs)}
-    </option>
-  );
+  // Viewer-local UTC offset, always visible in the label — settlement times
+  // are meaningless without knowing whose clock they're on.
+  const settlementZone = productOracles[0] ? utcOffsetLabel(productOracles[0].expiry) : null;
   return (
     <section className="di-selection" aria-label={copy.dualInvestment.chooseMarketLabel}>
       <div className="di-select-group">
@@ -119,19 +123,20 @@ export function DirectionPairBar({
       </div>
 
       <div className="di-select-group di-select-grow">
-        <span className="di-select-label">{copy.dualInvestment.settlementDate}</span>
-        <label className="expiry-select">
-          <select
-            aria-label={copy.dualInvestment.settlementDate}
-            value={market?.oracleId ?? ''}
-            onChange={(event) => onSelectOracle(event.currentTarget.value)}
-          >
-            {dayRows.length > 0 ? <optgroup label={dayGroupLabel}>{dayRows.map(renderOption)}</optgroup> : null}
-            {hourlyRows.length > 0 ? (
-              <optgroup label={copy.dayFallback.hourlyGroup}>{hourlyRows.map(renderOption)}</optgroup>
-            ) : null}
-          </select>
-        </label>
+        <span className="di-select-label">
+          {copy.dualInvestment.settlementDate}
+          {settlementZone ? <span className="di-zone-badge">{settlementZone}</span> : null}
+        </span>
+        <SettlementSelect
+          value={market?.oracleId ?? ''}
+          groups={[
+            { key: 'day', label: dayGroupLabel, rows: dayRows },
+            { key: 'hourly', label: copy.dayFallback.hourlyGroup, rows: hourlyRows },
+          ]}
+          onSelect={onSelectOracle}
+          snapshotCapturedAtMs={snapshotCapturedAtMs}
+          locale={locale}
+        />
         {showSparseTenorsHint ? <p className="di-tenor-hint">{copy.dualInvestment.sparseTenorsHint}</p> : null}
       </div>
     </section>
@@ -145,6 +150,9 @@ export function BuyLowControls({
   minTargetPrice = null,
   maxTargetPrice = null,
   availableBalance = null,
+  ladderRows,
+  ladderOpen = false,
+  onLadderToggle,
   onPrincipalChange,
   onTargetChange,
   locale = DEFAULT_LOCALE,
@@ -158,6 +166,12 @@ export function BuyLowControls({
   maxTargetPrice?: number | null;
   /** Connected wallet's subscribable dUSDC — drives the 25/50/75/Max chips. */
   availableBalance?: number | null;
+  /** Scan ladder rungs — the phone-only quick-select chips under the price input. */
+  ladderRows?: DualInvestmentScanRow[];
+  /** Whether the full reference ladder is expanded (the More chip's state). */
+  ladderOpen?: boolean;
+  /** More chip tap — reveals/hides the full reference ladder below the ticket. */
+  onLadderToggle?: () => void;
   onPrincipalChange: (value: number) => void;
   onTargetChange: (value: number) => void;
   locale?: Locale;
@@ -214,6 +228,34 @@ export function BuyLowControls({
                 <span>{format.usd(sliderMin as number)}</span>
                 <span>{format.usd(sliderMax as number)}</span>
               </div>
+            </div>
+          ) : null}
+          {/* Phone-only ladder chips (desktop keeps the full reference table):
+              the top rungs ride with the price input, so decision support sits
+              exactly where the decision is typed. */}
+          {ladderRows && ladderRows.length > 0 ? (
+            <div className="di-price-chips" role="group" aria-label={copy.dualInvestment.priceChipsLabel}>
+              {ladderRows.slice(0, PRICE_CHIP_COUNT).map((row) => (
+                <button
+                  className={row.input.targetPrice === targetPrice ? 'active' : ''}
+                  key={row.input.targetPrice}
+                  type="button"
+                  onClick={() => onTargetChange(row.input.targetPrice)}
+                >
+                  <strong>{format.usd(row.input.targetPrice)}</strong>
+                  <small>{scanRowYieldLabel(row, locale)}</small>
+                </button>
+              ))}
+              {onLadderToggle ? (
+                <button
+                  className={ladderOpen ? 'di-chip-more active' : 'di-chip-more'}
+                  type="button"
+                  aria-expanded={ladderOpen}
+                  onClick={onLadderToggle}
+                >
+                  {copy.dualInvestment.moreChip}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -353,6 +395,7 @@ export function ReferenceTable({
   updatedAtMs,
   onSelect,
   onRefresh,
+  className,
   locale = DEFAULT_LOCALE,
 }: {
   market?: OracleMarket;
@@ -367,6 +410,7 @@ export function ReferenceTable({
   updatedAtMs?: number;
   onSelect: (input: DualInvestmentInput) => void;
   onRefresh: () => void;
+  className?: string;
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
@@ -429,22 +473,17 @@ export function ReferenceTable({
   );
   const activeRow = rows[activeIndex];
   const activeMetrics = activeRow ? scanQuoteDisplayMetrics(activeRow) : null;
-  const activeYield = activeMetrics
-    ? activeMetrics.showApr
-      ? activeMetrics.apr !== null
-        ? format.referenceApr(activeMetrics.apr)
-        : '--'
-      : activeMetrics.periodReturn !== null
-        ? format.periodReturnBps(activeMetrics.periodReturn)
-        : '--'
-    : '--';
+  const activeYield = activeRow ? scanRowYieldLabel(activeRow, locale) : '--';
   const activeEdge =
     !subDay && activeMetrics
       ? edgeDisplay({ displayApr: activeMetrics.apr, match: rowMatches[activeIndex] ?? { kind: 'no_product' } }).label
       : null;
 
   return (
-    <section className="di-reference" aria-label={subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.aprReferenceLabel}>
+    <section
+      className={['di-reference', className].filter(Boolean).join(' ')}
+      aria-label={subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.aprReferenceLabel}
+    >
       <div className="di-reference-head">
         <h3>{subDay ? copy.dualInvestment.priceYieldReference : copy.dualInvestment.priceAprReference}</h3>
         <AutoRefreshControl
@@ -521,13 +560,7 @@ export function ReferenceTable({
               const binanceApr = binanceAprDisplay(binanceMatch);
               const edge = edgeDisplay({ displayApr: displayMetrics.apr, match: binanceMatch });
               const isActive = row.input.targetPrice === activeTargetPrice;
-              const yieldLabel = displayMetrics.showApr
-                ? displayMetrics.apr !== null
-                  ? format.referenceApr(displayMetrics.apr)
-                  : '--'
-                : displayMetrics.periodReturn !== null
-                  ? format.periodReturnBps(displayMetrics.periodReturn)
-                  : '--';
+              const yieldLabel = scanRowYieldLabel(row, locale);
               return (
                 <tr
                   className={isActive ? 'selected' : ''}

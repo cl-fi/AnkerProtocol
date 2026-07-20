@@ -120,6 +120,21 @@ export function formatOracleTimestamp(value: number, locale: Locale) {
   return formatExpiry(value, locale);
 }
 
+/**
+ * Tightest settle moment — 24h clock, no UTC offset — for the settlement
+ * trigger and option rows, e.g. "Sep 04, 08:00" / "9月04日 08:00". The offset
+ * displays once in the picker header instead of on every row.
+ */
+export function formatExpiryCompact(value: number, locale: Locale) {
+  return new Intl.DateTimeFormat(numberLocale(locale), {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(value);
+}
+
 /** Compact settle moment for prose, e.g. "Jul 16, 08:00 AM" / "7月16日 08:00". */
 export function formatShortDateTime(value: number, locale: Locale) {
   return new Intl.DateTimeFormat(numberLocale(locale), {
@@ -165,6 +180,7 @@ export function formattersForLocale(locale: Locale) {
     referenceApr: (value: number) => formatReferenceApr(value, locale),
     quoteBaseUnits: (value: bigint) => formatQuoteBaseUnits(value, locale),
     expiry: (value: number) => formatExpiry(value, locale),
+    expiryCompact: (value: number) => formatExpiryCompact(value, locale),
     oracleTimestamp: (value: number) => formatOracleTimestamp(value, locale),
     shortDateTime: (value: number) => formatShortDateTime(value, locale),
     chartDate: (value: number) => formatChartDate(value, locale),

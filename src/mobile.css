@@ -53,6 +53,11 @@
     padding-bottom: calc(var(--mobile-dock-height) + var(--mobile-dock-bottom) + 32px);
   }
 
+  /* Dual Investment floats the commit dock above the tab bar — leave room. */
+  .dual-page#dual-investment {
+    padding-bottom: calc(var(--mobile-dock-height) + var(--mobile-dock-bottom) + 108px);
+  }
+
   .top-nav {
     position: sticky;
     top: 0;
@@ -300,33 +305,85 @@
     display: none;
   }
 
-  /* Dual Investment: choose → reference → inputs → outcome → action. */
-  .di-product-hero .di-hero-ticker {
+  /* Dual Investment: form ticket → floating commit dock → confirm sheet.
+     Skeleton is one thick-bordered "order ticket" with dashed perforations
+     (variant C); control states keep the gold sticker treatment (variant A). */
+
+  /* Compact hero — title row plus a small ticker pill. The big market number
+     retired; the ladder chips beside the price input carry the reference. */
+  .di-product-hero {
     display: flex;
-    align-items: flex-end;
+    flex-wrap: wrap;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-    margin-top: 0;
+    gap: 8px 12px;
+    padding-top: 16px;
+    padding-bottom: 14px;
+  }
+
+  .di-product-hero h1 {
+    font-size: 1.55rem;
+    line-height: 1.1;
+  }
+
+  .di-product-hero p {
+    margin-top: 4px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  .di-product-hero .di-hero-ticker {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 8px;
+    width: auto;
+    margin-top: 2px;
+    padding: 7px 12px;
+    border: 1.5px solid var(--mobile-border-soft);
+    border-radius: 999px;
+    background: var(--mobile-surface);
   }
 
   .di-product-hero .di-hero-label {
-    display: grid;
-    justify-items: start;
-    gap: 5px;
-    font-size: 0.72rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.62rem;
+  }
+
+  .di-product-hero .di-live-dot {
+    width: 7px;
+    height: 7px;
   }
 
   .di-product-hero .di-hero-ticker strong {
-    font-size: clamp(2rem, 10vw, 2.55rem);
+    font-size: 0.95rem;
+    line-height: 1;
   }
 
+  /* Ticket top half: pair + direction, then settlement. Bottom edge stays
+     open — .di-controls below completes the card with the dashed seam. */
   .di-selection {
     display: grid;
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     align-items: start;
     gap: 14px 10px;
-    padding-bottom: 18px;
+    width: auto;
+    margin: 0 var(--mobile-gutter);
+    padding: 14px 16px 16px;
+    border: var(--bw-thick) solid var(--mobile-border-strong);
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    background: var(--mobile-surface);
+    box-shadow: var(--shadow-hard);
+  }
+
+  .di-selection .di-select-label {
+    color: var(--slate);
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
   }
 
   .di-selection .di-select-group {
@@ -338,59 +395,104 @@
     width: 100%;
     min-width: 0;
     max-width: none;
+    border-top: 2px dashed var(--copper-line);
+    padding-top: 12px;
   }
 
-  .di-select-grow .expiry-select {
-    align-items: stretch;
-    flex-direction: row;
-    height: 48px;
+  /* Settlement trigger — one-line compact label (countdown · settle time). */
+  .di-select-grow .expiry-trigger {
+    min-height: 50px;
+    border-width: var(--bw-thick);
+    border-color: var(--mobile-border-strong);
+    font-size: 0.9rem;
+  }
+
+  /* Picker sheet content — Dialog supplies the sheet shell + scrim. */
+  .expiry-sheet .expiry-sheet-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding-right: 40px;
+  }
+
+  .expiry-sheet .expiry-sheet-head h2 {
+    margin: 0;
+    font-size: 1.08rem;
+  }
+
+  .expiry-sheet .expiry-option {
     min-height: 48px;
-    padding: 0;
-    overflow: hidden;
   }
 
-  .di-select-grow .expiry-select select {
-    display: block;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    padding: 0 36px 0 12px;
-    overflow: hidden;
-    line-height: normal;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
+  /* Static info reads flat — shadows stay reserved for actives and CTAs. */
   .di-pair-chip {
     width: 100%;
     min-height: 44px;
-    gap: 6px;
-    padding: 0 10px;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 8px;
+    border-width: 1.5px;
+    border-color: var(--mobile-border-soft);
+    background: var(--mobile-surface-subtle);
+    box-shadow: none;
+    white-space: nowrap;
   }
 
   .di-pair-chip .coin-dot {
+    flex-shrink: 0;
     width: 23px;
     height: 23px;
   }
 
+  .di-pair-chip strong {
+    font-size: 0.94rem;
+  }
+
+  .di-pair-chip span:not(.coin-dot) {
+    font-size: 0.8rem;
+  }
+
+  /* Direction segment — gold active pill on a sunken track (variant A). */
   .mode-tabs.di-direction {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
     width: 100%;
+    padding: 3px;
+    border: 1.5px solid var(--mobile-border-faint);
+    border-radius: 13px;
+    background: var(--mobile-surface-subtle);
   }
 
   .mode-tabs.di-direction a,
   .mode-tabs.di-direction button {
     min-width: 0;
-    min-height: 44px;
+    min-height: 40px;
     padding: 0 8px;
+    border: var(--bw) solid transparent;
+    border-radius: 10px;
+    background: transparent;
     font-size: 0.78rem;
+  }
+
+  .mode-tabs.di-direction a.active {
+    border-color: var(--mobile-border-strong);
+    background: var(--mobile-accent);
+    color: var(--mobile-text-strong);
+  }
+
+  .mode-tabs.di-direction button.disabled {
+    border-color: transparent;
+    background: transparent;
   }
 
   .di-terminal {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
+    padding-top: 0;
     padding-bottom: 18px;
   }
 
@@ -398,33 +500,42 @@
     display: contents;
   }
 
-  .di-terminal-side > .di-reference {
-    grid-row: 1;
-  }
-
+  /* Ticket bottom half: price + amount. Flush under .di-selection — the
+     dashed border-top is the perforation between the two card halves. */
   .di-terminal-side > .di-controls {
+    grid-row: 1;
+    border: var(--bw-thick) solid var(--mobile-border-strong);
+    border-top: 2px dashed var(--copper-line);
+    border-radius: 0 0 18px 18px;
+    background: var(--mobile-surface);
+    box-shadow: var(--shadow-hard);
+  }
+
+  /* Full reference ladder waits behind the price chips' More toggle. */
+  .di-terminal-side > .di-reference {
+    display: none;
     grid-row: 2;
-  }
-
-  .di-terminal-chart {
-    grid-row: 3;
-  }
-
-  .di-terminal-side > .di-mobile-confirm {
-    grid-row: 4;
-  }
-
-  .di-reference,
-  .di-controls,
-  .ticket-confirm {
+    padding: 14px;
     border: var(--bw) solid var(--mobile-border-strong);
     border-radius: var(--r);
     background: var(--mobile-surface);
     box-shadow: var(--shadow-hard-sm);
   }
 
-  .di-reference {
-    padding: 14px;
+  .di-terminal-side > .di-reference.is-mobile-open {
+    display: flex;
+  }
+
+  /* The payoff overview presents inside the confirm sheet on phones. */
+  .di-terminal-chart {
+    display: none;
+  }
+
+  .ticket-confirm {
+    border: var(--bw) solid var(--mobile-border-strong);
+    border-radius: var(--r);
+    background: var(--mobile-surface);
+    box-shadow: var(--shadow-hard-sm);
   }
 
   .di-reference-head h3 {
@@ -558,7 +669,7 @@
 
   .di-controls {
     gap: 10px;
-    padding: 14px;
+    padding: 14px 16px 16px;
   }
 
   .di-controls-grid {
@@ -566,8 +677,142 @@
     gap: 14px;
   }
 
+  /* Price zone / amount zone — one more ticket perforation between them. */
+  .di-controls-grid > .di-control-col + .di-control-col {
+    border-top: 2px dashed var(--copper-line);
+    padding-top: 14px;
+  }
+
+  /* Ticket field labels: small caps (variant C). The balance readout keeps
+     its natural case — "dUSDC" must not become "DUSDC". */
+  .di-field > span {
+    color: var(--slate);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  .di-field .di-label-balance {
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  /* Inputs go borderless with a bottom hairline — the card is the frame. */
   .di-input-wrap {
     min-height: 46px;
+    padding: 0 4px 0 2px;
+    border: 0;
+    border-bottom: 1.5px solid var(--mobile-border-soft);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .di-input-wrap:focus-within {
+    border-bottom-color: var(--mobile-border-strong);
+    box-shadow: none;
+  }
+
+  .di-input-wrap input {
+    font-size: 1.35rem;
+  }
+
+  /* Slider — sticker thumb (paper knob, navy outline, hard mini-shadow). */
+  .di-target-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 22px;
+    background: transparent;
+  }
+
+  .di-target-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--mobile-border-soft);
+  }
+
+  .di-target-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-top: -7px;
+    border: var(--bw) solid var(--mobile-border-strong);
+    border-radius: 50%;
+    background: var(--mobile-surface);
+    box-shadow: 2px 2px 0 var(--mobile-border-strong);
+  }
+
+  .di-target-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--mobile-border-soft);
+  }
+
+  .di-target-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border: var(--bw) solid var(--mobile-border-strong);
+    border-radius: 50%;
+    background: var(--mobile-surface);
+    box-shadow: 2px 2px 0 var(--mobile-border-strong);
+  }
+
+  /* Ladder quick-select chips under the price input (gold active, variant A). */
+  .di-price-chips {
+    display: flex;
+    gap: 8px;
+    margin: 2px -2px 0;
+    padding: 2px 2px 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .di-price-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .di-price-chips button {
+    display: grid;
+    gap: 1px;
+    flex: 0 0 auto;
+    justify-items: start;
+    padding: 7px 12px;
+    border: 1.5px solid var(--mobile-border-soft);
+    border-radius: 11px;
+    background: var(--mobile-surface-subtle);
+    color: var(--mobile-text-strong);
+    cursor: pointer;
+  }
+
+  .di-price-chips button strong {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .di-price-chips button small {
+    color: var(--mobile-text-muted);
+    font-size: 0.64rem;
+    font-weight: 700;
+  }
+
+  .di-price-chips button.active {
+    border: var(--bw) solid var(--mobile-border-strong);
+    background: var(--mobile-accent-soft);
+    box-shadow: 2px 2px 0 var(--mobile-border-strong);
+  }
+
+  .di-price-chips button.active small {
+    color: var(--mobile-text-strong);
+  }
+
+  .di-price-chips .di-chip-more {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    color: var(--mobile-text-muted);
+    font-size: 0.76rem;
+    font-weight: 800;
   }
 
   .return-overview-panel {
@@ -662,6 +907,108 @@
   .mobile-action-dock__surface.is-floating .execution-error {
     max-height: 2.8em;
     overflow: hidden;
+  }
+
+  /* Commit level 1 — slim always-floating summary dock above the tab bar:
+     headline yield · settle amount ┊ Subscribe. Dashed rule continues the
+     ticket perforation; the CTA keeps the full sticker treatment. */
+  .di-commit-dock {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--mobile-dock-bottom) + var(--mobile-dock-height) + 10px);
+    z-index: 58;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: var(--mobile-dock-width);
+    padding: 10px 12px;
+    border: var(--bw-thick) solid var(--mobile-border-strong);
+    border-radius: 16px;
+    background: var(--mobile-surface);
+    box-shadow: var(--shadow-hard);
+    transform: translateX(-50%);
+  }
+
+  .di-commit-quote {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    gap: 16px;
+    min-width: 0;
+    padding-right: 10px;
+  }
+
+  .di-commit-quote::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    right: 0;
+    bottom: -10px;
+    border-right: 2px dashed var(--copper-line);
+  }
+
+  .di-commit-quote > div {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .di-commit-quote strong {
+    color: var(--mobile-text-strong);
+    font-family: var(--font-mono);
+    font-size: 1.02rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .di-commit-quote small {
+    overflow: hidden;
+    color: var(--mobile-text-muted);
+    font-size: 0.6rem;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .di-commit-cta {
+    flex: 0 0 auto;
+    min-height: 48px;
+    padding: 0 20px;
+    border: var(--bw) solid var(--mobile-border-strong);
+    border-radius: 12px;
+    background: var(--mobile-accent);
+    color: var(--mobile-text-strong);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    box-shadow: var(--shadow-hard-sm);
+  }
+
+  .di-commit-cta:active {
+    box-shadow: 1px 1px 0 var(--mobile-border-strong);
+    transform: translate(2px, 2px);
+  }
+
+  /* Commit level 2 — the confirm sheet. The dialog primitive already renders
+     as a bottom sheet on phones; flatten the cards it hosts so the sheet is
+     the only frame. */
+  .di-commit-sheet {
+    display: grid;
+    gap: 16px;
+  }
+
+  .di-commit-sheet .return-overview-panel,
+  .di-commit-sheet .ticket-confirm {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .di-commit-sheet .return-overview-heading {
+    padding-right: 36px;
   }
 
   .di-advanced {

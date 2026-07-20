@@ -9,6 +9,7 @@ import {
 import { useBinanceDualInvestment } from '../hooks/useBinanceDualInvestment';
 import { useMarketData } from '../hooks/useMarketData';
 import { useSubscriptionFunds } from '../hooks/useSubscriptionFunds';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
@@ -27,9 +28,10 @@ import {
   type DualInvestmentMode,
 } from './DualInvestmentQuoteSections';
 import { DualInvestmentAdvanced, DualInvestmentConfirm, ReturnOverview } from './DualInvestmentQuoteDetail';
+import { DualInvestmentMobileCommit } from './DualInvestmentMobileCommit';
 import { SubscribeSuccessDialog } from './SubscribeSuccessDialog';
 import type { ConfirmedSubscription } from './TargetBuyExecutionPanel';
-import { Card, MobileActionDock } from '../ui';
+import { Card } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteSections';
 
@@ -81,6 +83,9 @@ export function DualInvestmentPage({
   const [principal, setPrincipal] = useState(DEFAULT_PRINCIPAL);
   const [targetPrice, setTargetPrice] = useState(0);
   const [legCount, setLegCount] = useState(DEFAULT_LEG_COUNT);
+  // Phone: the reference ladder hides behind the price chips' More toggle.
+  const [mobileLadderOpen, setMobileLadderOpen] = useState(false);
+  const isMobile = useIsMobile();
   const funds = useSubscriptionFunds();
 
   const [verifiedQuote, setVerifiedQuote] = useState<StructuredProductQuote | null>(null);
@@ -226,6 +231,20 @@ export function DualInvestmentPage({
     setTargetPrice(input.targetPrice);
   }, []);
 
+  const handleLadderToggle = useCallback(() => {
+    setMobileLadderOpen((open) => !open);
+  }, []);
+
+  // The ladder unfolds below the ticket — bring it into view on open.
+  useEffect(() => {
+    if (!mobileLadderOpen) return;
+    // Instant, not smooth: the page re-renders on a live-data cadence, and
+    // Blink cancels programmatic smooth scrolls mid-flight when that happens.
+    // Center, not nearest: the fixed commit dock covers the viewport's foot,
+    // so "just inside the viewport" would still hide behind it.
+    document.querySelector('.di-reference')?.scrollIntoView({ behavior: 'instant', block: 'center' });
+  }, [mobileLadderOpen]);
+
   return (
     <main className="dual-page" id="dual-investment">
       <AppHeader activeProduct="dual-investment" locale={locale} />
@@ -258,27 +277,34 @@ export function DualInvestmentPage({
       />
 
       <div className="di-terminal">
-        <div className="di-terminal-chart">
-          {displayQuote && effectiveInput ? (
-            <ReturnOverview quote={displayQuote} productInput={effectiveInput} estimated={isEstimate} locale={locale} />
-          ) : (
-            <Card as="article" className="return-overview-panel is-empty">
-              <div className="return-overview-heading">
-                <h3>
-                  {market
-                    ? copy.dualInvestment.returnOverviewTitle(format.shortDateTime(market.expiryMs))
-                    : copy.dualInvestment.returnOverviewTitleFallback}
-                </h3>
-              </div>
-              <p className="di-overview-empty">{copy.dualInvestment.emptyOverview}</p>
-            </Card>
-          )}
-        </div>
+        {/* Phones present the payoff overview inside the confirm sheet instead.
+            Skipping the inline mount (not just hiding it) matters: two mounted
+            ReturnOverviews duplicate SVG gradient ids, and url(#…) resolves to
+            the display:none copy — the sheet's chart would lose its stroke. */}
+        {!isMobile ? (
+          <div className="di-terminal-chart">
+            {displayQuote && effectiveInput ? (
+              <ReturnOverview quote={displayQuote} productInput={effectiveInput} estimated={isEstimate} locale={locale} />
+            ) : (
+              <Card as="article" className="return-overview-panel is-empty">
+                <div className="return-overview-heading">
+                  <h3>
+                    {market
+                      ? copy.dualInvestment.returnOverviewTitle(format.shortDateTime(market.expiryMs))
+                      : copy.dualInvestment.returnOverviewTitleFallback}
+                  </h3>
+                </div>
+                <p className="di-overview-empty">{copy.dualInvestment.emptyOverview}</p>
+              </Card>
+            )}
+          </div>
+        ) : null}
 
         {/* Order ticket: reference ladder → inputs → settle + subscribe CTA.
             Look up price first, then size the order, then commit. */}
         <div className="di-terminal-side">
           <ReferenceTable
+            className={mobileLadderOpen ? 'is-mobile-open' : undefined}
             market={market}
             rows={scanQuery.data ?? []}
             binanceProducts={binanceProducts}
@@ -304,15 +330,33 @@ export function DualInvestmentPage({
             minTargetPrice={minTargetPrice}
             maxTargetPrice={defaultTarget > 0 ? defaultTarget : null}
             availableBalance={funds.balance}
+            ladderRows={scanQuery.data ?? []}
+            ladderOpen={mobileLadderOpen}
+            onLadderToggle={handleLadderToggle}
             onPrincipalChange={setPrincipal}
             onTargetChange={setTargetPrice}
             locale={locale}
           />
+          {/* One execution panel at a time: desktop confirms inline at the
+              ticket's foot; phones commit through the floating summary dock
+              and its confirm sheet instead. */}
           {displayQuote && effectiveInput ? (
-            <MobileActionDock
-              className="di-mobile-confirm"
-              enabled={Boolean(subscribeQuote && tradingEnabled && !insufficientFunds)}
-            >
+            isMobile ? (
+              <DualInvestmentMobileCommit
+                quote={displayQuote}
+                productInput={effectiveInput}
+                subscribeQuote={subscribeQuote}
+                isVerifying={isVerifying}
+                insufficientFunds={insufficientFunds}
+                onSubscribeSuccess={setConfirmedSubscription}
+                error={verifyError}
+                demoMode={!tradingEnabled}
+                subscribeDisabledMessage={copy.demo.subscribeDisabled}
+                disabledAction={disabledAction}
+                estimated={isEstimate}
+                locale={locale}
+              />
+            ) : (
               <DualInvestmentConfirm
                 quote={displayQuote}
                 productInput={effectiveInput}
@@ -326,7 +370,7 @@ export function DualInvestmentPage({
                 disabledAction={disabledAction}
                 locale={locale}
               />
-            </MobileActionDock>
+            )
           ) : null}
         </div>
       </div>

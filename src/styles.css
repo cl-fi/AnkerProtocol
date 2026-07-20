@@ -1375,6 +1375,16 @@ a {
   font-weight: 850;
 }
 
+/* Dropdown popup rows inherit the select's transparent background in
+   Chromium — give them an opaque surface and tamer type of their own. */
+.expiry-select select optgroup,
+.expiry-select select option {
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
 .ghost-button {
   min-height: 40px;
   padding: 0 14px;
@@ -4497,13 +4507,145 @@ dd {
   gap: 8px;
 }
 
-.di-select-grow .expiry-select {
+/* Settlement picker — sticker-styled replacement for the native select. The
+   trigger is a plain button (escapes the ≥16px form-control floor on phones),
+   the popup is ours to brand: anchored card on desktop, Dialog sheet on
+   phones. */
+.di-settlement {
+  position: relative;
   width: 100%;
 }
 
-.di-select-grow .expiry-select select {
+/* Viewer's UTC offset — metadata pill, deliberately quieter than the gold
+   section title beside it so the two informations read apart. */
+.di-zone-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1.5px solid rgba(32, 48, 77, 0.18);
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.expiry-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px 0 14px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.expiry-trigger svg {
+  flex-shrink: 0;
+  color: var(--navy);
+}
+
+.expiry-trigger-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expiry-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  max-height: 380px;
+  padding: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: var(--bw-thick) solid var(--navy);
+  border-radius: var(--r);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+}
+
+.expiry-sheet-head span {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.expiry-listbox {
+  display: grid;
+  gap: 10px;
+}
+
+.expiry-group {
+  display: grid;
+  gap: 6px;
+}
+
+.expiry-group-label {
+  color: var(--gold-3);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.expiry-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: var(--bw) solid rgba(32, 48, 77, 0.16);
+  border-radius: var(--r-sm);
+  background: var(--paper-2);
+  color: var(--ink);
+  text-align: left;
+}
+
+.expiry-option:hover {
+  border-color: var(--navy);
+}
+
+.expiry-option strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.expiry-option > span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.expiry-option.selected {
+  border-color: var(--navy);
+  background: var(--gold-tint);
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.expiry-option.selected > span {
+  color: var(--copper-deep);
 }
 
 /* Hero BTC price — borderless headline market reference, top-right.
@@ -4765,6 +4907,12 @@ dd {
   border-color: var(--navy);
   background: var(--gold-tint);
   color: var(--navy);
+}
+
+/* Ladder quick-select chips are the phone replacement for the reference
+   table — desktop keeps the table and never shows them (src/mobile.css). */
+.di-price-chips {
+  display: none;
 }
 
 .di-target-slider-wrap {
