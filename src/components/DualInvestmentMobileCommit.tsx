@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { scanQuoteDisplayMetrics } from '../products/dualInvestmentScan';
 import { netCouponAfterFee } from '../products/feePolicy';
+import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { DualInvestmentConfirm, ReturnOverview } from './DualInvestmentQuoteDetail';
 import type { ConfirmedSubscription } from './TargetBuyExecutionPanel';
@@ -48,7 +49,12 @@ export function DualInvestmentMobileCommit({
   const copy = copyForLocale(locale);
   const format = formattersForLocale(locale);
 
-  // Same headline stat as the return overview: APR for day tenors, bps below.
+  // APR headlines the dock — the rate is the number users can actually judge
+  // an offer by (a small reward on a small principal reads as nothing; the
+  // annualized rate carries the "is this good" signal) and it confirms the
+  // rung they picked from the APR chips above. The settle amount rides along
+  // as the small line. Same stat rules as everywhere: APR for day tenors,
+  // per-period bps for sub-day.
   const metrics = scanQuoteDisplayMetrics({ quote });
   const yieldValue = metrics.showApr
     ? metrics.apr !== null
@@ -62,18 +68,20 @@ export function DualInvestmentMobileCommit({
   // receipt rounds, so the dock never disagrees with the sheet by a cent.
   const cents = (value: number) => Math.round(value * 100);
   const settleTotal = cents(quote.principal) / 100 + cents(netCouponAfterFee(quote.coupon)) / 100;
+  const risk = riskMetricsForDualInvestmentQuote(quote);
 
   return (
     <>
       <div className="di-commit-dock">
         <div className="di-commit-quote">
           <div>
-            <strong>{yieldValue}</strong>
-            <small>{yieldLabel}</small>
-          </div>
-          <div>
-            <strong>≈{format.fixedTokenAmount(settleTotal, 2)}</strong>
-            <small>{copy.dualInvestment.youWillReceive} · dUSDC</small>
+            <strong className="di-commit-apr">
+              {yieldValue}
+              <span>{yieldLabel}</span>
+            </strong>
+            <small>
+              {copy.dualInvestment.youWillReceive} ≈{format.fixedTokenAmount(settleTotal, 2)} dUSDC
+            </small>
           </div>
         </div>
         <button className="di-commit-cta" type="button" onClick={() => setSheetOpen(true)}>
@@ -89,6 +97,12 @@ export function DualInvestmentMobileCommit({
         className="di-commit-sheet"
       >
         <ReturnOverview quote={quote} productInput={productInput} estimated={estimated} locale={locale} />
+        {/* The worst case sits right above the Subscribe button — the one risk
+            figure a user must see before committing. */}
+        <p className="di-sheet-maxloss">
+          <span>{copy.dualInvestment.risk.maximumLoss}</span>
+          <strong>{format.cashAmount(risk.maximumLoss)} dUSDC</strong>
+        </p>
         <DualInvestmentConfirm
           quote={quote}
           productInput={productInput}

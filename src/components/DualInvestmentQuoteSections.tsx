@@ -1,6 +1,6 @@
 'use client';
 
-import { Info, RefreshCw } from 'lucide-react';
+import { ChevronRight, Info, RefreshCw, Rows3 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { MARKET_REFETCH_INTERVAL_MS } from '../hooks/useMarketData';
@@ -20,7 +20,7 @@ import {
 } from '../products/dualInvestmentScan';
 import type { DualInvestmentInput, OracleMarket } from '../products/types';
 import type { CuratedOracleListItem } from '../server/curatedOracles';
-import { InputField, MobileDisclosure, Tabs, tabClassName } from '../ui';
+import { InputField, Tabs, tabClassName } from '../ui';
 import { SettlementSelect } from './SettlementSelect';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
@@ -28,8 +28,6 @@ export { QuoteRiskSummary } from './DualInvestmentQuoteDetail';
 export const DEFAULT_PRINCIPAL = 500;
 /** Quick-set deposit fractions of the connected balance — plus a Max chip. */
 export const AMOUNT_FRACTIONS = [0.25, 0.5, 0.75];
-/** Phone price chips show the top ladder rungs; the rest sit behind More. */
-const PRICE_CHIP_COUNT = 4;
 export type DualInvestmentMode = 'buy-low';
 export type BinanceBenchmarkStatus = 'loading' | 'error' | 'ready';
 
@@ -63,6 +61,23 @@ function scanRowYieldLabel(row: DualInvestmentScanRow, locale: Locale) {
     : metrics.periodReturn !== null
       ? format.periodReturnBps(metrics.periodReturn)
       : '--';
+}
+
+/** Ladder yield spread — the compare entry's teaser. The dock already shows
+    the selected rung's yield live, so the gap between rungs is the one number
+    that motivates opening the table. Same basis as scanRowYieldLabel. */
+function scanLadderYieldRange(rows: DualInvestmentScanRow[], locale: Locale) {
+  const format = formattersForLocale(locale);
+  const metrics = rows.map((row) => scanQuoteDisplayMetrics(row));
+  const showApr = metrics.some((row) => row.showApr);
+  const values = showApr
+    ? metrics.map((row) => row.apr).filter((value): value is number => value !== null)
+    : metrics.map((row) => row.periodReturn).filter((value): value is number => value !== null);
+  if (values.length === 0) return null;
+  const label = showApr ? format.referenceApr : format.periodReturnBps;
+  const low = label(Math.min(...values));
+  const high = label(Math.max(...values));
+  return low === high ? high : `${low}–${high}`;
 }
 
 export function DirectionPairBar({
@@ -151,10 +166,10 @@ export function BuyLowControls({
   maxTargetPrice = null,
   availableBalance = null,
   ladderRows,
-  ladderOpen = false,
-  onLadderToggle,
+  onLadderOpen,
   onPrincipalChange,
   onTargetChange,
+  spotStale = false,
   locale = DEFAULT_LOCALE,
 }: {
   market?: OracleMarket;
@@ -166,14 +181,14 @@ export function BuyLowControls({
   maxTargetPrice?: number | null;
   /** Connected wallet's subscribable dUSDC — drives the 25/50/75/Max chips. */
   availableBalance?: number | null;
-  /** Scan ladder rungs — the phone-only quick-select chips under the price input. */
+  /** Scan ladder rungs — gate the phone-only compare button under the slider. */
   ladderRows?: DualInvestmentScanRow[];
-  /** Whether the full reference ladder is expanded (the More chip's state). */
-  ladderOpen?: boolean;
-  /** More chip tap — reveals/hides the full reference ladder below the ticket. */
-  onLadderToggle?: () => void;
+  /** Opens the phone reference-ladder bottom sheet. */
+  onLadderOpen?: () => void;
   onPrincipalChange: (value: number) => void;
   onTargetChange: (value: number) => void;
+  /** Snapshot rows freeze the spot anchor — dot stops pulsing, gold tint. */
+  spotStale?: boolean;
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
@@ -182,6 +197,7 @@ export function BuyLowControls({
     handler(Number(event.currentTarget.value));
   };
   const belowSpot = market ? formatBelowSpot(targetPrice, market.spot, locale) : '--';
+  const ladderYieldRange = ladderRows && ladderRows.length > 0 ? scanLadderYieldRange(ladderRows, locale) : null;
   const targetStep = market ? displayTargetStepForMarket(market) : TURBO_DISPLAY_TARGET_STEP;
   // Slider rungs stay on the display ladder grid, so its floor is the lowest
   // fillable price rounded up to a rung.
@@ -204,7 +220,19 @@ export function BuyLowControls({
       <div className="di-controls-grid">
         <div className="di-control-col">
           <InputField
-            label={copy.dualInvestment.buyLowPrice}
+            label={
+              <>
+                {copy.dualInvestment.buyLowPrice}
+                {/* Spot anchor rides the label line: the Buy Low decision is
+                    "how far below now", so "now" sits where the price is typed. */}
+                {market ? (
+                  <span className={spotStale ? 'di-label-spot di-live-flag is-stale' : 'di-label-spot di-live-flag'}>
+                    <span className="di-live-dot" aria-hidden="true" />
+                    <strong>{copy.dualInvestment.spotNow(format.usd(market.spot))}</strong>
+                  </span>
+                ) : null}
+              </>
+            }
             suffix={belowSpot !== '--' ? `${belowSpot} ${copy.dualInvestment.below}` : 'BTC'}
             min={sliderMin !== null ? String(sliderMin) : '1'}
             step={String(targetStep)}
@@ -230,33 +258,19 @@ export function BuyLowControls({
               </div>
             </div>
           ) : null}
-          {/* Phone-only ladder chips (desktop keeps the full reference table):
-              the top rungs ride with the price input, so decision support sits
-              exactly where the decision is typed. */}
-          {ladderRows && ladderRows.length > 0 ? (
-            <div className="di-price-chips" role="group" aria-label={copy.dualInvestment.priceChipsLabel}>
-              {ladderRows.slice(0, PRICE_CHIP_COUNT).map((row) => (
-                <button
-                  className={row.input.targetPrice === targetPrice ? 'active' : ''}
-                  key={row.input.targetPrice}
-                  type="button"
-                  onClick={() => onTargetChange(row.input.targetPrice)}
-                >
-                  <strong>{format.usd(row.input.targetPrice)}</strong>
-                  <small>{scanRowYieldLabel(row, locale)}</small>
-                </button>
-              ))}
-              {onLadderToggle ? (
-                <button
-                  className={ladderOpen ? 'di-chip-more active' : 'di-chip-more'}
-                  type="button"
-                  aria-expanded={ladderOpen}
-                  onClick={onLadderToggle}
-                >
-                  {copy.dualInvestment.moreChip}
-                </button>
-              ) : null}
-            </div>
+          {/* Phone-only entry to the full reference ladder (desktop keeps the
+              table inline above the ticket). Live APR feedback while dragging
+              already comes from the floating commit dock, so the ladder's job
+              is comparison — a sheet, not chips. List-row grammar (label left,
+              yield spread right) keeps it visually secondary without reading
+              as disabled: a control carrying live data can't be inert. */}
+          {onLadderOpen && ladderRows && ladderRows.length > 0 ? (
+            <button className="di-ladder-btn" type="button" aria-haspopup="dialog" onClick={onLadderOpen}>
+              <Rows3 size={16} aria-hidden="true" />
+              <span className="di-ladder-btn-label">{copy.dualInvestment.compareAllPrices}</span>
+              {ladderYieldRange ? <span className="di-ladder-btn-range">{ladderYieldRange}</span> : null}
+              <ChevronRight size={15} aria-hidden="true" />
+            </button>
           ) : null}
         </div>
         <div className="di-control-col">
@@ -415,17 +429,12 @@ export function ReferenceTable({
 }) {
   const copy = copyForLocale(locale);
   const format = formattersForLocale(locale);
-  const [mobileReferenceOpen, setMobileReferenceOpen] = useState(false);
   const subDay = market ? isSubDayTenor(market.expiryMs) : false;
   const yieldHeader = subDay ? copy.dualInvestment.periodReturn : copy.dualInvestment.estApr;
-  const selectInput = (input: DualInvestmentInput) => {
-    onSelect(input);
-    setMobileReferenceOpen(false);
-  };
   const handleKey = (input: DualInvestmentInput) => (event: KeyboardEvent<HTMLTableRowElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      selectInput(input);
+      onSelect(input);
     }
   };
 
@@ -467,18 +476,6 @@ export function ReferenceTable({
         })
       : ({ kind: 'no_product' } as const),
   );
-  const activeIndex = Math.max(
-    0,
-    rows.findIndex((row) => row.input.targetPrice === activeTargetPrice),
-  );
-  const activeRow = rows[activeIndex];
-  const activeMetrics = activeRow ? scanQuoteDisplayMetrics(activeRow) : null;
-  const activeYield = activeRow ? scanRowYieldLabel(activeRow, locale) : '--';
-  const activeEdge =
-    !subDay && activeMetrics
-      ? edgeDisplay({ displayApr: activeMetrics.apr, match: rowMatches[activeIndex] ?? { kind: 'no_product' } }).label
-      : null;
-
   return (
     <section
       className={['di-reference', className].filter(Boolean).join(' ')}
@@ -494,32 +491,7 @@ export function ReferenceTable({
         />
       </div>
       <p className="di-reference-hint">{copy.dualInvestment.referenceHint}</p>
-      <MobileDisclosure
-        className="di-reference-disclosure"
-        contentClassName="table-shell"
-        open={mobileReferenceOpen}
-        onOpenChange={setMobileReferenceOpen}
-        expandLabel={copy.dualInvestment.showPriceReference}
-        collapseLabel={copy.dualInvestment.hidePriceReference}
-        summary={
-          <span className="di-reference-mobile-summary">
-            <span>
-              <small>{copy.dualInvestment.currentReference}</small>
-              <strong>{activeRow ? format.usd(activeRow.input.targetPrice) : '--'}</strong>
-            </span>
-            <span>
-              <small>{yieldHeader}</small>
-              <strong>{activeYield}</strong>
-            </span>
-            {activeEdge && activeEdge !== '--' ? (
-              <span>
-                <small>{copy.dualInvestment.edge}</small>
-                <strong>{activeEdge}</strong>
-              </span>
-            ) : null}
-          </span>
-        }
-      >
+      <div className="table-shell">
         <table className="offer-table di-reference-table">
           <thead>
             <tr>
@@ -568,7 +540,7 @@ export function ReferenceTable({
                   role="button"
                   tabIndex={0}
                   aria-pressed={isActive}
-                  onClick={() => selectInput(row.input)}
+                  onClick={() => onSelect(row.input)}
                   onKeyDown={handleKey(row.input)}
                 >
                   <td data-label={copy.common.buyLow}>
@@ -601,7 +573,7 @@ export function ReferenceTable({
             })}
           </tbody>
         </table>
-      </MobileDisclosure>
+      </div>
     </section>
   );
 }

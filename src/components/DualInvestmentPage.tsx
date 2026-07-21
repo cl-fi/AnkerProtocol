@@ -12,7 +12,11 @@ import { useSubscriptionFunds } from '../hooks/useSubscriptionFunds';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { isDemoMode } from '../config/runtimeModes';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
-import { buildAutoFloorDualInvestmentInput, buildDualInvestmentScanInputs } from '../products/dualInvestmentScan';
+import {
+  buildAutoFloorDualInvestmentInput,
+  buildDualInvestmentScanInputs,
+  isSubDayTenor,
+} from '../products/dualInvestmentScan';
 import { minQuotableTargetPrice } from '../products/dualInvestmentValidation';
 import { isTenorTradingEnabled } from '../products/tenorMarkets';
 import { DEFAULT_QUOTE_ENVELOPE_TTL_MS } from '../products/quoteEnvelope';
@@ -27,11 +31,16 @@ import {
   ReferenceTable,
   type DualInvestmentMode,
 } from './DualInvestmentQuoteSections';
-import { DualInvestmentAdvanced, DualInvestmentConfirm, ReturnOverview } from './DualInvestmentQuoteDetail';
+import {
+  DualInvestmentAdvanced,
+  DualInvestmentAdvancedSheet,
+  DualInvestmentConfirm,
+  ReturnOverview,
+} from './DualInvestmentQuoteDetail';
 import { DualInvestmentMobileCommit } from './DualInvestmentMobileCommit';
 import { SubscribeSuccessDialog } from './SubscribeSuccessDialog';
 import type { ConfirmedSubscription } from './TargetBuyExecutionPanel';
-import { Card } from '../ui';
+import { Card, Dialog } from '../ui';
 
 export { QuoteRiskSummary } from './DualInvestmentQuoteSections';
 
@@ -83,7 +92,8 @@ export function DualInvestmentPage({
   const [principal, setPrincipal] = useState(DEFAULT_PRINCIPAL);
   const [targetPrice, setTargetPrice] = useState(0);
   const [legCount, setLegCount] = useState(DEFAULT_LEG_COUNT);
-  // Phone: the reference ladder hides behind the price chips' More toggle.
+  // Phone: the reference ladder lives in a bottom sheet behind the ticket's
+  // compare button; desktop keeps it inline above the controls.
   const [mobileLadderOpen, setMobileLadderOpen] = useState(false);
   const isMobile = useIsMobile();
   const funds = useSubscriptionFunds();
@@ -227,23 +237,39 @@ export function DualInvestmentPage({
     ? { label: copy.dayFallback.temporarilyUnavailable, note: copy.dayFallback.snapshotSubscribeNote }
     : undefined;
 
+  // Picking a ladder row also dismisses the phone sheet — select-and-return.
   const handleSelectPreset = useCallback((input: DualInvestmentInput) => {
     setTargetPrice(input.targetPrice);
+    setMobileLadderOpen(false);
   }, []);
 
-  const handleLadderToggle = useCallback(() => {
-    setMobileLadderOpen((open) => !open);
+  const handleLadderOpen = useCallback(() => {
+    setMobileLadderOpen(true);
   }, []);
 
-  // The ladder unfolds below the ticket — bring it into view on open.
-  useEffect(() => {
-    if (!mobileLadderOpen) return;
-    // Instant, not smooth: the page re-renders on a live-data cadence, and
-    // Blink cancels programmatic smooth scrolls mid-flight when that happens.
-    // Center, not nearest: the fixed commit dock covers the viewport's foot,
-    // so "just inside the viewport" would still hide behind it.
-    document.querySelector('.di-reference')?.scrollIntoView({ behavior: 'instant', block: 'center' });
-  }, [mobileLadderOpen]);
+  // One ladder, two containers: desktop mounts it inline at the ticket's head;
+  // phones present the same element inside the compare bottom sheet.
+  const referenceLadder = (
+    <ReferenceTable
+      market={market}
+      rows={scanQuery.data ?? []}
+      binanceProducts={binanceProducts}
+      binanceStatus={binanceStatus}
+      nowMs={frozenNowMs}
+      activeTargetPrice={targetPrice}
+      isFetching={marketQuery.isFetching}
+      updatedAtMs={isSnapshotRow ? undefined : marketQuery.dataUpdatedAt || undefined}
+      onSelect={handleSelectPreset}
+      onRefresh={() => {
+        // The ladder is derived locally from the market feed — refreshing
+        // means re-pulling the feed (and its Binance benchmark), not
+        // recomputing identical numbers from the same inputs.
+        void marketQuery.refetch();
+        if (!isSnapshotRow) void liveBinanceQuery.refetch();
+      }}
+      locale={locale}
+    />
+  );
 
   return (
     <main className="dual-page" id="dual-investment">
@@ -301,28 +327,27 @@ export function DualInvestmentPage({
         ) : null}
 
         {/* Order ticket: reference ladder → inputs → settle + subscribe CTA.
-            Look up price first, then size the order, then commit. */}
+            Look up price first, then size the order, then commit. Phones move
+            the ladder into a bottom sheet opened from the ticket's compare
+            button — same component, different container. */}
         <div className="di-terminal-side">
-          <ReferenceTable
-            className={mobileLadderOpen ? 'is-mobile-open' : undefined}
-            market={market}
-            rows={scanQuery.data ?? []}
-            binanceProducts={binanceProducts}
-            binanceStatus={binanceStatus}
-            nowMs={frozenNowMs}
-            activeTargetPrice={targetPrice}
-            isFetching={marketQuery.isFetching}
-            updatedAtMs={isSnapshotRow ? undefined : marketQuery.dataUpdatedAt || undefined}
-            onSelect={handleSelectPreset}
-            onRefresh={() => {
-              // The ladder is derived locally from the market feed — refreshing
-              // means re-pulling the feed (and its Binance benchmark), not
-              // recomputing identical numbers from the same inputs.
-              void marketQuery.refetch();
-              if (!isSnapshotRow) void liveBinanceQuery.refetch();
-            }}
-            locale={locale}
-          />
+          {isMobile ? (
+            <Dialog
+              open={mobileLadderOpen}
+              onClose={() => setMobileLadderOpen(false)}
+              ariaLabel={
+                market && isSubDayTenor(market.expiryMs)
+                  ? copy.dualInvestment.priceYieldReference
+                  : copy.dualInvestment.priceAprReference
+              }
+              closeLabel={copy.common.close}
+              className="di-ladder-sheet"
+            >
+              {referenceLadder}
+            </Dialog>
+          ) : (
+            referenceLadder
+          )}
           <BuyLowControls
             market={market}
             principal={principal}
@@ -331,10 +356,10 @@ export function DualInvestmentPage({
             maxTargetPrice={defaultTarget > 0 ? defaultTarget : null}
             availableBalance={funds.balance}
             ladderRows={scanQuery.data ?? []}
-            ladderOpen={mobileLadderOpen}
-            onLadderToggle={handleLadderToggle}
+            onLadderOpen={handleLadderOpen}
             onPrincipalChange={setPrincipal}
             onTargetChange={setTargetPrice}
+            spotStale={isSnapshotRow}
             locale={locale}
           />
           {/* One execution panel at a time: desktop confirms inline at the
@@ -375,13 +400,24 @@ export function DualInvestmentPage({
         </div>
       </div>
 
+      {/* Advanced details: same content, two containers — desktop discloses
+          inline, phones open a bottom sheet from a list-row trigger. */}
       {displayQuote && effectiveInput ? (
-        <DualInvestmentAdvanced
-          quote={displayQuote}
-          legCount={legCount}
-          onLegCountChange={setLegCount}
-          locale={locale}
-        />
+        isMobile ? (
+          <DualInvestmentAdvancedSheet
+            quote={displayQuote}
+            legCount={legCount}
+            onLegCountChange={setLegCount}
+            locale={locale}
+          />
+        ) : (
+          <DualInvestmentAdvanced
+            quote={displayQuote}
+            legCount={legCount}
+            onLegCountChange={setLegCount}
+            locale={locale}
+          />
+        )
       ) : null}
 
       {confirmedSubscription ? (

@@ -45,6 +45,8 @@ vi.mock('lucide-react', () => ({
     <span aria-label={ariaLabel} data-testid="info-icon" />
   ),
   ChevronDown: () => <span data-testid="chevron-icon" />,
+  ChevronRight: () => <span data-testid="chevron-right-icon" />,
+  Rows3: () => <span data-testid="rows-icon" />,
   ArrowDownUp: () => <span data-testid="dual-investment-icon" />,
   Briefcase: () => <span data-testid="portfolio-icon" />,
   ChartLine: () => <span data-testid="analytics-icon" />,
@@ -502,7 +504,7 @@ describe('Dual Investment APR display', () => {
     expect(screen.getByLabelText(/percentage points/i)).toBeInTheDocument();
   });
 
-  it('lets a mobile user expand the selected reference summary and closes it after choosing a price', () => {
+  it('exposes the phone compare button and selects a price from the ladder table', () => {
     const market = marketFixture({ expiryMs: Date.UTC(2026, 7, 22) });
     const firstInput = { principal: 5, targetPrice: 64_000, floorPrice: 59_000, targetLegCount: 6 };
     const secondInput = { principal: 5, targetPrice: 63_500, floorPrice: 58_500, targetLegCount: 6 };
@@ -510,29 +512,38 @@ describe('Dual Investment APR display', () => {
       { input: firstInput, quote: pageQuoteFixture({ market, productInput: firstInput, coupon: 0.02 }) },
       { input: secondInput, quote: pageQuoteFixture({ market, productInput: secondInput, coupon: 0.018 }) },
     ];
+    const onLadderOpen = vi.fn();
     const onSelect = vi.fn();
 
     render(
-      <ReferenceTable
-        market={market}
-        rows={rows}
-        activeTargetPrice={64_000}
-        isFetching={false}
-        onSelect={onSelect}
-        onRefresh={() => undefined}
-      />,
+      <>
+        <BuyLowControls
+          market={market}
+          principal={5}
+          targetPrice={64_000}
+          ladderRows={rows}
+          onLadderOpen={onLadderOpen}
+          onPrincipalChange={() => undefined}
+          onTargetChange={() => undefined}
+        />
+        <ReferenceTable
+          market={market}
+          rows={rows}
+          activeTargetPrice={64_000}
+          isFetching={false}
+          onSelect={onSelect}
+          onRefresh={() => undefined}
+        />
+      </>,
     );
 
-    const disclosure = screen.getByRole('button', { name: /Current reference.*Show price reference/i });
-    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-    expect(disclosure).toHaveAccessibleName(/\$64,000.*135.00%/i);
-
-    fireEvent.click(disclosure);
-    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    const compare = screen.getByRole('button', { name: /Yield by price/ });
+    expect(compare).toHaveAttribute('aria-haspopup', 'dialog');
+    fireEvent.click(compare);
+    expect(onLadderOpen).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: /\$63,500/ }));
     expect(onSelect).toHaveBeenCalledWith(secondInput);
-    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('distinguishes missing products, incomparable offsets, and unavailable APR', () => {

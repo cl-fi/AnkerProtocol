@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight, Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, type Locale } from '../i18n';
 import { isSubDayTenor, scanQuoteDisplayMetrics } from '../products/dualInvestmentScan';
@@ -8,7 +8,7 @@ import { DEFAULT_PROTOCOL_FEE_BPS, netCouponAfterFee } from '../products/feePoli
 import { riskMetricsForDualInvestmentQuote } from '../products/riskMetrics';
 import type { DualInvestmentInput, StructuredProductQuote } from '../products/types';
 import { TargetBuyExecutionPanel, type ConfirmedSubscription } from './TargetBuyExecutionPanel';
-import { Button, Card } from '../ui';
+import { Button, Card, Dialog, MobileDisclosure } from '../ui';
 
 /**
  * Stable product identity — used to decide when sticky subscribe state may drop.
@@ -71,10 +71,13 @@ export function QuoteRiskSummary({
       </div>
       <div>
         <span>{copy.dualInvestment.risk.liquidity}</span>
+        {/* Status, not data — a badge, matching the LIVE-flag language. */}
         <strong>
-          {risk.liquidityStatus === 'verified'
-            ? copy.dualInvestment.risk.verified
-            : copy.dualInvestment.risk.unavailable}
+          <span className={risk.liquidityStatus === 'verified' ? 'di-risk-badge is-good' : 'di-risk-badge is-warn'}>
+            {risk.liquidityStatus === 'verified'
+              ? copy.dualInvestment.risk.verified
+              : copy.dualInvestment.risk.unavailable}
+          </span>
         </strong>
       </div>
     </div>
@@ -383,48 +386,60 @@ export function DualInvestmentConfirm({
   );
 }
 
-export function DualInvestmentAdvanced({
-  quote,
-  legCount,
-  onLegCountChange,
-  locale = DEFAULT_LOCALE,
-}: {
+interface DualInvestmentAdvancedProps {
   quote: StructuredProductQuote;
   legCount: number;
   onLegCountChange: (value: number) => void;
   locale?: Locale;
-}) {
+}
+
+/** Shared advanced content — one body, two containers (like the reference
+    ladder): desktop's inline disclosure and the phone bottom sheet. */
+function DualInvestmentAdvancedBody({
+  quote,
+  legCount,
+  onLegCountChange,
+  locale = DEFAULT_LOCALE,
+}: DualInvestmentAdvancedProps) {
   const copy = copyForLocale(locale);
   const format = formattersForLocale(locale);
   return (
-    <details className="di-advanced">
-      <summary>
-        <span>{copy.dualInvestment.advancedDetails}</span>
-        <ChevronDown size={18} aria-hidden="true" />
-      </summary>
+    <div className="di-advanced-body">
+      {/* Inline row control — help text lives behind the info tip, not as a
+          paragraph under the select. */}
+      <label className="di-advanced-control">
+        <span>
+          {copy.dualInvestment.payoffSmoothness}
+          <span className="di-info-tip" data-tip={copy.dualInvestment.smoothnessHelp} tabIndex={0}>
+            <Info aria-label={copy.dualInvestment.smoothnessHelp} size={12} />
+          </span>
+        </span>
+        <select value={legCount} onChange={(event) => onLegCountChange(Number(event.currentTarget.value))}>
+          {copy.dualInvestment.smoothnessOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label} ({option.value} {copy.dualInvestment.legsSuffix})
+            </option>
+          ))}
+        </select>
+      </label>
 
-      <div className="di-advanced-body">
-        <label className="di-advanced-control">
-          <span>{copy.dualInvestment.payoffSmoothness}</span>
-          <select value={legCount} onChange={(event) => onLegCountChange(Number(event.currentTarget.value))}>
-            {copy.dualInvestment.smoothnessOptions.map((option) => (
-              <option value={option.value} key={option.value}>
-                {option.label} ({option.value} {copy.dualInvestment.legsSuffix})
-              </option>
-            ))}
-          </select>
-          <small>{copy.dualInvestment.smoothnessHelp}</small>
-        </label>
+      <QuoteRiskSummary quote={quote} locale={locale} />
 
-        <QuoteRiskSummary quote={quote} locale={locale} />
-
-        <Card as="article">
-          <div className="detail-title">
-            <h3>{copy.dualInvestment.deepbookLegs}</h3>
-            <span>
-              {copy.dualInvestment.oracle} {quote.oracle.oracleId.slice(0, 10)}...
-            </span>
-          </div>
+      <Card as="article">
+        <div className="detail-title">
+          <h3>{copy.dualInvestment.deepbookLegs}</h3>
+          <span>
+            {copy.dualInvestment.oracle} {quote.oracle.oracleId.slice(0, 10)}...
+          </span>
+        </div>
+        {/* Audit trail, not decision data — phones fold the leg rows behind a
+            count; desktop keeps them permanently visible. */}
+        <MobileDisclosure
+          className="di-legs-disclosure"
+          expandLabel={copy.dualInvestment.showLegs}
+          collapseLabel={copy.dualInvestment.hideLegs}
+          summary={<span className="di-legs-summary">{copy.dualInvestment.legsCount(quote.legs.length)}</span>}
+        >
           <div className="leg-disclosure">
             {quote.legs.map((leg) => (
               <div className="leg-disclosure-row" key={leg.id}>
@@ -441,8 +456,50 @@ export function DualInvestmentAdvanced({
               </div>
             ))}
           </div>
-        </Card>
-      </div>
+        </MobileDisclosure>
+      </Card>
+    </div>
+  );
+}
+
+export function DualInvestmentAdvanced(props: DualInvestmentAdvancedProps) {
+  const copy = copyForLocale(props.locale ?? DEFAULT_LOCALE);
+  return (
+    <details className="di-advanced">
+      <summary>
+        <span>{copy.dualInvestment.advancedDetails}</span>
+        <ChevronDown size={18} aria-hidden="true" />
+      </summary>
+      <DualInvestmentAdvancedBody {...props} />
     </details>
+  );
+}
+
+/** Phone presentation: a list-row trigger opening a bottom sheet — the page's
+    shared sheet grammar (settlement date, ladder, confirm). The row's value
+    slot echoes the payoff-smoothness setting, so the collapsed state still
+    says what's configured inside. */
+export function DualInvestmentAdvancedSheet(props: DualInvestmentAdvancedProps) {
+  const [open, setOpen] = useState(false);
+  const copy = copyForLocale(props.locale ?? DEFAULT_LOCALE);
+  const smoothness = copy.dualInvestment.smoothnessOptions.find((option) => option.value === props.legCount);
+  return (
+    <>
+      <button className="di-advanced-trigger" type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <span className="di-advanced-trigger-label">{copy.dualInvestment.advancedDetails}</span>
+        {smoothness ? <span className="di-advanced-trigger-value">{smoothness.label}</span> : null}
+        <ChevronRight size={18} aria-hidden="true" />
+      </button>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        ariaLabel={copy.dualInvestment.advancedDetails}
+        closeLabel={copy.common.close}
+        className="di-advanced-sheet"
+      >
+        <h3 className="di-advanced-sheet-title">{copy.dualInvestment.advancedDetails}</h3>
+        <DualInvestmentAdvancedBody {...props} />
+      </Dialog>
+    </>
   );
 }

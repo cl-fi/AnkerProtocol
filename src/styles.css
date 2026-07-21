@@ -4909,9 +4909,9 @@ dd {
   color: var(--navy);
 }
 
-/* Ladder quick-select chips are the phone replacement for the reference
-   table — desktop keeps the table and never shows them (src/mobile.css). */
-.di-price-chips {
+/* The compare button opens the phone's reference-ladder bottom sheet —
+   desktop keeps the table inline and never shows it (src/mobile.css). */
+.di-ladder-btn {
   display: none;
 }
 
@@ -5321,20 +5321,24 @@ dd {
   padding: 20px;
 }
 
+/* Inline row control — label + info tip, select beside it; the explainer
+   lives behind the tip instead of a paragraph of its own. */
 .di-advanced-control {
-  display: grid;
-  gap: 8px;
-  max-width: 440px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .di-advanced-control > span {
+  display: inline-flex;
+  align-items: center;
   color: var(--ink-soft);
   font-size: 0.8rem;
   font-weight: 800;
 }
 
 .di-advanced-control select {
-  min-height: 46px;
+  min-height: 42px;
   padding: 0 12px;
   border: var(--bw) solid var(--navy);
   border-radius: var(--r-sm);
@@ -5343,15 +5347,58 @@ dd {
   font-weight: 700;
 }
 
-.di-advanced-control small {
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
 .di-advanced .compact-summary {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+/* Liquidity is a status, not a datum — badge it like the LIVE flag. */
+.di-risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.di-risk-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.di-risk-badge.is-good {
+  background: rgba(53, 160, 107, 0.14);
+  color: var(--grass);
+}
+
+.di-risk-badge.is-warn {
+  background: var(--coral-tint);
+  color: var(--coral);
+}
+
+/* Spot anchor on the Buy Low price label — reference where the decision is
+   typed. Rides .di-live-flag for the pulse dot and stale tint. */
+.di-label-spot {
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.di-label-spot .di-live-dot {
+  width: 7px;
+  height: 7px;
+}
+
+.di-label-spot strong {
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Responsive */
