@@ -598,14 +598,16 @@
   }
 
   /* Ticket top half: pair + direction, then settlement. Bottom edge stays
-     open — .di-controls below completes the card with the dashed seam. */
+     open — .di-controls below completes the card with the dashed seam.
+     The 14px top margin mirrors .calculation-section's padding-top so the
+     title-to-first-block rhythm matches the other two tabs. */
   .di-selection {
     display: grid;
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     align-items: start;
     gap: 14px 10px;
     width: auto;
-    margin: 0 var(--mobile-gutter);
+    margin: 14px var(--mobile-gutter) 0;
     padding: 14px 16px 16px;
     border: var(--bw-thick) solid var(--mobile-border-strong);
     border-bottom: 0;

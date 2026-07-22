@@ -4585,12 +4585,15 @@ dd {
    Dual Investment — Buy Low redesign (selection · terminal · confirm)
    ============================================================ */
 
-/* ① Selection bar — pair · direction · settlement · spot */
+/* ① Selection bar — pair · direction · settlement · spot.
+   padding-top mirrors .calculation-section so the title-to-first-block
+   rhythm matches the Portfolio and Analytics tabs. */
 .di-selection {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 16px 24px;
+  padding-top: 18px;
   padding-bottom: 24px;
 }
 
