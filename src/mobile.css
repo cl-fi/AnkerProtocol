@@ -25,6 +25,14 @@
   display: none;
 }
 
+/* Phone-only analytics widgets: the methodology nav row (desktop shows the
+   grid inline) and the chart's Recorder-freshness caption (desktop keeps the
+   full hero ticker). */
+.analytics-methodology-trigger,
+.analytics-chart-caption {
+  display: none;
+}
+
 .portfolio-connect-empty {
   display: grid;
   justify-items: start;
@@ -1969,6 +1977,9 @@
      title-only-hero pattern) — the verdict band and tiles carry the story,
      definitions stay one tap away behind Methodology. */
   .analytics-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
   }
 
@@ -1976,32 +1987,22 @@
     display: none;
   }
 
-  /* Recorder heartbeat: hero-sized ticker → one-line freshness chip. */
+  /* Recorder heartbeat: hero-sized ticker → one LIVE chip on the title row
+     (DI's di-live-flag grammar; Delayed keeps the stale tint). The timestamp
+     re-appears as the chart's freshness caption. */
   .analytics-hero .di-hero-ticker {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px 12px;
-    justify-self: stretch;
-    justify-items: start;
     margin-top: 0;
-    padding: 10px 14px;
-    border: 1.5px solid var(--mobile-border-soft);
-    border-radius: var(--r-sm);
-    background: var(--mobile-surface-subtle);
     text-align: left;
   }
 
-  .analytics-hero .di-hero-label {
-    gap: 8px;
-    font-size: 0.7rem;
+  .analytics-hero .analytics-recorder-kicker,
+  .analytics-hero .analytics-recorder-lastrun {
+    display: none;
   }
 
-  .analytics-hero .di-hero-ticker.analytics-recorder strong {
-    font-size: 0.88rem;
-    line-height: 1.3;
-    letter-spacing: 0;
+  .analytics-hero .di-live-flag {
+    padding: 4px 10px;
+    font-size: 0.66rem;
   }
 
   .analytics-verdict {
@@ -2060,19 +2061,33 @@
     display: none;
   }
 
+  /* Same story: the in-plot labels and the tooltip carry both encodings, so
+     the legend row stands down too. */
   .analytics-chart-legend {
-    gap: 6px 14px;
+    display: none;
+  }
+
+  /* Chart-first order: picker → plot → per-market tiles → freshness caption.
+     The summary is supporting detail; the plot must not sit below the fold. */
+  .analytics-edge-chart {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .analytics-edge-chart .section-heading {
+    order: 0;
   }
 
   /* Expiry Market picker: the overline label leaves the box (DI ticket
      grammar — label above its control), the status badge rides the label
-     row, and the select becomes a full-width thumb-sized control. */
+     row, and the trigger becomes a full-width thumb-sized control. */
   .analytics-track-controls {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 6px 10px;
     margin-top: 12px;
+    order: 1;
   }
 
   .analytics-track-select {
@@ -2088,18 +2103,18 @@
     letter-spacing: 0.09em;
   }
 
-  .analytics-track-select select {
+  .analytics-track-select .sheet-select {
     grid-row: 2;
     grid-column: 1 / -1;
     width: 100%;
     min-width: 0;
+  }
+
+  .analytics-track-select .expiry-trigger {
     min-height: 50px;
-    padding: 0 12px;
-    border: var(--bw-thick) solid var(--mobile-border-strong);
-    border-radius: var(--r-sm);
-    background: var(--mobile-surface);
-    color: var(--mobile-text-strong);
-    font-size: 0.92rem;
+    border-width: var(--bw-thick);
+    border-color: var(--mobile-border-strong);
+    font-size: 0.9rem;
   }
 
   .analytics-track-controls .anker-badge {
@@ -2108,12 +2123,19 @@
     justify-self: end;
   }
 
+  /* Sampled window hides: its end is restated by the caption below, and the
+     remaining three tiles read as one row (the analytics-stats grammar). */
   .analytics-track-summary {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px 12px;
-    margin-top: 10px;
+    margin-top: 12px;
     padding: 12px;
+    order: 3;
+  }
+
+  .analytics-track-summary .analytics-track-window {
+    display: none;
   }
 
   .analytics-track-summary > div {
@@ -2129,39 +2151,64 @@
   .analytics-edge-chart-frame {
     height: 260px;
     min-height: 260px;
+    margin-top: 12px;
     margin-right: 0;
     margin-left: 0;
     padding: 6px 0 0;
     box-sizing: border-box;
+    order: 2;
   }
 
-  /* Redundant with the "View N methodology details" trigger right below. */
-  .analytics-methodology-intro {
+  .analytics-edge-chart > .analytics-unavailable {
+    order: 2;
+  }
+
+  .analytics-chart-caption {
+    display: block;
+    margin: 10px 2px 0;
+    color: var(--slate);
+    font-size: 0.72rem;
+    font-weight: 700;
+    order: 4;
+  }
+
+  /* Methodology: the heading and inline grid retire behind one nav row that
+     opens a bottom sheet — the DI compare-ladder container, same handle. */
+  .analytics-methodology .section-heading,
+  .analytics-methodology-intro,
+  .analytics-methodology-inline {
     display: none;
   }
 
-  .analytics-methodology-disclosure .mobile-disclosure__toggle {
-    margin-top: 8px;
+  .analytics-methodology-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: 0 14px;
+    border: var(--bw-thick) solid var(--mobile-border-strong);
+    border-radius: var(--r-sm);
+    background: var(--mobile-surface);
+    color: var(--mobile-text-strong);
+    font-size: 0.95rem;
+    font-weight: 800;
   }
 
-  .analytics-methodology-disclosure .mobile-disclosure__summary {
-    display: none;
+  .analytics-methodology-trigger svg {
+    flex-shrink: 0;
+    color: var(--navy);
   }
 
-  .analytics-methodology-disclosure .mobile-disclosure__action {
-    clip: auto;
-    clip-path: none;
-    grid-column: 1;
-    grid-row: 1;
-    height: auto;
-    overflow: visible;
-    position: static;
-    white-space: normal;
-    width: auto;
+  .analytics-methodology-sheet-head {
+    margin: 0 0 14px;
+    padding-right: 40px;
   }
 
-  .analytics-methodology-content {
-    margin-top: 10px;
+  .analytics-methodology-sheet-head h2 {
+    margin: 0;
+    font-size: 1.08rem;
   }
 
   .return-chart-note {
@@ -2191,18 +2238,9 @@
     line-height: 1.5;
   }
 
-  .analytics-cta {
-    gap: 12px;
-    padding: 16px;
-    box-shadow: var(--shadow-hard-sm);
-  }
-
-  .analytics-cta h2 {
-    font-size: 1.15rem;
-  }
-
-  /* Title + button carry the hand-off; the body sentence is desktop prose. */
-  .analytics-cta p {
+  /* The tab dock already routes to Dual Investment — the closing CTA card
+     is desktop-only. */
+  .analytics-cta-section {
     display: none;
   }
 

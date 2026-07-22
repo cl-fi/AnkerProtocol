@@ -356,6 +356,7 @@ export const enCopy = {
     statusExpired: 'Expired',
     marketTenorApprox: (days: number) => `≈${days}d`,
     trackSummaryLabel: 'Selected market summary',
+    leadingPctTrack: 'Leading (this market)',
     trackWindow: 'Sampled',
     trackInsufficient:
       'Not enough Samples for this market yet — its Edge Track appears after two matched Runs.',
@@ -365,9 +366,6 @@ export const enCopy = {
     tooltipBinanceApr: 'Nearest-expiry Binance APR',
     methodologyTitle: 'Methodology',
     methodologyIntro: 'How these figures are defined and what they include.',
-    methodologySummary: 'Methodology definitions',
-    methodologyShow: (count: number) => `View ${count} methodology details`,
-    methodologyHide: 'Hide methodology details',
     methodologyEntries: [
       {
         term: 'Sampling cadence',
@@ -825,6 +823,7 @@ export const zhCnCopy: AppCopy = {
     statusExpired: '已到期',
     marketTenorApprox: (days: number) => `≈${days}天`,
     trackSummaryLabel: '本市场小结',
+    leadingPctTrack: '本市场领先占比',
     trackWindow: '采样区间',
     trackInsufficient: '该市场样本尚不足——积累两轮匹配采样后显示 Edge 领先轨迹。',
     tooltipRows: (rows: number) => `${rows} 条阶梯行`,
@@ -833,9 +832,6 @@ export const zhCnCopy: AppCopy = {
     tooltipBinanceApr: '最近到期 Binance APR',
     methodologyTitle: '方法说明',
     methodologyIntro: '这些数字如何定义，以及它们包含什么。',
-    methodologySummary: '方法说明定义',
-    methodologyShow: (count: number) => `查看 ${count} 项方法说明`,
-    methodologyHide: '收起方法说明',
     methodologyEntries: [
       { term: '采样节奏', def: '每 15 分钟一次。每一轮记录展示 APR 与基准对比的日期限阶梯行。' },
       {

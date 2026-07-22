@@ -227,19 +227,22 @@ test.describe('phone layout', () => {
     await expect(sheet.getByRole('button', { name: 'Connect' })).toBeVisible();
   });
 
-  test('methodology is a keyboard-operable mobile disclosure', async ({ page }) => {
+  test('methodology opens as a keyboard-operable bottom sheet', async ({ page }) => {
     await page.setViewportSize({ width: 430, height: 900 });
     await page.goto('/en/analytics');
 
-    const methodology = page.getByRole('region', { name: 'Methodology' });
-    const disclosure = methodology.locator(
-      '.analytics-methodology-disclosure > .mobile-disclosure__toggle',
-    );
-    await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-    await disclosure.focus();
+    // The phone layout hides the section heading, so the region has no
+    // accessible name here — target the nav row directly.
+    const trigger = page.getByRole('button', { name: 'Methodology' });
+    await expect(trigger).toBeVisible();
+    await trigger.focus();
     await page.keyboard.press('Enter');
-    await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
-    await expect(methodology.getByText('Sampling cadence')).toBeVisible();
+
+    const sheet = page.getByRole('dialog', { name: 'Methodology' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('Sampling cadence')).toBeVisible();
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet).toBeHidden();
   });
 
   test('connect dialog is a scrollable bottom sheet inside the dynamic viewport', async ({ page }) => {

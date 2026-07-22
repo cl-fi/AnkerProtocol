@@ -24,6 +24,7 @@ import {
   type Locale,
 } from '../i18n';
 import { Badge, type Tone } from '../ui';
+import { SheetSelect, type SheetSelectOption } from './SheetSelect';
 
 const HOUR_MS = 3_600_000;
 const STATUS_TONE: Record<EdgeTrack['status'], Tone> = {
@@ -88,11 +89,18 @@ function statusLabel(status: EdgeTrack['status'], copy: ReturnType<typeof copyFo
   return copy.analytics.statusExpired;
 }
 
+function trackTenorDays(track: EdgeTrack) {
+  const roundedDays = Math.round(track.summary.firstSeenRemainingMs / DAY_MS);
+  return roundedDays < 1 ? 1 : roundedDays;
+}
+
+function trackSettlementLabel(track: EdgeTrack, locale: Locale, timeZone: DisplayTimeZone) {
+  return `${formatInstant(track.settlementMs, locale, timeZone)} (${offsetLabel(track.settlementMs, timeZone)})`;
+}
+
 function trackOptionLabel(track: EdgeTrack, locale: Locale, timeZone: DisplayTimeZone) {
   const copy = copyForLocale(locale);
-  const roundedDays = Math.round(track.summary.firstSeenRemainingMs / DAY_MS);
-  const days = roundedDays < 1 ? 1 : roundedDays;
-  return `${formatInstant(track.settlementMs, locale, timeZone)} (${offsetLabel(track.settlementMs, timeZone)}) · ${copy.analytics.marketTenorApprox(days)}`;
+  return `${trackSettlementLabel(track, locale, timeZone)} · ${copy.analytics.marketTenorApprox(trackTenorDays(track))}`;
 }
 
 export function EdgeTrackTooltipContent({
@@ -142,24 +150,29 @@ function TrackSummaryStrip({
 }) {
   const copy = copyForLocale(locale);
   const { summary } = track;
-  const entries: [string, string][] = [
-    [copy.analytics.sampleCount, summary.sampleCount.toLocaleString(numberLocale(locale))],
-    [
-      copy.analytics.leadingPct,
-      summary.leadingPct === null
-        ? copy.analytics.emptyValue
-        : formatPercent(summary.leadingPct, locale, { maximumFractionDigits: 1 }),
-    ],
-    [
-      copy.analytics.medianEdge,
-      summary.medianEdgePp === null
-        ? copy.analytics.emptyValue
-        : formatEdgePts(summary.medianEdgePp, locale),
-    ],
-    [
-      copy.analytics.trackWindow,
-      `${formatInstant(summary.firstBoundaryMs, locale, timeZone)} – ${formatInstant(summary.lastBoundaryMs, locale, timeZone)} (${offsetLabel(summary.lastBoundaryMs, timeZone)})`,
-    ],
+  // The Sampled window hides on phones (its end is the Last Run caption right
+  // below) — hence the marker class on that entry.
+  const entries: { label: string; value: string; className?: string }[] = [
+    { label: copy.analytics.sampleCount, value: summary.sampleCount.toLocaleString(numberLocale(locale)) },
+    {
+      label: copy.analytics.leadingPctTrack,
+      value:
+        summary.leadingPct === null
+          ? copy.analytics.emptyValue
+          : formatPercent(summary.leadingPct, locale, { maximumFractionDigits: 1 }),
+    },
+    {
+      label: copy.analytics.medianEdge,
+      value:
+        summary.medianEdgePp === null
+          ? copy.analytics.emptyValue
+          : formatEdgePts(summary.medianEdgePp, locale),
+    },
+    {
+      label: copy.analytics.trackWindow,
+      value: `${formatInstant(summary.firstBoundaryMs, locale, timeZone)} – ${formatInstant(summary.lastBoundaryMs, locale, timeZone)} (${offsetLabel(summary.lastBoundaryMs, timeZone)})`,
+      className: 'analytics-track-window',
+    },
   ];
   return (
     <dl
@@ -167,8 +180,8 @@ function TrackSummaryStrip({
       aria-label={copy.analytics.trackSummaryLabel}
       data-testid="analytics-track-summary"
     >
-      {entries.map(([label, value]) => (
-        <div key={label}>
+      {entries.map(({ label, value, className }) => (
+        <div key={label} className={className}>
           <dt>{label}</dt>
           <dd>{value}</dd>
         </div>
@@ -319,12 +332,16 @@ export function EdgeChart({
     tracks.find((track) => track.settlementMs === selectedSettlementMs) ?? tracks[0] ?? null;
   const activeTracks = tracks.filter((track) => track.status === 'active');
   const endedTracks = tracks.filter((track) => track.status !== 'active');
+  // Recorder freshness, restated beside the plot on phones (the hero shows
+  // only the LIVE chip there; desktop keeps the full hero ticker instead).
+  const lastRunMs =
+    tracks.length === 0 ? null : Math.max(...tracks.map((track) => track.summary.lastBoundaryMs));
 
-  const renderOption = (track: EdgeTrack) => (
-    <option key={track.settlementMs} value={track.settlementMs}>
-      {trackOptionLabel(track, locale, timeZone)}
-    </option>
-  );
+  const toOption = (track: EdgeTrack): SheetSelectOption => ({
+    id: String(track.settlementMs),
+    primary: trackSettlementLabel(track, locale, timeZone),
+    secondary: copy.analytics.marketTenorApprox(trackTenorDays(track)),
+  });
 
   return (
     <section className="calculation-section analytics-edge-chart" aria-label={copy.analytics.chartLabel}>
@@ -352,25 +369,20 @@ export function EdgeChart({
       ) : (
         <>
           <div className="analytics-track-controls">
-            <label className="expiry-select analytics-track-select">
+            <div className="analytics-track-select">
               <span className="di-select-label">{copy.analytics.marketSelectLabel}</span>
-              <select
-                aria-label={copy.analytics.marketSelectLabel}
-                value={selected.settlementMs}
-                onChange={(event) => setSelectedSettlementMs(Number(event.currentTarget.value))}
-              >
-                {activeTracks.length > 0 ? (
-                  <optgroup label={copy.analytics.marketGroupActive}>
-                    {activeTracks.map(renderOption)}
-                  </optgroup>
-                ) : null}
-                {endedTracks.length > 0 ? (
-                  <optgroup label={copy.analytics.marketGroupEnded}>
-                    {endedTracks.map(renderOption)}
-                  </optgroup>
-                ) : null}
-              </select>
-            </label>
+              <SheetSelect
+                value={String(selected.settlementMs)}
+                onSelect={(id) => setSelectedSettlementMs(Number(id))}
+                label={copy.analytics.marketSelectLabel}
+                closeLabel={copy.common.close}
+                triggerValue={trackOptionLabel(selected, locale, timeZone)}
+                groups={[
+                  { key: 'active', label: copy.analytics.marketGroupActive, options: activeTracks.map(toOption) },
+                  { key: 'ended', label: copy.analytics.marketGroupEnded, options: endedTracks.map(toOption) },
+                ]}
+              />
+            </div>
             <Badge tone={STATUS_TONE[selected.status]}>{statusLabel(selected.status, copy)}</Badge>
           </div>
 
@@ -381,6 +393,14 @@ export function EdgeChart({
           ) : (
             <TrackChart track={selected} locale={locale} timeZone={timeZone} />
           )}
+
+          {lastRunMs !== null ? (
+            <p className="analytics-chart-caption">
+              {copy.analytics.recorderLastRun(
+                `${formatInstant(lastRunMs, locale, timeZone)} (${offsetLabel(lastRunMs, timeZone)})`,
+              )}
+            </p>
+          ) : null}
         </>
       )}
     </section>

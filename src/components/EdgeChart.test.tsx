@@ -28,29 +28,36 @@ describe('EdgeChart', () => {
 
     // Default selection = first active track (Jul 16 12:00 UTC settlement, ≈3d tenor),
     // shown in the viewer's timezone (tests pin Asia/Shanghai) with a UTC-offset annotation.
-    const select = screen.getByRole('combobox', { name: 'Expiry Market' });
-    expect(select).toHaveDisplayValue(/Jul 16, 20:00 \(UTC\+8\).*≈3d/);
+    const trigger = screen.getByRole('button', { name: 'Expiry Market' });
+    expect(trigger).toHaveTextContent(/Jul 16, 20:00 \(UTC\+8\).*≈3d/);
     expect(screen.getByText('Active')).toBeVisible();
 
     // Selected-market summary strip: 4 rows, all leading, median +7.50 pts.
     const summary = screen.getByTestId('analytics-track-summary');
     expect(within(summary).getByText('4')).toBeVisible();
+    expect(within(summary).getByText('Leading (this market)')).toBeVisible();
     expect(within(summary).getByText('100%')).toBeVisible();
     expect(within(summary).getByText('+7.50 pts')).toBeVisible();
+
+    // Recorder freshness caption restated beside the plot (phone element).
+    expect(screen.getByText(/Last Run/)).toBeInTheDocument();
   });
 
-  it('groups options into Active and Ended and switches Tracks via the dropdown', () => {
+  it('groups options into Active and Ended and switches Tracks via the picker', () => {
     render(<EdgeChart locale="en" edgeTracks={fixtureTracks()} />);
 
-    const select = screen.getByRole('combobox', { name: 'Expiry Market' });
-    const groups = within(select).getAllByRole('group');
-    expect(groups.map((g) => g.getAttribute('label'))).toEqual(['Active', 'Ended']);
+    fireEvent.click(screen.getByRole('button', { name: 'Expiry Market' }));
+    const listbox = screen.getByRole('listbox', { name: 'Expiry Market' });
+    const groups = within(listbox).getAllByRole('group');
+    expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Active', 'Ended']);
 
     // Ended group holds the 1d market that migrated to the hourly shelf.
     const endedOptions = within(groups[1]!).getAllByRole('option');
     expect(endedOptions).toHaveLength(1);
 
-    fireEvent.change(select, { target: { value: endedOptions[0]!.getAttribute('value') } });
+    fireEvent.click(endedOptions[0]!);
+    // Picking closes the panel and swaps the Track.
+    expect(screen.queryByRole('listbox', { name: 'Expiry Market' })).not.toBeInTheDocument();
     expect(screen.getByText('Moved to hourly shelf')).toBeVisible();
     // One matched Run only → insufficient-samples notice instead of a chart.
     expect(screen.getByText(/its Edge Track appears after two matched Runs/i)).toBeVisible();

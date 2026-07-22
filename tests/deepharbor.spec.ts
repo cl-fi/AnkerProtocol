@@ -166,10 +166,10 @@ test('renders the Analytics page with fixture headline stats, Edge chart, and me
   await expect(chart.getByRole('heading', { name: 'Edge over time' })).toBeVisible();
   await expect(chart.getByTestId('analytics-edge-chart')).toBeVisible();
 
-  // Market dropdown defaults to the nearest-expiry active market (Jul 16 · ≈3d).
-  const marketSelect = chart.getByRole('combobox', { name: 'Expiry Market' });
+  // Market picker defaults to the nearest-expiry active market (Jul 16 · ≈3d).
+  const marketSelect = chart.getByRole('button', { name: 'Expiry Market' });
   await expect(marketSelect).toBeVisible();
-  await expect(marketSelect).toHaveValue(String(Date.UTC(2026, 6, 16, 12, 0, 0)));
+  await expect(marketSelect).toContainText('≈3d');
   await expect(chart.getByText('Active', { exact: true })).toBeVisible();
 
   // Selected-market summary strip: 4 rows, all leading, median +7.50 pts.
@@ -193,24 +193,33 @@ test('renders the Analytics page with fixture headline stats, Edge chart, and me
   await expect(tooltip.getByText('Settlement offset')).toHaveCount(0);
 
   // Switching to the ended 1d market (one matched Run) shows the insufficient notice.
-  await marketSelect.selectOption(String(Date.UTC(2026, 6, 14, 12, 15, 0)));
+  await marketSelect.click();
+  const marketListbox = page.getByRole('listbox', { name: 'Expiry Market' });
+  await marketListbox.getByRole('group', { name: 'Ended' }).getByRole('option').first().click();
+  await expect(marketListbox).toBeHidden();
   await expect(chart.getByText('Moved to hourly shelf')).toBeVisible();
   await expect(chart.getByText(/appears after two matched Runs/)).toBeVisible();
   await expect(chart.getByTestId('analytics-edge-chart')).toHaveCount(0);
 
-  const methodology = page.getByRole('region', { name: 'Methodology' });
-  await expect(methodology).toBeVisible();
-  const methodologyDisclosure = methodology.getByRole('button', {
-    name: /View \d+ methodology details/,
-  });
-  if (await methodologyDisclosure.isVisible().catch(() => false)) await methodologyDisclosure.click();
-  await expect(methodology.getByText(/every 15 minutes/i)).toBeVisible();
-  await expect(methodology.getByText(/exceeds 50%/i)).toBeVisible();
-  await expect(methodology.getByText(/net after protocol fee/i)).toBeVisible();
-  await expect(methodology.getByText(/live-source matched Samples/i)).toBeVisible();
-  await expect(methodology.getByText(/Failed Runs record no Samples/i)).toBeVisible();
-  await expect(methodology.getByText('Sample start date', { exact: true })).toBeVisible();
-  await expect(methodology.getByRole('link', { name: 'Source repository' })).toHaveAttribute(
+  // Desktop shows the definition grid inline; phones tuck it behind a nav row
+  // that opens a bottom sheet (the hidden heading can't name the region there,
+  // so the phone branch scopes to the dialog instead).
+  const methodologyTrigger = page.getByRole('button', { name: 'Methodology' });
+  let definitions;
+  if (await methodologyTrigger.isVisible()) {
+    await methodologyTrigger.click();
+    definitions = page.getByRole('dialog', { name: 'Methodology' });
+  } else {
+    definitions = page.getByRole('region', { name: 'Methodology' });
+  }
+  await expect(definitions).toBeVisible();
+  await expect(definitions.getByText(/every 15 minutes/i)).toBeVisible();
+  await expect(definitions.getByText(/exceeds 50%/i)).toBeVisible();
+  await expect(definitions.getByText(/net after protocol fee/i)).toBeVisible();
+  await expect(definitions.getByText(/live-source matched Samples/i)).toBeVisible();
+  await expect(definitions.getByText(/Failed Runs record no Samples/i)).toBeVisible();
+  await expect(definitions.getByText('Sample start date', { exact: true })).toBeVisible();
+  await expect(definitions.getByRole('link', { name: 'Source repository' })).toHaveAttribute(
     'href',
     'https://github.com/cl-fi/AnkerProtocol',
   );
@@ -222,7 +231,10 @@ test('renders Chinese Analytics copy in fixture mode', async ({ page }) => {
   await expect(page).toHaveURL(/\/zh-CN\/analytics$/);
   await expect(page.getByRole('heading', { name: '数据分析' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Edge 随时间变化' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '方法说明' })).toBeVisible();
+  // Desktop names the section with its heading; phones show the sheet nav row.
+  await expect(
+    page.getByRole('heading', { name: '方法说明' }).or(page.getByRole('button', { name: '方法说明' })).first(),
+  ).toBeVisible();
   await expect(page.getByRole('navigation', { name: '产品' }).getByRole('link', { name: '数据分析' })).toBeVisible();
 });
 

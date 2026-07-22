@@ -1361,39 +1361,6 @@ a {
   gap: 12px;
 }
 
-.expiry-select {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 42px;
-  padding: 0 12px;
-  border: 1px solid rgba(32, 48, 77, 0.16);
-  border-radius: 8px;
-  background: #ffffff;
-  color: #5b6885;
-  font-size: 0.82rem;
-  font-weight: 820;
-}
-
-.expiry-select select {
-  min-width: 250px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #20304d;
-  font-weight: 850;
-}
-
-/* Dropdown popup rows inherit the select's transparent background in
-   Chromium — give them an opaque surface and tamer type of their own. */
-.expiry-select select optgroup,
-.expiry-select select option {
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 0.95rem;
-  font-weight: 650;
-}
-
 .ghost-button {
   min-height: 40px;
   padding: 0 14px;
@@ -2723,16 +2690,10 @@ a {
     flex-direction: column;
   }
 
-  .expiry-controls,
-  .expiry-select {
+  .expiry-controls {
     align-items: stretch;
     flex-direction: column;
     width: 100%;
-  }
-
-  .expiry-select select {
-    width: 100%;
-    min-width: 0;
   }
 
   .transparency-note {
@@ -3110,8 +3071,7 @@ summary:focus-visible,
 }
 
 /* Standalone inputs — full sticker outline */
-.asset-search,
-.expiry-select {
+.asset-search {
   border: var(--bw) solid var(--navy);
   border-radius: var(--r-sm);
   background: var(--paper);
@@ -4382,7 +4342,7 @@ dd {
   color: var(--ink-soft);
 }
 
-/* Edge Track controls — market dropdown + status badge, then the summary strip */
+/* Edge Track controls — market picker + status badge, then the summary strip */
 .analytics-track-controls {
   display: flex;
   align-items: center;
@@ -4391,8 +4351,23 @@ dd {
   margin-top: 16px;
 }
 
+.analytics-track-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .analytics-track-select .di-select-label {
   white-space: nowrap;
+}
+
+/* The picker hugs its content like the old inline select did — the anchored
+   panel still spans the trigger via .sheet-select's positioning context. */
+.analytics-track-select .sheet-select {
+  width: auto;
+  min-width: 320px;
 }
 
 .analytics-track-summary {
@@ -4540,7 +4515,7 @@ dd {
     width: 100%;
   }
 
-  .analytics-track-select select {
+  .analytics-track-select .sheet-select {
     width: 100%;
     min-width: 0;
   }
@@ -4653,11 +4628,10 @@ dd {
   gap: 8px;
 }
 
-/* Settlement picker — sticker-styled replacement for the native select. The
-   trigger is a plain button (escapes the ≥16px form-control floor on phones),
-   the popup is ours to brand: anchored card on desktop, Dialog sheet on
-   phones. */
-.di-settlement {
+/* SheetSelect — sticker-styled replacement for native selects. The trigger
+   is a plain button (escapes the ≥16px form-control floor on phones), the
+   popup is ours to brand: anchored card on desktop, Dialog sheet on phones. */
+.sheet-select {
   position: relative;
   width: 100%;
 }

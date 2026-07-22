@@ -11,11 +11,12 @@ import {
   localizedPath,
   type Locale,
 } from '../i18n';
+import { AnalyticsMethodology } from './AnalyticsMethodology';
 import { AnalyticsRecorderStatus } from './AnalyticsRecorderStatus';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { EdgeChart } from './EdgeChart';
-import { buttonClassName, MobileDisclosure, Stat, StatGroup } from '../ui';
+import { buttonClassName, Stat, StatGroup } from '../ui';
 
 function formatSampleStartDate(sampleStartMs: number | null, locale: Locale) {
   if (sampleStartMs === null) return null;
@@ -144,45 +145,12 @@ export function AnalyticsPage({
 
       <EdgeChart edgeTracks={edgeTracks} locale={locale} />
 
-      <section className="calculation-section analytics-methodology" aria-labelledby="analytics-methodology-title">
-        <div className="section-heading">
-          <h2 id="analytics-methodology-title">{copy.analytics.methodologyTitle}</h2>
-        </div>
-        <p className="analytics-methodology-intro">{copy.analytics.methodologyIntro}</p>
-        <MobileDisclosure
-          className="analytics-methodology-disclosure"
-          contentClassName="analytics-methodology-content"
-          summary={copy.analytics.methodologySummary}
-          expandLabel={copy.analytics.methodologyShow(copy.analytics.methodologyEntries.length + 1)}
-          collapseLabel={copy.analytics.methodologyHide}
-        >
-          <dl className="analytics-methodology-grid">
-            {copy.analytics.methodologyEntries.map((entry) => (
-              <div key={entry.term}>
-                <dt>{entry.term}</dt>
-                <dd>{entry.def}</dd>
-              </div>
-            ))}
-            <div>
-              <dt>{copy.analytics.methodologyStartTerm}</dt>
-              <dd>
-                {startDate
-                  ? copy.analytics.methodologyStartDate(startDate)
-                  : copy.analytics.methodologyStartPending}
-              </dd>
-            </div>
-          </dl>
-          <p className="analytics-methodology-source">
-            <a href={copy.analytics.methodologyRepoUrl} target="_blank" rel="noreferrer">
-              {copy.analytics.methodologyRepo}
-            </a>
-          </p>
-        </MobileDisclosure>
-      </section>
+      <AnalyticsMethodology locale={locale} startDate={startDate} />
 
       {/* Close the loop: the Edge shown here historically is live, rung by
-          rung, on the product ladder — send the convinced reader there. */}
-      <section className="calculation-section">
+          rung, on the product ladder — send the convinced reader there.
+          Desktop-only: the phone tab dock already navigates to the product. */}
+      <section className="calculation-section analytics-cta-section">
         <div className="analytics-cta">
           <div>
             <h2>{copy.analytics.ctaTitle}</h2>

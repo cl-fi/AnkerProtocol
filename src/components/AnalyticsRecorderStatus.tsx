@@ -29,16 +29,18 @@ export function AnalyticsRecorderStatus({
 
   const delayed = nowMs !== null && nowMs - lastRunMs > DELAYED_AFTER_MS;
 
+  // Kicker and timestamp are wrapped so phones can retire them (the hero
+  // keeps just the LIVE chip; the chart caption restates the last Run).
   return (
     <div className="di-hero-ticker analytics-recorder">
       <span className="di-hero-label">
-        {copy.analytics.recorderKicker}
+        <span className="analytics-recorder-kicker">{copy.analytics.recorderKicker}</span>
         <span className={delayed ? 'di-live-flag is-stale' : 'di-live-flag'}>
           <span className="di-live-dot" aria-hidden="true" />
           {delayed ? copy.analytics.recorderDelayed : copy.analytics.recorderLive}
         </span>
       </span>
-      <strong>
+      <strong className="analytics-recorder-lastrun">
         {copy.analytics.recorderLastRun(
           `${formatInstant(lastRunMs, locale, timeZone)} (${offsetLabel(lastRunMs, timeZone)})`,
         )}

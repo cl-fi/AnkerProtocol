@@ -32,9 +32,10 @@ describe('AnalyticsPage', () => {
       within(screen.getByRole('navigation', { name: 'Products' })).getByRole('link', { name: 'Analytics' }),
     ).toHaveAttribute('href', '/en/analytics');
 
-    // Hero-right Recorder heartbeat (freshness state is wall-clock dependent — not asserted).
+    // Hero-right Recorder heartbeat (freshness state is wall-clock dependent —
+    // not asserted). The timestamp renders twice: hero ticker + chart caption.
     expect(screen.getByText('Recorder')).toBeVisible();
-    expect(screen.getByText(/Last Run/)).toBeVisible();
+    expect(screen.getAllByText(/Last Run/)).toHaveLength(2);
 
     // Verdict band: leading % as the hero figure, median Edge as the pill,
     // sample count + start date as the support line.
@@ -56,7 +57,7 @@ describe('AnalyticsPage', () => {
 
     expect(screen.getByRole('region', { name: 'Edge Track' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Edge over time' })).toBeVisible();
-    expect(screen.getByRole('combobox', { name: 'Expiry Market' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Expiry Market' })).toBeVisible();
     expect(screen.getByText('Min–max across ladder rows')).toBeVisible();
 
     // Methodology renders as term/definition cards.
@@ -83,19 +84,17 @@ describe('AnalyticsPage', () => {
     );
   });
 
-  it('lets a mobile user reveal the methodology definitions from one compact summary', () => {
+  it('opens the methodology bottom sheet from the phone nav row', () => {
     render(<AnalyticsPage locale="en" load={fixtureLoad} />);
 
-    const toggle = screen.getByRole('button', { name: /View 6 methodology details/i });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Sampling cadence').closest('.mobile-disclosure__content')).toHaveAttribute(
-      'data-mobile-collapsed',
-      'true',
-    );
+    // The trigger is CSS-gated to phones; the inline grid serves desktop.
+    fireEvent.click(screen.getByRole('button', { name: 'Methodology' }));
+    const sheet = screen.getByRole('dialog', { name: 'Methodology' });
+    expect(within(sheet).getByText('Sampling cadence')).toBeVisible();
+    expect(within(sheet).getByRole('link', { name: 'Source repository' })).toBeVisible();
 
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(toggle).toHaveAccessibleName(/Hide methodology details/i);
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'Methodology' })).not.toBeInTheDocument();
   });
 
   it('renders Chinese copy on the analytics route shell', () => {
@@ -106,7 +105,7 @@ describe('AnalyticsPage', () => {
       within(screen.getByRole('navigation', { name: '产品' })).getByRole('link', { name: '数据分析' }),
     ).toHaveAttribute('href', '/zh-CN/analytics');
     expect(within(screen.getByLabelText('头条统计')).getByText('领先时间占比')).toBeVisible();
-    expect(screen.getByText(/上次记录/)).toBeVisible();
+    expect(screen.getAllByText(/上次记录/)).toHaveLength(2);
     expect(screen.getByRole('heading', { name: 'Edge 随时间变化' })).toBeVisible();
     expect(screen.getByRole('heading', { name: '方法说明' })).toBeVisible();
     expect(screen.getByText('采样节奏')).toBeVisible();
