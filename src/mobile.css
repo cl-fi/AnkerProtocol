@@ -1963,16 +1963,43 @@
     justify-content: flex-start;
   }
 
-  /* Analytics: retain the verdict, compress supporting evidence and details. */
+  /* Analytics: verdict-first phone cut. Marketing prose retires (the DI
+     title-only-hero pattern) — the verdict band and tiles carry the story,
+     definitions stay one tap away behind Methodology. */
   .analytics-hero {
-    gap: 14px;
+    gap: 12px;
   }
 
+  .analytics-hero > div > p {
+    display: none;
+  }
+
+  /* Recorder heartbeat: hero-sized ticker → one-line freshness chip. */
   .analytics-hero .di-hero-ticker {
-    justify-self: start;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 12px;
+    justify-self: stretch;
     justify-items: start;
     margin-top: 0;
+    padding: 10px 14px;
+    border: 1.5px solid var(--mobile-border-soft);
+    border-radius: var(--r-sm);
+    background: var(--mobile-surface-subtle);
     text-align: left;
+  }
+
+  .analytics-hero .di-hero-label {
+    gap: 8px;
+    font-size: 0.7rem;
+  }
+
+  .analytics-hero .di-hero-ticker.analytics-recorder strong {
+    font-size: 0.88rem;
+    line-height: 1.3;
+    letter-spacing: 0;
   }
 
   .analytics-verdict {
@@ -1981,7 +2008,7 @@
   }
 
   .analytics-verdict-value {
-    font-size: 2rem;
+    font-size: 2.2rem;
   }
 
   .analytics-verdict-edge {
@@ -1989,8 +2016,13 @@
     font-size: 0.72rem;
   }
 
+  /* The Samples tile below restates this evidence sentence — one copy only. */
+  .analytics-verdict-support {
+    display: none;
+  }
+
   .analytics-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0;
     overflow: hidden;
     border: 1.5px solid var(--mobile-border-soft);
@@ -1999,44 +2031,97 @@
   }
 
   .analytics-stats > div {
-    min-height: 86px;
-    padding: 12px;
+    align-content: start;
+    min-height: 0;
+    padding: 12px 12px 14px;
     border: 0;
     border-radius: 0;
     background: transparent;
   }
 
-  .analytics-stats > div:first-child {
-    border-right: 1px solid var(--mobile-border-faint);
+  .analytics-stats > div + div {
+    border-left: 1px solid var(--mobile-border-faint);
   }
 
-  .analytics-stats > div:last-child {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--mobile-border-faint);
+  /* Tiles stay numeric on phones; definitional hint lines live in Methodology. */
+  .analytics-stats > div > small {
+    display: none;
   }
 
   .analytics-chart-heading {
     gap: 8px;
   }
 
-  .analytics-chart-legend {
-    gap: 6px 12px;
+  /* The in-chart "Anker leads ↑ / Binance leads ↓" half-plane labels already
+     tell the zero-line story — the explainer sentence stands down. */
+  .analytics-edge-chart .section-heading p {
+    display: none;
   }
 
+  .analytics-chart-legend {
+    gap: 6px 14px;
+  }
+
+  /* Expiry Market picker: the overline label leaves the box (DI ticket
+     grammar — label above its control), the status badge rides the label
+     row, and the select becomes a full-width thumb-sized control. */
   .analytics-track-controls {
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 10px;
+    margin-top: 12px;
+  }
+
+  .analytics-track-select {
+    display: contents;
+  }
+
+  .analytics-track-select .di-select-label {
+    grid-row: 1;
+    grid-column: 1;
+    color: var(--slate);
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+  }
+
+  .analytics-track-select select {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    min-height: 50px;
+    padding: 0 12px;
+    border: var(--bw-thick) solid var(--mobile-border-strong);
+    border-radius: var(--r-sm);
+    background: var(--mobile-surface);
+    color: var(--mobile-text-strong);
+    font-size: 0.92rem;
+  }
+
+  .analytics-track-controls .anker-badge {
+    grid-row: 1;
+    grid-column: 2;
+    justify-self: end;
   }
 
   .analytics-track-summary {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px 12px;
-    padding: 10px 12px;
+    gap: 10px 12px;
+    margin-top: 10px;
+    padding: 12px;
   }
 
   .analytics-track-summary > div {
     display: grid;
     gap: 2px;
+  }
+
+  .analytics-track-summary dt {
+    font-size: 0.66rem;
+    letter-spacing: 0.07em;
   }
 
   .analytics-edge-chart-frame {
@@ -2046,6 +2131,11 @@
     margin-left: 0;
     padding: 6px 0 0;
     box-sizing: border-box;
+  }
+
+  /* Redundant with the "View N methodology details" trigger right below. */
+  .analytics-methodology-intro {
+    display: none;
   }
 
   .analytics-methodology-disclosure .mobile-disclosure__toggle {
@@ -2100,8 +2190,18 @@
   }
 
   .analytics-cta {
+    gap: 12px;
     padding: 16px;
     box-shadow: var(--shadow-hard-sm);
+  }
+
+  .analytics-cta h2 {
+    font-size: 1.15rem;
+  }
+
+  /* Title + button carry the hand-off; the body sentence is desktop prose. */
+  .analytics-cta p {
+    display: none;
   }
 
   /* Dialogs become safe-area-aware bottom sheets. */
