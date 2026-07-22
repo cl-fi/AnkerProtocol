@@ -45,6 +45,12 @@ export function shortId(value: string) {
   return value ? `${value.slice(0, 8)}...${value.slice(-6)}` : '--';
 }
 
+/** Wallet addresses use one compact shape everywhere: first 6, last 4. */
+export function shortAddress(value: string) {
+  if (!value) return '--';
+  return value.length > 10 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value;
+}
+
 const SUI_EXPLORER_BASE = 'https://testnet.suivision.xyz';
 
 export function suiExplorerTxUrl(digest: string) {

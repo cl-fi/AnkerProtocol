@@ -19,7 +19,7 @@ import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { ClaimSuccessDialog } from './ClaimSuccessDialog';
 import type { ConfirmedClaim } from './PortfolioClaimAction';
-import { formatCashAmount, shortId } from './PortfolioFormat';
+import { formatCashAmount, shortAddress } from './PortfolioFormat';
 import { ProductNoteCard } from './PortfolioProductNoteCard';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
@@ -309,7 +309,7 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
         <section className="calculation-section">
           <Card variant="empty">
             <div className="portfolio-empty">
-              <p>{copy.portfolio.noPositions(shortId(account.address))}</p>
+              <p>{copy.portfolio.noPositions(shortAddress(account.address))}</p>
               {/* An empty state is an invitation — give it the exit. */}
               <Link
                 className={buttonClassName({ variant: 'primary' })}

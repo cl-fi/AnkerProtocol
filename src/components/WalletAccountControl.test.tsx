@@ -54,7 +54,7 @@ describe('WalletAccountControl responsive entry points', () => {
 
     // The chip is named by its visible identity label (address for an
     // extension wallet, the truncated email for zkLogin).
-    const chip = screen.getByRole('button', { name: /0xaaaaaa\.\.\./ });
+    const chip = screen.getByRole('button', { name: '0xaaaa...aaaa' });
     fireEvent.click(chip);
 
     const sheet = screen.getByRole('dialog', { name: '钱包账户' });

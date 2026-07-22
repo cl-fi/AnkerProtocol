@@ -12,7 +12,7 @@ import { isSponsorshipEnabled } from '../sui/sponsoredExecution';
 import { executeWalletTransaction } from '../sui/transactionExecution';
 import { preflightTransaction } from '../sui/transactionPreflight';
 import { Button, Dialog, InputField, KeyValue, KeyValueList } from '../ui';
-import { shortId, suiExplorerTxUrl } from './PortfolioFormat';
+import { shortAddress, shortId, suiExplorerTxUrl } from './PortfolioFormat';
 
 interface SendSuccess {
   digest: string;
@@ -123,7 +123,7 @@ export function SendDialog({
           <p className="success-dialog-intro">{dialogCopy.successSent}</p>
           <strong className="success-dialog-hero">{success.amountText} dUSDC</strong>
           <KeyValueList className="success-dialog-terms">
-            <KeyValue label={dialogCopy.successRecipient} value={shortId(success.recipient)} />
+            <KeyValue label={dialogCopy.successRecipient} value={shortAddress(success.recipient)} />
           </KeyValueList>
           <a className="success-dialog-tx" href={suiExplorerTxUrl(success.digest)} target="_blank" rel="noreferrer">
             {dialogCopy.viewTransaction} — {shortId(success.digest)}

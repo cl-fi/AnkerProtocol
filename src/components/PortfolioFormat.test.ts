@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { suiExplorerObjectUrl, suiExplorerTxUrl } from './PortfolioFormat';
+import { shortAddress, suiExplorerObjectUrl, suiExplorerTxUrl } from './PortfolioFormat';
+
+describe('wallet address formatting', () => {
+  it('shows the first 6 and last 4 characters around one ellipsis', () => {
+    expect(shortAddress('0xe0785b1234567890da8d')).toBe('0xe078...da8d');
+  });
+
+  it('leaves an already-short value intact', () => {
+    expect(shortAddress('0x1234')).toBe('0x1234');
+  });
+});
 
 describe('Sui explorer links', () => {
   it('uses SuiVision testnet transaction links', () => {

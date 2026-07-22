@@ -10,7 +10,7 @@ import { useWalletIdentity } from '../hooks/useWalletIdentity';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
 import { Dialog } from '../ui';
 import { GoogleMark } from './brandMarks';
-import { shortId, suiExplorerAddressUrl } from './PortfolioFormat';
+import { shortAddress, suiExplorerAddressUrl } from './PortfolioFormat';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
 import { WalletConnectButton } from './WalletConnectButton';
@@ -146,7 +146,7 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
             ? identity.email
               ? truncateEmail(identity.email)
               : copy.wallet.googleAccount
-            : shortId(account.address)}
+            : shortAddress(account.address)}
         </span>
       </button>
       <button
@@ -173,7 +173,7 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
           <span className="account-trigger-dot" aria-hidden="true" />
         )}
         <span className="account-trigger-label">
-          {identity?.kind === 'social' ? (identity.email ?? copy.wallet.googleAccount) : shortId(account.address)}
+          {identity?.kind === 'social' ? (identity.email ?? copy.wallet.googleAccount) : shortAddress(account.address)}
         </span>
         <ChevronDown size={14} aria-hidden="true" />
       </button>
@@ -199,7 +199,7 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
                   {identity.kind === 'social' ? (identity.email ?? copy.wallet.googleAccount) : identity.name}
                 </strong>
               ) : null}
-              <code>{shortId(account.address)}</code>
+              <code>{shortAddress(account.address)}</code>
             </div>
             <button
               type="button"
@@ -294,10 +294,10 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
                 ? (identity.email ?? copy.wallet.googleAccount)
                 : identity?.kind === 'extension'
                   ? identity.name
-                  : shortId(account.address)}
+                  : shortAddress(account.address)}
             </strong>
             <span className="account-sheet-address">
-              <code>{shortId(account.address)}</code>
+              <code>{shortAddress(account.address)}</code>
               <button
                 type="button"
                 className="account-menu-copy"

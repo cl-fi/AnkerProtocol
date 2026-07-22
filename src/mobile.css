@@ -1935,10 +1935,20 @@
   }
 
   .anker-dialog-close {
-    top: 8px;
-    right: 8px;
-    width: 44px;
-    height: 44px;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+
+  /* Keep a comfortable 44px touch target while the visible close control
+     stays compact enough not to collide with a sheet's first content row. */
+  .anker-dialog-close::before {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    content: '';
   }
 
   .wallet-dialog-title,
