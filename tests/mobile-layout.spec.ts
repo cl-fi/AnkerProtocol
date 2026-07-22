@@ -99,57 +99,44 @@ test.describe('phone layout', () => {
     }
   });
 
-  test('price ladder starts folded and closes after choosing a price', async ({ page }) => {
+  test('price ladder opens in a sheet and closes after choosing a price', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/en/app/dual-investment');
 
-    await expect(page.locator('.return-outcome:visible')).toHaveCount(1);
-    await page.getByRole('button', { name: /^At or Below/ }).click();
-    await expect(page.locator('.return-outcome.is-below')).toBeVisible();
-    await expect(page.locator('.return-outcome.is-above')).toBeHidden();
+    const trigger = page.getByRole('button', { name: /^Yield by price/ });
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+    await trigger.click();
 
-    const disclosure = page.locator('.di-reference-disclosure > .mobile-disclosure__toggle');
-    await expect(disclosure).toBeVisible();
-    await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-    await disclosure.click();
-    await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
-
-    const rows = page.locator('.di-reference-table tbody tr');
+    const sheet = page.getByRole('dialog', { name: /^Price & (APR|yield) reference$/ });
+    await expect(sheet).toBeVisible();
+    const rows = sheet.locator('.di-reference-table tbody tr');
     await expect(rows.nth(1)).toBeVisible({ timeout: 30_000 });
     const selectedPrice = (await rows.nth(1).locator('strong').first().textContent())?.replace(/[$,]/g, '');
     expect(selectedPrice).toBeTruthy();
     await rows.nth(1).click();
 
-    await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    await expect(sheet).toBeHidden();
     await expect(page.getByRole('spinbutton', { name: /Buy Low price/ })).toHaveValue(selectedPrice!);
   });
 
-  test('settlement date keeps its text control vertically centered', async ({ page }) => {
+  test('settlement date remains an accessible touch target inside the viewport', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
     await gotoReady(page, '/en/app/dual-investment');
 
-    const layout = await page.locator('.di-select-grow .expiry-select').evaluate((wrapper) => {
-      const select = wrapper.querySelector('select');
-      if (!select) throw new Error('Settlement select is missing');
-      const wrapperRect = wrapper.getBoundingClientRect();
-      const selectRect = select.getBoundingClientRect();
-      const style = getComputedStyle(select);
-      return {
-        wrapperHeight: wrapperRect.height,
-        selectHeight: selectRect.height,
-        centerDelta: Math.abs(
-          wrapperRect.top + wrapperRect.height / 2 - (selectRect.top + selectRect.height / 2),
-        ),
-        paddingTop: style.paddingTop,
-        paddingBottom: style.paddingBottom,
-      };
-    });
+    const trigger = page.getByRole('button', { name: 'Settlement date' });
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    const box = await trigger.boundingBox();
+    if (!box) throw new Error('Settlement date trigger is not measurable');
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
 
-    expect(layout.wrapperHeight).toBe(48);
-    expect(layout.selectHeight).toBeGreaterThanOrEqual(42);
-    expect(layout.centerDelta).toBeLessThanOrEqual(1);
-    expect(layout.paddingTop).toBe('0px');
-    expect(layout.paddingBottom).toBe('0px');
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('listbox', { name: 'Settlement date' })).toBeVisible();
   });
 
   test('claimable position renders the compact row whose sheet carries the detail', async ({ page }) => {
@@ -174,7 +161,7 @@ test.describe('phone layout', () => {
     await expect(sheet).toBeHidden();
   });
 
-  test('subscribe action docks only after its inline position has been seen and passed', async ({ page }) => {
+  test('subscribe summary stays available and opens the confirmation sheet', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.route('**/api/oracles/*/market?*', async (route) => {
       const requestUrl = new URL(route.request().url());
@@ -220,49 +207,24 @@ test.describe('phone layout', () => {
     });
     await page.goto('/en/app/dual-investment');
 
-    const settlement = page.getByLabel('Settlement date');
-    const hourlyValue = await settlement
-      .locator('optgroup')
-      .nth(1)
-      .locator('option')
-      .first()
-      .getAttribute('value');
-    expect(hourlyValue).toBeTruthy();
-    await settlement.selectOption(hourlyValue!);
+    const settlement = page.getByRole('button', { name: 'Settlement date' });
+    await settlement.click();
+    const hourlyGroup = page.getByRole('group', { name: 'Hours — tradable now' });
+    await expect(hourlyGroup).toBeVisible();
+    await hourlyGroup.getByRole('option').first().click();
     await page.getByRole('spinbutton', { name: /Amount/ }).fill('1000');
 
-    const slot = page.locator('.mobile-action-dock__slot');
-    const surface = slot.locator('.mobile-action-dock__surface');
-    await expect(slot.getByRole('button', { name: 'Connect' })).toBeVisible({ timeout: 30_000 });
-    await expect(surface).not.toHaveClass(/is-floating/);
-    // The inline CTA sits near the document end while Advanced details is
-    // collapsed. Expanding the downstream content creates the real "read on"
-    // path in which the already-seen CTA can leave through the top edge.
-    await page.locator('details.di-advanced > summary').evaluate((element: HTMLElement) => element.click());
+    const subscribe = page.getByRole('button', { name: 'Subscribe', exact: true });
+    await expect(subscribe).toBeVisible({ timeout: 30_000 });
+    await page.getByText(/©2026 Anker Protocol/).scrollIntoViewIfNeeded();
+    await expect(subscribe).toBeVisible();
 
-    await slot.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-    await expect
-      .poll(() =>
-        slot.evaluate((element) => {
-          const rect = element.getBoundingClientRect();
-          return rect.top >= 0 && rect.bottom <= window.innerHeight;
-        }),
-      )
-      .toBe(true);
-    await expect(surface).not.toHaveClass(/is-floating/);
-    await slot.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      window.scrollTo(0, window.scrollY + rect.top + rect.height + 24);
-    });
-    await expect
-      .poll(() => slot.evaluate((element) => element.getBoundingClientRect().top < 0))
-      .toBe(true);
-    await expect(surface).toHaveClass(/is-floating/);
-    await expect(slot.locator('.ticket-confirm')).toHaveCount(1);
-
-    await slot.scrollIntoViewIfNeeded();
-    await expect(surface).not.toHaveClass(/is-floating/);
-    await expect(slot.locator('.ticket-confirm')).toHaveCount(1);
+    await subscribe.click();
+    const sheet = page.getByRole('dialog', { name: 'Confirm your Buy Low' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole('heading', { name: /What you'll receive on/ })).toBeVisible();
+    await expect(sheet.getByRole('region', { name: 'Confirm your Buy Low' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Connect' })).toBeVisible();
   });
 
   test('methodology is a keyboard-operable mobile disclosure', async ({ page }) => {

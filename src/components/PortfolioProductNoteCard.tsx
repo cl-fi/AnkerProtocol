@@ -321,7 +321,8 @@ export function ProductNoteCard({
 
   if (isMobile) {
     // Two lines per Position: identity + status, then the money flow. The
-    // strike is the identity — the product name lives at the section level.
+    // short product name rides the strike so mixed product types (and BTC-
+    // settled rows) stay tellable apart once more products ship.
     const depositText = depositedCashText(note, eventIndexEntry);
     const compactLine =
       isDual && settledPayout
@@ -339,7 +340,11 @@ export function ProductNoteCard({
         <div className="di-position-compact" onClick={() => setExpanded(true)}>
           <div className="di-position-compact-main">
             <p className="di-position-compact-title">
-              <strong>{isDual ? `@ ${formatPrice(note.targetPrice, locale)}` : copy.portfolio.card.legacyProduct}</strong>
+              <strong>
+                {isDual
+                  ? `${copy.portfolio.card.buyLow} @ ${formatPrice(note.targetPrice, locale)}`
+                  : copy.portfolio.card.legacyProduct}
+              </strong>
               {showRowClaim ? (
                 <em className="di-position-compact-reward">+{formatCashAmount(rewardEarned, locale)}</em>
               ) : (

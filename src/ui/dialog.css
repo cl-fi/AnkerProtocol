@@ -32,6 +32,12 @@
   outline: none;
 }
 
+/* Grab handle for the phone bottom-sheet presentation — hidden wherever the
+ * dialog renders as a centered card (mobile.css shows it under 768px). */
+.anker-dialog-handle {
+  display: none;
+}
+
 /* While a child surface flags itself busy (e.g. a send in flight), the ✕ is
  * inert — closing is guarded in JS; this makes the guard visible. */
 .anker-dialog:has(.is-pending) .anker-dialog-close {

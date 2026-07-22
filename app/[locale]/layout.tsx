@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/next';
-import { Fredoka } from 'next/font/google';
 import localFont from 'next/font/local';
 import { notFound } from 'next/navigation';
 import '../globals.css';
 import { Providers } from '../providers';
 import { copyForLocale, isLocale, localizedPath, SUPPORTED_LOCALES, type Locale } from '../../src/i18n';
 
-const fredoka = Fredoka({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+// Keep the display font independent of Google Fonts at dev/build time. This
+// file is the same variable Latin asset used by the current production build.
+const fredoka = localFont({
+  src: '../../src/fonts/Fredoka-latin.woff2',
+  weight: '300 700',
   variable: '--font-fredoka',
   display: 'swap',
 });

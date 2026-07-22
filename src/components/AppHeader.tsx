@@ -50,7 +50,9 @@ export function AppHeader({
       <header className="top-nav">
         <Link className="brand-mark" href={localizedPath(locale, '/app')}>
           <span className="anchor-mark" />
-          {copy.common.brand}
+          {/* Own span so the wordmark can ellipsize instead of sliding under
+              the header actions on narrow phones. */}
+          <span className="brand-word">{copy.common.brand}</span>
           <sup className="brand-env-tag">{copy.common.testnetTag}</sup>
         </Link>
         <nav className="product-nav" aria-label={copy.appHeader.productsLabel}>

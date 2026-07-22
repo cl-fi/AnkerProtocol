@@ -15,7 +15,11 @@ import { fetchLivePredictOrderIds } from '../deepbook/predictPositions';
 import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
 import type { SettlementResult } from '../products/settlement';
 import { markProductNoteClaimed, type AnkerProductNoteRecord } from '../sui/ankerPortfolio';
-import { buildClaimDualInvestmentNoteTransaction } from '../sui/ankerTransactions';
+import {
+  buildClaimDualInvestmentNoteTransaction,
+  buildClaimDualInvestmentNotesTransaction,
+  type ClaimDualInvestmentNoteInput,
+} from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
 import { preflightTransaction } from '../sui/transactionPreflight';
 import { isSponsorshipEnabled } from '../sui/sponsoredExecution';
@@ -331,6 +335,128 @@ export function useClaimNote({
     error,
     claim: () => {
       void handleClaim();
+    },
+  };
+}
+
+/** The notes a batch claim would cover right now: claimable, with a fixed settlement price. */
+function claimAllTargets(
+  notes: readonly AnkerProductNoteRecord[],
+  marketStateFor: (note: AnkerProductNoteRecord) => PredictMarketState | undefined,
+  nowMs: number,
+): Array<{ note: AnkerProductNoteRecord; settlementPrice: number }> {
+  const targets: Array<{ note: AnkerProductNoteRecord; settlementPrice: number }> = [];
+  for (const note of notes) {
+    if (note.productType !== 'dual-investment') continue;
+    const marketState = marketStateFor(note);
+    if (marketState?.settlementPrice == null) continue;
+    if (lifecycleForProductNote(note, marketState, nowMs) !== 'claimable') continue;
+    targets.push({ note, settlementPrice: marketState.settlementPrice });
+  }
+  return targets;
+}
+
+/**
+ * The "Claim all" flow: every claimable Position in one transaction, so a
+ * page of settled notes never costs one signature each. Mirrors useClaimNote
+ * end to end — preflight, sponsored-or-wallet execution, optimistic
+ * claimed-state update per note, chain resync on failure. No per-note success
+ * dialog: the submitted message plus the notes moving to Completed is the
+ * confirmation.
+ */
+export function useClaimAllNotes({
+  notes,
+  marketStateFor,
+  locale = DEFAULT_LOCALE,
+}: {
+  notes: readonly AnkerProductNoteRecord[];
+  marketStateFor: (note: AnkerProductNoteRecord) => PredictMarketState | undefined;
+  locale?: Locale;
+}) {
+  const copy = copyForLocale(locale);
+  const account = useCurrentAccount();
+  const client = useCurrentClient();
+  const currentWallet = useCurrentWallet();
+  const dAppKit = useDAppKit();
+  const queryClient = useQueryClient();
+  const [isPending, setIsPending] = useState(false);
+  const [digest, setDigest] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const claimableCount = claimAllTargets(notes, marketStateFor, Date.now()).length;
+
+  async function handleClaimAll() {
+    if (isDemoMode() || !account) return;
+    const targets = claimAllTargets(notes, marketStateFor, Date.now());
+    if (targets.length === 0) return;
+
+    setIsPending(true);
+    setDigest(null);
+    setError(null);
+    try {
+      // One live-position lookup per market — sibling notes share markets, and
+      // the sweep-skip rule is per market, not per note.
+      const liveIdsByMarket = new Map<string, ReadonlySet<string> | undefined>();
+      for (const { note } of targets) {
+        const marketKey = `${note.wrapperId}:${note.oracleId}`.toLowerCase();
+        if (liveIdsByMarket.has(marketKey)) continue;
+        liveIdsByMarket.set(
+          marketKey,
+          await fetchLivePredictOrderIds(client, {
+            wrapperId: note.wrapperId,
+            expiryMarketId: note.oracleId,
+          }).catch(() => undefined),
+        );
+      }
+      const claims: ClaimDualInvestmentNoteInput[] = targets.map(({ note, settlementPrice }) => ({
+        note,
+        settlement: settlementForProductNote(note, settlementPrice),
+        livePredictOrderIds: liveIdsByMarket.get(`${note.wrapperId}:${note.oracleId}`.toLowerCase()),
+      }));
+      const plan = buildClaimDualInvestmentNotesTransaction({ accountAddress: account.address, claims });
+      await preflightTransaction({ client, sender: account.address, transaction: plan.tx });
+      const sponsored = Boolean(currentWallet && isEnokiWallet(currentWallet)) && (await isSponsorshipEnabled());
+      const nextDigest = await executeWalletTransaction({
+        wallet: dAppKit,
+        client,
+        transaction: plan.tx,
+        sender: account.address,
+        sponsored,
+      });
+      setDigest(nextDigest);
+
+      queryClient.setQueriesData<AnkerProductNoteRecord[]>(
+        { queryKey: ['anker-portfolio', account.address] },
+        (records) =>
+          records
+            ? claims.reduce(
+                (next, claim) => markProductNoteClaimed(next, claim.note.noteId, claim.settlement),
+                records as AnkerProductNoteRecord[],
+              )
+            : records,
+      );
+
+      await client.waitForTransaction({ digest: nextDigest });
+      await queryClient.invalidateQueries({ queryKey: ['anker-portfolio', account.address] });
+    } catch (nextError) {
+      // Same authority rule as the single claim: only the chain knows whether
+      // the batch landed — resync before surfacing the error.
+      await queryClient
+        .invalidateQueries({ queryKey: ['anker-portfolio', account.address] })
+        .catch(() => undefined);
+      setError(nextError instanceof Error ? nextError.message : copy.portfolio.claim.transactionFailed);
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return {
+    isPending,
+    digest,
+    error,
+    claimableCount,
+    claimAll: () => {
+      void handleClaimAll();
     },
   };
 }

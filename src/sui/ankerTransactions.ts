@@ -39,8 +39,7 @@ function assertTransactionsEnabled() {
   }
 }
 
-export function buildClaimDualInvestmentNoteTransaction(input: {
-  accountAddress: string;
+export interface ClaimDualInvestmentNoteInput {
   note: AnkerProductNoteRecord;
   settlement: SettlementResult;
   /**
@@ -50,9 +49,17 @@ export function buildClaimDualInvestmentNoteTransaction(input: {
    * on the missing position. Omit to redeem every leg.
    */
   livePredictOrderIds?: ReadonlySet<string>;
-  config?: AnkerProtocolConfig;
-}): ClaimDualInvestmentTransactionPlan {
-  assertTransactionsEnabled();
+}
+
+/**
+ * Appends one note's full claim sequence (redeem legs → withdraw → fee split →
+ * record → transfer) onto an existing transaction, so single and batch claims
+ * share the exact same per-note move calls.
+ */
+function appendClaimDualInvestmentNote(
+  tx: Transaction,
+  input: ClaimDualInvestmentNoteInput & { accountAddress: string; config: AnkerProtocolConfig },
+): { calls: string[]; feeAmount: bigint; payoutAmount: bigint } {
   if (input.note.productType !== 'dual-investment') {
     throw new Error('Expected a Dual Investment product note.');
   }
@@ -63,9 +70,7 @@ export function buildClaimDualInvestmentNoteTransaction(input: {
     throw new Error('Product note must contain one order id per leg.');
   }
 
-  const config = input.config ?? DEFAULT_ANKER_CONFIG;
-  const tx = new Transaction();
-  tx.setSender(input.accountAddress);
+  const config = input.config;
   const calls: string[] = [];
   const feeAmount = input.settlement.performanceFeeBaseUnits;
   const payoutAmount = input.settlement.grossPayoutBaseUnits;
@@ -133,13 +138,51 @@ export function buildClaimDualInvestmentNoteTransaction(input: {
 
   calls.push('transferObjects');
   tx.transferObjects([payoutCoin], input.accountAddress);
-  const netPayoutAmount = payoutAmount - feeAmount;
 
-  return {
-    tx,
-    calls,
-    feeAmount,
-    payoutAmount,
-    netPayoutAmount,
-  };
+  return { calls, feeAmount, payoutAmount };
+}
+
+export function buildClaimDualInvestmentNoteTransaction(
+  input: ClaimDualInvestmentNoteInput & {
+    accountAddress: string;
+    config?: AnkerProtocolConfig;
+  },
+): ClaimDualInvestmentTransactionPlan {
+  return buildClaimDualInvestmentNotesTransaction({
+    accountAddress: input.accountAddress,
+    claims: [{ note: input.note, settlement: input.settlement, livePredictOrderIds: input.livePredictOrderIds }],
+    config: input.config,
+  });
+}
+
+/**
+ * One PTB claiming several settled notes at once — the "Claim all" flow.
+ * Per-note sequences are appended in order and share one signature; a note
+ * that fails validation or would abort on-chain fails the whole transaction
+ * (preflight surfaces this before anything is signed).
+ */
+export function buildClaimDualInvestmentNotesTransaction(input: {
+  accountAddress: string;
+  claims: ReadonlyArray<ClaimDualInvestmentNoteInput>;
+  config?: AnkerProtocolConfig;
+}): ClaimDualInvestmentTransactionPlan {
+  assertTransactionsEnabled();
+  if (input.claims.length === 0) {
+    throw new Error('At least one product note is required.');
+  }
+
+  const config = input.config ?? DEFAULT_ANKER_CONFIG;
+  const tx = new Transaction();
+  tx.setSender(input.accountAddress);
+  const calls: string[] = [];
+  let feeAmount = 0n;
+  let payoutAmount = 0n;
+  for (const claim of input.claims) {
+    const appended = appendClaimDualInvestmentNote(tx, { ...claim, accountAddress: input.accountAddress, config });
+    calls.push(...appended.calls);
+    feeAmount += appended.feeAmount;
+    payoutAmount += appended.payoutAmount;
+  }
+
+  return { tx, calls, feeAmount, payoutAmount, netPayoutAmount: payoutAmount - feeAmount };
 }

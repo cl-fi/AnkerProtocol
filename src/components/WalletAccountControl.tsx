@@ -1,28 +1,29 @@
 'use client';
 
 import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
-import { ArrowUpRight, Check, ChevronDown, Copy, ExternalLink, LogOut, QrCode, Wallet } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronDown, ChevronRight, Copy, LogOut, QrCode, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { SUI_NETWORK } from '../config/deepbook';
 import { useWalletFunds } from '../hooks/useWalletFunds';
 import { useWalletIdentity } from '../hooks/useWalletIdentity';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
-import { Dialog } from '../ui';
+import { Button, Dialog } from '../ui';
 import { GoogleMark } from './brandMarks';
-import { shortAddress, suiExplorerAddressUrl } from './PortfolioFormat';
+import { shortAddress } from './PortfolioFormat';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
 import { WalletConnectButton } from './WalletConnectButton';
 
 /**
- * `ailcj8023@gmail.com` → `ailcj…@gmail.com`: the email is the identity a
- * zkLogin user recognizes, but the top bar only has room for its shape.
+ * `ailcj8023@gmail.com` → `ailcj8023`: on the phone chip the Google mark
+ * already says which provider this is, so the domain is pure noise — the
+ * local part is the identity the user actually recognizes. Overlong prefixes
+ * are cut by CSS (the label is capped at the address chip's width).
  */
-function truncateEmail(email: string) {
+function emailLocalPart(email: string) {
   const at = email.indexOf('@');
-  if (at <= 6) return email;
-  return `${email.slice(0, 5)}…${email.slice(at)}`;
+  return at > 0 ? email.slice(0, at) : email;
 }
 
 function IdentityAvatar({ identity, size = 16 }: { identity: ReturnType<typeof useWalletIdentity>; size?: number }) {
@@ -138,13 +139,14 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
         className="mobile-account-chip"
         aria-haspopup="dialog"
         aria-expanded={sheetOpen}
+        aria-label={identity?.kind === 'social' && identity.email ? identity.email : undefined}
         onClick={() => setSheetOpen(true)}
       >
         <IdentityAvatar identity={identity} />
         <span className="mobile-account-chip-label">
           {identity?.kind === 'social'
             ? identity.email
-              ? truncateEmail(identity.email)
+              ? emailLocalPart(identity.email)
               : copy.wallet.googleAccount
             : shortAddress(account.address)}
         </span>
@@ -277,8 +279,11 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
           </div>
         </div>
       ) : null}
-      {/* The phone account sheet: identity and session concerns only — money
-          lives on Portfolio. Low-frequency, so everything fits one drawer. */}
+      {/* The phone account sheet mirrors the desktop panel's architecture:
+          identity, the Total assets snapshot (same useWalletFunds source as
+          Portfolio, so the numbers can never disagree), quick Receive/Send,
+          then session rows. Depth stays on Portfolio — the sheet is its
+          preview, reachable from any page without losing that page's state. */}
       <Dialog
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
@@ -296,34 +301,83 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
                   ? identity.name
                   : shortAddress(account.address)}
             </strong>
-            <span className="account-sheet-address">
-              <code>{shortAddress(account.address)}</code>
+            <span className="account-sheet-meta">
+              {/* The whole address chip is the copy target — the icon inside
+                  is feedback, not a second button, so the close control stays
+                  the sheet's only hard-bordered control. */}
               <button
                 type="button"
-                className="account-menu-copy"
+                className="account-sheet-address"
                 aria-label={copied ? copy.wallet.copied : copy.wallet.copyAddress}
                 onClick={() => {
                   void navigator.clipboard.writeText(account.address).then(() => setCopied(true));
                 }}
               >
-                {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+                <code>{shortAddress(account.address)}</code>
+                {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
               </button>
+              <span className="account-sheet-network">
+                Sui {SUI_NETWORK.charAt(0).toUpperCase() + SUI_NETWORK.slice(1)}
+              </span>
             </span>
           </div>
         </div>
-        <div className="account-sheet-row">
-          <span>{copy.wallet.network}</span>
-          <strong>Sui {SUI_NETWORK.charAt(0).toUpperCase() + SUI_NETWORK.slice(1)}</strong>
+        <div className="account-sheet-balance">
+          <span>{copy.portfolio.totalAssets}</span>
+          <strong>
+            {funds.totalAssets !== null ? (
+              fmt.cashAmount(funds.totalAssets)
+            ) : (
+              <span className="account-menu-skeleton" aria-hidden="true" />
+            )}{' '}
+            <em>dUSDC</em>
+          </strong>
         </div>
-        <a
+        {/* Same two-row breakdown as the desktop panel — one dot-separated
+            line crowded both numbers together on a phone. */}
+        <dl className="account-menu-breakdown account-sheet-breakdown">
+          <div>
+            <dt>{copy.portfolio.available}</dt>
+            <dd>{funds.available !== null ? fmt.cashAmount(funds.available) : '—'}</dd>
+          </div>
+          <div>
+            <dt>{copy.portfolio.inPosition}</dt>
+            <dd>{fmt.cashAmount(funds.inPosition)}</dd>
+          </div>
+        </dl>
+        <div className="account-sheet-actions">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setSheetOpen(false);
+              setReceiveOpen(true);
+            }}
+          >
+            <QrCode size={16} aria-hidden="true" />
+            {copy.wallet.receive}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setSheetOpen(false);
+              setSendOpen(true);
+            }}
+          >
+            <ArrowUpRight size={16} aria-hidden="true" />
+            {copy.wallet.send}
+          </Button>
+        </div>
+        <Link
           className="account-sheet-row account-sheet-link"
-          href={suiExplorerAddressUrl(account.address)}
-          target="_blank"
-          rel="noreferrer"
+          href={localizedPath(locale, '/app/portfolio')}
+          onClick={() => setSheetOpen(false)}
         >
-          <span>{copy.wallet.viewOnExplorer}</span>
-          <ExternalLink size={15} aria-hidden="true" />
-        </a>
+          <span>{copy.wallet.viewPortfolio}</span>
+          <ChevronRight size={15} aria-hidden="true" />
+        </Link>
+        {/* No Network / explorer rows: the network moved up beside the address
+            chip, and explorer depth belongs to Portfolio — every extra row
+            here made the sheet read as a settings list. */}
         {/* No confirm step: a zkLogin sign-in is one tap to restore, so a
             mis-tap costs nearly nothing. */}
         <button

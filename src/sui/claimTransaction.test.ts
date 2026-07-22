@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { AnkerProductNoteRecord } from './ankerPortfolio';
-import { buildClaimDualInvestmentNoteTransaction, type AnkerProtocolConfig } from './ankerTransactions';
+import {
+  buildClaimDualInvestmentNoteTransaction,
+  buildClaimDualInvestmentNotesTransaction,
+  type AnkerProtocolConfig,
+} from './ankerTransactions';
 import { settlementForProductNote } from '../application/settleProductNote';
 import { productNoteFixture } from '../test/productNoteFixture';
 
@@ -131,5 +135,56 @@ describe('buildClaimDualInvestmentNoteTransaction', () => {
         config,
       }),
     ).toThrow('one order id per leg');
+  });
+});
+
+describe('buildClaimDualInvestmentNotesTransaction', () => {
+  it('claims several notes in one transaction, repeating the per-note sequence and summing the amounts', () => {
+    const first = noteFixture();
+    const second = { ...noteFixture(), noteId: `0x${'d'.repeat(64)}`, orderIds: [33n, 44n] };
+    const settlement = settlementForProductNote(first, 63_500);
+    const plan = buildClaimDualInvestmentNotesTransaction({
+      accountAddress: OWNER,
+      claims: [
+        { note: first, settlement },
+        { note: second, settlement: settlementForProductNote(second, 63_500) },
+      ],
+      config,
+    });
+
+    // Twice the single-note plan: amounts add up, and the per-note call
+    // sequence repeats unchanged inside the one transaction.
+    expect(plan.payoutAmount).toBe(9_920_000n);
+    expect(plan.feeAmount).toBe(4_000n);
+    expect(plan.netPayoutAmount).toBe(9_916_000n);
+    const singleCalls = buildClaimDualInvestmentNoteTransaction({
+      accountAddress: OWNER,
+      note: first,
+      settlement,
+      config,
+    }).calls;
+    expect(plan.calls).toEqual([...singleCalls, ...singleCalls]);
+  });
+
+  it('applies each note its own sweep-skip set', () => {
+    const first = noteFixture();
+    const second = { ...noteFixture(), noteId: `0x${'d'.repeat(64)}`, orderIds: [33n, 44n] };
+    const plan = buildClaimDualInvestmentNotesTransaction({
+      accountAddress: OWNER,
+      claims: [
+        { note: first, settlement: settlementForProductNote(first, 63_500), livePredictOrderIds: new Set<string>() },
+        { note: second, settlement: settlementForProductNote(second, 63_500), livePredictOrderIds: new Set(['33', '44']) },
+      ],
+      config,
+    });
+
+    // First note: fully swept, no redeems. Second note: both legs still live.
+    expect(plan.calls.filter((call) => call.endsWith('::expiry_market::redeem_settled'))).toHaveLength(2);
+  });
+
+  it('rejects an empty claim list', () => {
+    expect(() =>
+      buildClaimDualInvestmentNotesTransaction({ accountAddress: OWNER, claims: [], config }),
+    ).toThrow('At least one product note');
   });
 });

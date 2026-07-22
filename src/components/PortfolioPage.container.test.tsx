@@ -13,11 +13,16 @@ const walletState = vi.hoisted(() => ({
 
 const ankerConfig = vi.hoisted(() => ({ packageId: '0xconfigured' }));
 
+const portfolioState = vi.hoisted(() => ({ notes: [] as unknown[] }));
+const marketStatesState = vi.hoisted(() => ({ byMarketId: {} as Record<string, unknown> }));
+const claimAllState = vi.hoisted(() => ({ claimableCount: 0, claimAll: vi.fn() }));
+
 vi.mock('lucide-react', () => ({
   ArrowUpRight: () => <span data-testid="icon" />,
   Check: () => <span data-testid="icon" />,
   ChevronDown: () => <span data-testid="icon" />,
   Copy: () => <span data-testid="icon" />,
+  Info: () => <span data-testid="icon" />,
   LogOut: () => <span data-testid="icon" />,
   QrCode: () => <span data-testid="icon" />,
   RefreshCw: () => <span data-testid="icon" />,
@@ -63,6 +68,13 @@ vi.mock('./PortfolioClaimAction', () => ({
   ClaimActionView: () => null,
   claimActionViewModel: vi.fn(),
   claimEstimateForNote: vi.fn(),
+  useClaimAllNotes: () => ({
+    isPending: false,
+    digest: null,
+    error: null,
+    claimableCount: claimAllState.claimableCount,
+    claimAll: claimAllState.claimAll,
+  }),
 }));
 
 vi.mock('./PortfolioProductNoteCard', () => ({
@@ -73,7 +85,7 @@ vi.mock('./PortfolioProductNoteCard', () => ({
 }));
 
 vi.mock('../hooks/useProductNoteMarketStates', () => ({
-  useProductNoteMarketStates: () => ({ byMarketId: {} }),
+  useProductNoteMarketStates: () => ({ byMarketId: marketStatesState.byMarketId }),
 }));
 
 vi.mock('../hooks/useProductNoteEventIndex', () => ({
@@ -116,7 +128,7 @@ const redeemedNote = {
 
 vi.mock('../hooks/useAnkerPortfolio', () => ({
   useAnkerPortfolio: () => ({
-    data: [openNote, redeemedNote],
+    data: portfolioState.notes,
     isPending: false,
     error: null,
     refetch: vi.fn(),
@@ -127,6 +139,9 @@ describe('PortfolioPage wallet band (connected)', () => {
   beforeEach(() => {
     walletState.account = { address: OWNER };
     ankerConfig.packageId = '0xconfigured';
+    portfolioState.notes = [openNote, redeemedNote];
+    marketStatesState.byMarketId = {};
+    claimAllState.claimableCount = 0;
     vi.clearAllMocks();
   });
 
@@ -167,6 +182,59 @@ describe('PortfolioPage wallet band (connected)', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Completed/ }));
     expect(screen.getByTestId(`card-${redeemedNote.noteId}`)).toBeInTheDocument();
     expect(screen.queryByTestId(`card-${openNote.noteId}`)).not.toBeInTheDocument();
+  });
+
+  it('offers one batch claim in the Ready view once two or more positions are claimable', () => {
+    const settledMarketId = `0x${'6'.repeat(64)}`;
+    const settledExpiryMs = Date.now() - 60_000;
+    const readyA = {
+      ...openNote,
+      noteId: `0x${'7'.repeat(64)}`,
+      oracleId: settledMarketId,
+      expiryMs: settledExpiryMs,
+    } as AnkerProductNoteRecord;
+    const readyB = {
+      ...openNote,
+      noteId: `0x${'8'.repeat(64)}`,
+      oracleId: settledMarketId,
+      expiryMs: settledExpiryMs,
+    } as AnkerProductNoteRecord;
+    portfolioState.notes = [readyA, readyB, redeemedNote];
+    marketStatesState.byMarketId = {
+      [settledMarketId]: {
+        expiryMarketId: settledMarketId,
+        expiryMs: settledExpiryMs,
+        settlementPrice: 66_000,
+        settlementPriceBaseUnits: 66_000_000_000_000n,
+        settledAtMs: settledExpiryMs + 1,
+      },
+    };
+    claimAllState.claimableCount = 2;
+    render(<PortfolioPage />);
+
+    // Ready is the default view (first non-empty bucket), and the batch row
+    // sits above the list there — one signature instead of two.
+    fireEvent.click(screen.getByRole('button', { name: 'Claim all (2)' }));
+    expect(claimAllState.claimAll).toHaveBeenCalledTimes(1);
+
+    // The batch action belongs to the Ready view only.
+    fireEvent.click(screen.getByRole('tab', { name: /Completed/ }));
+    expect(screen.queryByRole('button', { name: 'Claim all (2)' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the settlement note behind the heading ⓘ disclosure', () => {
+    render(<PortfolioPage />);
+
+    // Platform mechanics, not per-position decision info — hidden until asked.
+    expect(screen.queryByText(/On testnet this settles in dUSDC/)).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole('button', { name: 'How settlement works' });
+    fireEvent.click(toggle);
+    expect(screen.getByText(/On testnet this settles in dUSDC/)).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(toggle);
+    expect(screen.queryByText(/On testnet this settles in dUSDC/)).not.toBeInTheDocument();
   });
 
   it('opens the shared Send dialog from the wallet band', () => {

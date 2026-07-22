@@ -724,8 +724,17 @@ a {
   gap: 9px;
   color: #20304d;
   font-size: 0.95rem;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0;
+}
+
+/* The wordmark truncates rather than sliding under the header actions when
+   the row runs out of room (narrow phones + the account chip). */
+.brand-word {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .anchor-mark {
@@ -3547,14 +3556,79 @@ dd {
   font-size: 1.9rem;
 }
 
-/* One settlement note for the whole section — the cards stay numbers-only. */
-.di-positions-note {
-  margin: -4px 0 18px;
-  max-width: 78ch;
+/* Heading cluster: the ⓘ sits with the title it annotates, the count badge
+   keeps the far edge. Anchors the settlement toggletip. */
+.di-positions-title {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* ⓘ toggletip trigger for the settlement note: a bare glyph, so it reads as
+   an annotation on the heading rather than a control competing with it. The
+   ::before pad keeps a ~44px touch target without a visible circle. */
+.di-note-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--ink-soft);
-  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.di-note-toggle::before {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  content: '';
+}
+
+.di-note-toggle:hover,
+.di-note-toggle[aria-expanded='true'] {
+  color: var(--navy);
+}
+
+.di-note-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The settlement note floats over the list as a toggletip — an inline strip
+   here pushed everything below down each time it opened. Dismissed by tapping
+   outside or Escape. */
+.di-positions-note {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 40px));
+  margin: 0;
+  padding: 10px 14px;
+  border: var(--bw) solid var(--navy);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow-hard);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.5;
+  transform-origin: top left;
+  animation: account-menu-pop 160ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+/* Batch claim row — one signature for every settled position. */
+.di-claim-all {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .di-position-filters {
@@ -4896,6 +4970,7 @@ dd {
 }
 
 .di-input-wrap {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -4904,6 +4979,30 @@ dd {
   border: var(--bw) solid var(--navy);
   border-radius: var(--r-sm);
   background: var(--paper);
+}
+
+/* Formatted stand-in over the raw number ("$65,500" for 65500) — same font
+   box as the input so the swap on focus is invisible. The raw value stays in
+   the input the whole time; only its ink is handed to the overlay. */
+.di-input-display {
+  position: absolute;
+  inset: 0 auto 0 12px;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+  color: var(--navy);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.di-input-wrap:has(.di-input-display):not(:focus-within) input {
+  color: transparent;
+}
+
+.di-input-wrap:focus-within .di-input-display {
+  display: none;
 }
 
 .di-input-wrap:focus-within {

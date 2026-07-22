@@ -2,7 +2,15 @@
 
 // Unlike Button/Card this primitive is client-only: it owns browser behaviour
 // (Escape listener, body scroll lock, focus trap, portal into document.body).
-import { useEffect, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 const FOCUSABLE_SELECTOR =
@@ -27,6 +35,11 @@ export interface DialogProps {
  */
 export function Dialog({ open, onClose, ariaLabel, closeLabel, className, children }: DialogProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  // Phone sheets dismiss by dragging the grab handle down. The gesture lives
+  // on the handle alone (CSS-hidden on desktop) so it can never fight the
+  // sheet's own scrolling.
+  const dragStartY = useRef<number | null>(null);
+  const [dragOffsetPx, setDragOffsetPx] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -57,6 +70,24 @@ export function Dialog({ open, onClose, ariaLabel, closeLabel, className, childr
     if (event.target === event.currentTarget) onClose();
   }
 
+  function handleHandlePointerDown(event: PointerEvent<HTMLElement>) {
+    dragStartY.current = event.clientY;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleHandlePointerMove(event: PointerEvent<HTMLElement>) {
+    if (dragStartY.current === null) return;
+    setDragOffsetPx(Math.max(0, event.clientY - dragStartY.current));
+  }
+
+  function handleHandlePointerEnd(event: PointerEvent<HTMLElement>) {
+    if (dragStartY.current === null) return;
+    const offset = Math.max(0, event.clientY - dragStartY.current);
+    dragStartY.current = null;
+    setDragOffsetPx(0);
+    if (offset > 72) onClose();
+  }
+
   function handleCardKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== 'Tab' || !cardRef.current) return;
     const focusable = Array.from(cardRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
@@ -84,8 +115,17 @@ export function Dialog({ open, onClose, ariaLabel, closeLabel, className, childr
         className={['anker-dialog', className].filter(Boolean).join(' ')}
         ref={cardRef}
         tabIndex={-1}
+        style={dragOffsetPx > 0 ? { transform: `translateY(${dragOffsetPx}px)`, transition: 'none' } : undefined}
         onKeyDown={handleCardKeyDown}
       >
+        <span
+          className="anker-dialog-handle"
+          aria-hidden="true"
+          onPointerDown={handleHandlePointerDown}
+          onPointerMove={handleHandlePointerMove}
+          onPointerUp={handleHandlePointerEnd}
+          onPointerCancel={handleHandlePointerEnd}
+        />
         <button type="button" className="anker-dialog-close" aria-label={closeLabel} onClick={onClose}>
           ×
         </button>

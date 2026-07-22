@@ -147,16 +147,16 @@ describe('ProductNoteCard', () => {
       <ProductNoteCard note={note} marketState={marketState} onClaimSuccess={() => {}} />,
     );
 
-    // Two-line row: strike identity plus the money flow; Claim inline; no
-    // accordion toggle.
-    expect(screen.getByText('@ $65,500')).toBeVisible();
+    // Two-line row: product + strike identity plus the money flow; Claim
+    // inline; no accordion toggle.
+    expect(screen.getByText('Buy Low @ $65,500')).toBeVisible();
     // Settled flow: deposit → the settlement-engine payout (5 + coupon − fee).
     expect(screen.getByText(/5\.00 → 5\.01 dUSDC/)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Claim' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Claim payout' })).not.toBeInTheDocument();
 
     // The detail lives in the bottom sheet: fork, stats, and the full Claim.
-    fireEvent.click(screen.getByText('@ $65,500'));
+    fireEvent.click(screen.getByText('Buy Low @ $65,500'));
     expect(screen.getByRole('dialog', { name: 'Details' })).toBeVisible();
     expect(screen.getByText('BTC ended ≥ $65,500')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Claim payout' })).toBeVisible();

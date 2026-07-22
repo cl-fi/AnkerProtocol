@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 async function expectDualInvestmentWorkspace(page: Page) {
   await expect(page.locator('main#dual-investment')).toBeVisible();
@@ -9,30 +9,40 @@ async function expectDualInvestmentWorkspace(page: Page) {
   await expect(market.getByRole('link', { name: 'Buy Low' })).toBeVisible();
   await expect(market.getByRole('button', { name: 'Sell High' })).toHaveAttribute('aria-disabled', 'true');
 
-  // Merged page: one settlement-date dropdown, day group first (primary product), hourly group tradable.
-  const settlementDate = market.getByLabel('Settlement date');
+  // One accessible settlement picker: desktop opens an anchored listbox and
+  // phones open the same choices in a bottom sheet.
+  const settlementDate = market.getByRole('button', { name: 'Settlement date' });
   await expect(settlementDate).toBeVisible();
-  await expect(settlementDate.locator('optgroup').first()).toHaveAttribute(
-    'label',
-    'Days — primary product · snapshot',
-  );
-  await expect(settlementDate.locator('optgroup').nth(1)).toHaveAttribute(
-    'label',
-    'Hours — tradable now',
-  );
+  await expect(settlementDate).toHaveAttribute('aria-haspopup', 'listbox');
+  await settlementDate.click();
+
+  const settlementOptions = page.getByRole('listbox', { name: 'Settlement date' });
+  await expect(settlementOptions).toBeVisible();
+  await expect(
+    settlementOptions.getByRole('group', { name: 'Days — primary product · snapshot' }),
+  ).toBeVisible();
+  await expect(settlementOptions.getByRole('group', { name: 'Hours — tradable now' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(settlementOptions).toBeHidden();
 
   // Day-scale copy vs sub-day yield copy — `isSubDayTenor` is wall-clock based, so a
   // default day snapshot sitting on the 24h boundary can render either branch.
   const reference = page.getByRole('region', { name: /^(APR reference|Per-period yield)$/ });
-  await expect(reference.getByRole('heading', { name: /^Price & (APR|yield) reference$/ })).toBeVisible();
-  await expect(reference.getByRole('button', { name: 'Refresh' })).toBeVisible();
+  const ladderTrigger = page.getByRole('button', { name: /^Yield by price/ });
+  if (await ladderTrigger.isVisible().catch(() => false)) {
+    await expect(ladderTrigger).toHaveAttribute('aria-haspopup', 'dialog');
+  } else {
+    await expect(reference.getByRole('heading', { name: /^Price & (APR|yield) reference$/ })).toBeVisible();
+    await expect(reference.getByRole('button', { name: 'Refresh' })).toBeVisible();
+  }
 
   await expect(page.getByRole('region', { name: 'Set your Buy Low' })).toBeVisible();
 }
 
 async function waitForReferenceRows(page: Page) {
-  const disclosure = page.getByRole('button', { name: /Show price reference/ });
-  if (await disclosure.isVisible().catch(() => false)) await disclosure.click();
+  const ladderTrigger = page.getByRole('button', { name: /^Yield by price/ });
+  if (await ladderTrigger.isVisible().catch(() => false)) await ladderTrigger.click();
+  await expect(page.getByRole('region', { name: /^(APR reference|Per-period yield)$/ })).toBeVisible();
   const rows = page.locator('.di-reference-table tbody tr');
   await expect(rows.first()).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => rows.count(), { timeout: 30_000 }).toBeGreaterThan(1);
@@ -73,16 +83,35 @@ test('supports selecting a Buy Low reference row and changing payoff smoothness'
   );
   await expect(controls.getByRole('spinbutton', { name: /Amount/ })).not.toHaveValue('0');
 
-  await expect(page.getByRole('heading', { name: /What you'll receive on/ })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Confirm your Buy Low' })).toBeVisible();
+  const mobileSubscribe = page.getByRole('button', { name: 'Subscribe', exact: true });
+  if (await mobileSubscribe.isVisible().catch(() => false)) {
+    await mobileSubscribe.click();
+    const confirmSheet = page.getByRole('dialog', { name: 'Confirm your Buy Low' });
+    await expect(confirmSheet.getByRole('heading', { name: /What you'll receive on/ })).toBeVisible();
+    await expect(confirmSheet.getByRole('region', { name: 'Confirm your Buy Low' })).toBeVisible();
+    await confirmSheet.getByRole('button', { name: 'Close' }).click();
+  } else {
+    await expect(page.getByRole('heading', { name: /What you'll receive on/ })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Confirm your Buy Low' })).toBeVisible();
+  }
 
-  const advanced = page.locator('details.di-advanced');
-  await advanced.locator('summary').click();
-  const smoothness = advanced.locator('select');
+  const advancedSheetTrigger = page.getByRole('button', { name: /^Advanced details/ });
+  let advanced: Locator;
+  if (await advancedSheetTrigger.isVisible().catch(() => false)) {
+    await advancedSheetTrigger.click();
+    advanced = page.getByRole('dialog', { name: 'Advanced details' });
+    await expect(advanced).toBeVisible();
+  } else {
+    await page.getByText('Advanced details', { exact: true }).click();
+    advanced = page.locator('main#dual-investment');
+  }
+  const smoothness = advanced.getByRole('combobox', { name: 'Payoff smoothness' });
   await smoothness.selectOption('9');
   await expect(smoothness).toHaveValue('9');
   await expect(advanced.getByRole('heading', { name: 'DeepBook Predict Legs' })).toBeVisible();
-  await expect.poll(() => advanced.locator('.leg-disclosure-row').count()).toBeGreaterThan(0);
+  const showLegs = advanced.getByRole('button', { name: /Show legs/ });
+  if (await showLegs.isVisible().catch(() => false)) await showLegs.click();
+  await expect(advanced.getByText('dUSDC payout').first()).toBeVisible();
 });
 
 test('renders the wallet portfolio entry point when disconnected', async ({ page }) => {
@@ -93,7 +122,7 @@ test('renders the wallet portfolio entry point when disconnected', async ({ page
   await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Products' }).getByRole('link', { name: 'Portfolio' })).toBeVisible();
   await expect(page.getByText('Connect your wallet to see your assets and positions.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Connect' }).first()).toBeVisible();
 });
 
 test('redirects legacy dashboard paths to the portfolio route in both locales', async ({ page }) => {

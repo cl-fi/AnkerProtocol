@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+
+const deniedGoogleFontResponses = fileURLToPath(
+  new URL('./tests/fixtures/deny-google-fonts.cjs', import.meta.url),
+);
 
 export default defineConfig({
   testDir: './tests',
@@ -8,6 +13,11 @@ export default defineConfig({
       // which lacks the deterministic-fixture env and fails against dead upstreams.
       command:
         'ANKER_DETERMINISTIC_E2E=true NEXT_PUBLIC_ANKER_DETERMINISTIC_E2E=true npm run dev -- --port 4123',
+      // Keep font tests deterministic: a Google-backed next/font declaration
+      // must prove it still renders correctly when build-time egress is absent.
+      env: {
+        NEXT_FONT_GOOGLE_MOCKED_RESPONSES: deniedGoogleFontResponses,
+      },
       // Ready only after /en/app compiles — CI was flaking on the landing→app click
       // while Next cold-compiled that route under parallel workers.
       url: 'http://127.0.0.1:4123/en/app',

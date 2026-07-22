@@ -1,9 +1,9 @@
 'use client';
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { ArrowUpRight, ChevronDown, QrCode, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Info, QrCode, RefreshCw, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useProductNoteMarketStates } from '../hooks/useProductNoteMarketStates';
@@ -15,11 +15,12 @@ import { netCouponAfterFee } from '../products/feePolicy';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
 import { lifecycleForProductNote } from '../sui/productNoteLifecycle';
+import { isDemoMode } from '../config/runtimeModes';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { ClaimSuccessDialog } from './ClaimSuccessDialog';
-import type { ConfirmedClaim } from './PortfolioClaimAction';
-import { formatCashAmount, shortAddress } from './PortfolioFormat';
+import { useClaimAllNotes, type ConfirmedClaim } from './PortfolioClaimAction';
+import { formatCashAmount, shortAddress, shortId, suiExplorerTxUrl } from './PortfolioFormat';
 import { ProductNoteCard } from './PortfolioProductNoteCard';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
@@ -64,6 +65,27 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
   // Phone-only rewards disclosure: the summary line replaces the rewards tiles
   // there, so the tile hints move into this expandable detail.
   const [rewardsOpen, setRewardsOpen] = useState(false);
+  // The testnet settlement note is platform mechanics, not per-position
+  // decision info — it lives behind the ⓘ next to the heading.
+  const [settlementNoteOpen, setSettlementNoteOpen] = useState(false);
+  const settlementNoteRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!settlementNoteOpen) return;
+    // pointerdown (not mousedown) so outside-tap dismissal also works on touch.
+    const onPointerDown = (event: PointerEvent) => {
+      if (!settlementNoteRef.current?.contains(event.target as Node)) setSettlementNoteOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSettlementNoteOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [settlementNoteOpen]);
   // Claim success dialog state lives at page level: the optimistic claimed-state
   // update moves the position out of the "ready" bucket, unmounting its card —
   // any dialog state kept inside the card would be wiped before it could render.
@@ -74,6 +96,9 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
   const marketStateFor = (note: AnkerProductNoteRecord) => marketStates.byMarketId[note.oracleId.toLowerCase()];
   const noteIds = notes.map((note) => note.noteId);
   const productNoteEventIndexQuery = useProductNoteEventIndex(noteIds);
+  // Batch claim: one signature for every settled position instead of one each.
+  const claimAllFlow = useClaimAllNotes({ notes, marketStateFor, locale });
+  const demoMode = isDemoMode();
 
   // Phone pull-to-refresh replaces the removed header refresh button; desktop
   // relies on react-query's focus refetch plus post-transaction invalidation.
@@ -173,6 +198,9 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                 {/* Phone-only (CSS-gated): the rewards tiles compress into one
                     line under the hero number; the tile hints live in the
                     disclosure so the card stays four lines tall. */}
+                {/* Each figure wears the colour of its detail tile — gold for
+                    pending, green for realized — so the collapsed line teaches
+                    the same colour language the expansion uses. */}
                 <button
                   type="button"
                   className="pf-rewards-line"
@@ -180,9 +208,14 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                   onClick={() => setRewardsOpen((value) => !value)}
                 >
                   <Sparkles size={13} aria-hidden="true" />
-                  <span>
-                    {copy.portfolio.rewardsSummary(
-                      `+${formatCashAmount(expectedRewards, locale)}`,
+                  <span className="pf-rewards-line-expected">
+                    {copy.portfolio.rewardsSummaryExpected(`+${formatCashAmount(expectedRewards, locale)}`)}
+                  </span>
+                  <span className="pf-rewards-line-sep" aria-hidden="true">
+                    ·
+                  </span>
+                  <span className={cumulativeRewards >= 0 ? 'pf-rewards-line-cumulative' : undefined}>
+                    {copy.portfolio.rewardsSummaryCumulative(
                       `${cumulativeRewards >= 0 ? '+' : ''}${formatCashAmount(cumulativeRewards, locale)}`,
                     )}
                   </span>
@@ -323,20 +356,32 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
       ) : (
         <section className="calculation-section">
           <div className="section-heading di-positions-heading">
-            <h2>{copy.portfolio.yourPositions}</h2>
-            {/* Phone-only (CSS-gated): compact rows drop the per-row product
-                name, so the section carries it once — only while every
-                position is the same product. */}
-            {notes.every((note) => note.productType === 'dual-investment') ? (
-              <span className="di-positions-product">{copy.portfolio.card.buyLowBtc}</span>
-            ) : null}
-            <Badge tone="positive">
+            <div className="di-positions-title" ref={settlementNoteRef}>
+              <h2>{copy.portfolio.yourPositions}</h2>
+              <button
+                type="button"
+                className="di-note-toggle"
+                aria-expanded={settlementNoteOpen}
+                aria-label={copy.portfolio.settlementNoteLabel}
+                onClick={() => setSettlementNoteOpen((value) => !value)}
+              >
+                <Info size={16} aria-hidden="true" />
+              </button>
+              {/* One settlement note for the whole section, floated as a
+                  toggletip — repeating it on every card buried the numbers
+                  under identical fine print, and an inline strip pushed the
+                  list down every time it opened. */}
+              {settlementNoteOpen ? (
+                <p className="di-positions-note" role="note">
+                  {copy.portfolio.card.outcomeTestnet}
+                </p>
+              ) : null}
+            </div>
+            {/* Count badge stays neutral — green is reserved for realized money. */}
+            <Badge>
               {notes.length} {notes.length === 1 ? copy.portfolio.position : copy.portfolio.positions}
             </Badge>
           </div>
-          {/* One settlement note for the whole section — repeating it on every
-              card buried the numbers under identical fine print. */}
-          <p className="di-positions-note">{copy.portfolio.card.outcomeTestnet}</p>
           {showFilters ? (
             <div className="di-position-filters" role="tablist" aria-label={copy.portfolio.filterLabel}>
               {FILTER_TABS.filter((tab) => counts[tab.key] > 0).map((tab) => (
@@ -352,6 +397,37 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                   <em>{counts[tab.key]}</em>
                 </button>
               ))}
+            </div>
+          ) : null}
+          {/* Only worth a row once it saves signatures, and only where the
+              claimable rows are on screen. */}
+          {claimAllFlow.claimableCount >= 2 && (activeFilter === 'ready' || activeFilter === null) ? (
+            <div className="di-claim-all">
+              <Button
+                variant="primary"
+                className="di-claim-all-btn"
+                disabled={demoMode || claimAllFlow.isPending}
+                title={demoMode ? copy.demo.claimDisabled : undefined}
+                onClick={claimAllFlow.claimAll}
+              >
+                {claimAllFlow.isPending
+                  ? copy.portfolio.claim.submitting
+                  : copy.portfolio.claim.claimAll(claimAllFlow.claimableCount)}
+              </Button>
+              {claimAllFlow.digest ? (
+                <p className="execution-message">
+                  {copy.portfolio.claim.submitted} —{' '}
+                  <a
+                    className="di-proof-link"
+                    href={suiExplorerTxUrl(claimAllFlow.digest)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {shortId(claimAllFlow.digest)}
+                  </a>
+                </p>
+              ) : null}
+              {claimAllFlow.error ? <p className="execution-error">{claimAllFlow.error}</p> : null}
             </div>
           ) : null}
           {visibleNotes.length === 0 ? (

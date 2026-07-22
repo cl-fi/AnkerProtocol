@@ -238,6 +238,9 @@ export function BuyLowControls({
             step={String(targetStep)}
             type="number"
             value={targetPrice}
+            // Grouped like the "BTC now" anchor beside it — $65,500 scans as a
+            // price; the raw digits return the moment the field is focused.
+            displayValue={targetPrice > 0 ? format.usd(targetPrice) : undefined}
             onChange={updateNumber(onTargetChange)}
           />
           {showSlider ? (
