@@ -16,6 +16,7 @@ const ankerConfig = vi.hoisted(() => ({ packageId: '0xconfigured' }));
 vi.mock('lucide-react', () => ({
   ArrowUpRight: () => <span data-testid="icon" />,
   Check: () => <span data-testid="icon" />,
+  ChevronDown: () => <span data-testid="icon" />,
   Copy: () => <span data-testid="icon" />,
   LogOut: () => <span data-testid="icon" />,
   QrCode: () => <span data-testid="icon" />,
@@ -133,20 +134,23 @@ describe('PortfolioPage wallet band (connected)', () => {
     render(<PortfolioPage />);
 
     // Total Assets (总资产) = 200 Available + 800 In Position — expected
-    // rewards are never counted in; they render twice (hero pill + tile),
+    // rewards are never counted in; they render three times (desktop hero pill
+    // + desktop tile + the phone rewards line, which CSS gates per viewport),
     // net of the 10% fee (12.34 × 0.9) like the Cumulative tile beside them.
     expect(screen.getByText('Total assets')).toBeInTheDocument();
     expect(screen.getByText(/1,000/)).toBeInTheDocument();
-    expect(screen.getAllByText(/11\.11/)).toHaveLength(2);
+    expect(screen.getAllByText(/11\.11/)).toHaveLength(3);
     expect(screen.queryByText(/12\.34/)).not.toBeInTheDocument();
     expect(screen.getByText('Expected rewards')).toBeInTheDocument();
 
-    expect(screen.getByText('Available')).toBeInTheDocument();
-    expect(screen.getByText('In position')).toBeInTheDocument();
+    // Desktop tile + the phone proportion-bar legend.
+    expect(screen.getAllByText('Available')).toHaveLength(2);
+    expect(screen.getAllByText('In position')).toHaveLength(2);
     // Cumulative Rewards (累计收益): net payout − principal over claimed
-    // positions = 540 − 5.4 − 500.
+    // positions = 540 − 5.4 − 500 — on the desktop tile and the phone
+    // rewards line.
     expect(screen.getByText('Cumulative rewards')).toBeInTheDocument();
-    expect(screen.getByText(/\+34\.6/)).toBeInTheDocument();
+    expect(screen.getAllByText(/\+34\.6/)).toHaveLength(2);
 
     expect(screen.getByRole('button', { name: /Receive/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Send/ })).toBeInTheDocument();
@@ -155,9 +159,14 @@ describe('PortfolioPage wallet band (connected)', () => {
     expect(screen.getByText('Your positions')).toBeInTheDocument();
     expect(screen.queryByText(/Your Notes/)).not.toBeInTheDocument();
 
-    // Both position cards render.
+    // No "All" view: the list opens on the first non-empty bucket (Active
+    // here — nothing is ready), and settled history stays behind its own tab.
     expect(screen.getByTestId(`card-${openNote.noteId}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`card-${redeemedNote.noteId}`)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Completed/ }));
     expect(screen.getByTestId(`card-${redeemedNote.noteId}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`card-${openNote.noteId}`)).not.toBeInTheDocument();
   });
 
   it('opens the shared Send dialog from the wallet band', () => {
@@ -167,20 +176,14 @@ describe('PortfolioPage wallet band (connected)', () => {
     expect(screen.getByTestId('send-dialog')).toBeInTheDocument();
   });
 
-  it('lets a connected mobile user disconnect from the Portfolio wallet hub', () => {
-    render(<PortfolioPage />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
-    expect(walletState.disconnectWallet).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps Disconnect available when the product contract is not configured', () => {
+  // Disconnect is no longer a Portfolio concern: the top-bar account chip's
+  // sheet owns sign-out on phones (see WalletAccountControl.test.tsx).
+  it('renders the config error without losing the wallet band', () => {
     ankerConfig.packageId = '0x0';
     render(<PortfolioPage />);
 
     expect(screen.getByText(/contract package is not configured/i)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
-    expect(walletState.disconnectWallet).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Total assets')).toBeInTheDocument();
   });
 
   it('lets a disconnected user start the wallet connection flow from Portfolio', () => {

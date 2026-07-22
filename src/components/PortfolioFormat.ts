@@ -54,3 +54,8 @@ export function suiExplorerTxUrl(digest: string) {
 export function suiExplorerObjectUrl(objectId: string) {
   return `${SUI_EXPLORER_BASE}/object/${objectId}`;
 }
+
+/** The account page — the user's full on-chain history in one place. */
+export function suiExplorerAddressUrl(address: string) {
+  return `${SUI_EXPLORER_BASE}/account/${address}`;
+}

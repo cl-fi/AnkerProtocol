@@ -3,9 +3,13 @@ import { createRoot } from 'react-dom/client';
 import { Providers } from '../../app/providers';
 import type { PredictMarketState } from '../../src/deepbook/predictMarketState';
 import type { AnkerProductNoteRecord } from '../../src/sui/ankerPortfolio';
-import { PortfolioMobileDisconnect } from '../../src/components/PortfolioMobileDisconnect';
 import { ProductNoteCard } from '../../src/components/PortfolioProductNoteCard';
+// Mirror app/globals.css import order so fixture geometry matches production.
 import '../../src/styles.css';
+import '../../src/ui/tokens.css';
+import '../../src/ui/button.css';
+import '../../src/ui/badge.css';
+import '../../src/ui/dialog.css';
 import '../../src/mobile.css';
 
 const expiryMs = Date.now() - 60_000;
@@ -51,11 +55,6 @@ const marketState: PredictMarketState = {
 createRoot(document.getElementById('root')!).render(
   <Providers>
     <main className="dual-page" id="portfolio-component-fixture">
-      <section className="calculation-section">
-        <div className="pf-wallet">
-          <PortfolioMobileDisconnect onDisconnect={() => undefined} />
-        </div>
-      </section>
       <section className="calculation-section">
         <div className="notes-list">
           <ProductNoteCard note={note} marketState={marketState} onClaimSuccess={() => undefined} />

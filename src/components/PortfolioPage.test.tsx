@@ -128,6 +128,40 @@ describe('ProductNoteCard', () => {
     expect(details).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('renders the phone compact row whose tap opens the detail sheet', () => {
+    // Phone tree: useIsMobile reads this query once per render.
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(max-width: 767px)',
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    const note = noteFixture();
+    const marketState: PredictMarketState = {
+      expiryMarketId: note.oracleId,
+      expiryMs: note.expiryMs,
+      settlementPrice: 66_000,
+      settlementPriceBaseUnits: 66_000_000_000_000n,
+      settledAtMs: note.expiryMs + 1,
+    };
+    renderWithQuery(
+      <ProductNoteCard note={note} marketState={marketState} onClaimSuccess={() => {}} />,
+    );
+
+    // Two-line row: strike identity plus the money flow; Claim inline; no
+    // accordion toggle.
+    expect(screen.getByText('@ $65,500')).toBeVisible();
+    // Settled flow: deposit → the settlement-engine payout (5 + coupon − fee).
+    expect(screen.getByText(/5\.00 → 5\.01 dUSDC/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Claim' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Claim payout' })).not.toBeInTheDocument();
+
+    // The detail lives in the bottom sheet: fork, stats, and the full Claim.
+    fireEvent.click(screen.getByText('@ $65,500'));
+    expect(screen.getByRole('dialog', { name: 'Details' })).toBeVisible();
+    expect(screen.getByText('BTC ended ≥ $65,500')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Claim payout' })).toBeVisible();
+  });
+
   it('reads every settled-card figure from the actual settlement, never the subscription-time estimate', () => {
     // On-chain fee (0.05) deliberately differs from the coupon-based estimate
     // (10% of 0.26 ≈ 0.03): the reward must satisfy the card identity

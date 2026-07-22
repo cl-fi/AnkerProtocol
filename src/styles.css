@@ -3323,6 +3323,75 @@ summary:focus-visible,
   gap: 14px;
 }
 
+.di-positions-more {
+  margin-top: 14px;
+}
+
+/* Loading placeholder in the list's own shape. */
+.notes-skeleton {
+  display: grid;
+  gap: 14px;
+}
+
+.notes-skeleton > span {
+  display: block;
+  height: 72px;
+  border: var(--bw) solid color-mix(in srgb, var(--navy) 18%, transparent);
+  border-radius: var(--r);
+  background: linear-gradient(
+    100deg,
+    var(--paper) 40%,
+    color-mix(in srgb, var(--navy) 7%, var(--paper)) 50%,
+    var(--paper) 60%
+  );
+  background-size: 220% 100%;
+  animation: notes-skeleton-sweep 1.3s ease-in-out infinite;
+}
+
+@keyframes notes-skeleton-sweep {
+  from {
+    background-position: 120% 0;
+  }
+
+  to {
+    background-position: -60% 0;
+  }
+}
+
+.portfolio-empty {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+}
+
+.portfolio-empty p {
+  margin: 0;
+}
+
+/* Pull-to-refresh indicator — phone-only; parked above the viewport. */
+.pf-pull-indicator {
+  position: fixed;
+  top: 52px;
+  left: 50%;
+  z-index: 40;
+  display: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: var(--bw) solid var(--navy);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--navy);
+  box-shadow: var(--shadow-hard-sm);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-skeleton > span {
+    animation: none;
+  }
+}
+
 /* Card status tag, top-right of the title */
 .detail-title span {
   padding: 3px 11px;

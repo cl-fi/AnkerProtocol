@@ -4,11 +4,12 @@ import { WalletAccountControl } from './WalletAccountControl';
 
 const walletState = vi.hoisted(() => ({
   account: null as { address: string } | null,
+  disconnectWallet: vi.fn(),
 }));
 
 vi.mock('@mysten/dapp-kit-react', () => ({
   useCurrentAccount: () => walletState.account,
-  useDAppKit: () => ({ disconnectWallet: vi.fn() }),
+  useDAppKit: () => ({ disconnectWallet: walletState.disconnectWallet }),
 }));
 
 vi.mock('../hooks/useWalletFunds', () => ({
@@ -32,6 +33,7 @@ vi.mock('./SendDialog', () => ({ SendDialog: () => null }));
 describe('WalletAccountControl responsive entry points', () => {
   beforeEach(() => {
     walletState.account = null;
+    walletState.disconnectWallet.mockClear();
   });
 
   afterEach(() => cleanup());
@@ -46,17 +48,32 @@ describe('WalletAccountControl responsive entry points', () => {
     expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
   });
 
-  it('routes a connected mobile user to Portfolio while retaining the desktop account trigger', () => {
+  it('gives a connected mobile user an account chip whose sheet owns identity and sign-out', () => {
     walletState.account = { address: `0x${'a'.repeat(64)}` };
     render(<WalletAccountControl locale="zh-CN" />);
 
-    expect(screen.getByRole('link', { name: '查看持仓' })).toHaveAttribute(
-      'href',
-      '/zh-CN/app/portfolio#wallet-portfolio',
-    );
-    const desktopTrigger = screen.getByRole('button', { name: '钱包账户' });
-    expect(desktopTrigger).toBeInTheDocument();
+    // The chip is named by its visible identity label (address for an
+    // extension wallet, the truncated email for zkLogin).
+    const chip = screen.getByRole('button', { name: /0xaaaaaa\.\.\./ });
+    fireEvent.click(chip);
 
+    const sheet = screen.getByRole('dialog', { name: '钱包账户' });
+    expect(sheet).toBeInTheDocument();
+    expect(screen.getByText('Sui Testnet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /在浏览器中查看全部记录/ })).toHaveAttribute(
+      'href',
+      `https://testnet.suivision.xyz/account/0x${'a'.repeat(64)}`,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '退出登录' }));
+    expect(walletState.disconnectWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains the desktop account trigger and its disconnect', () => {
+    walletState.account = { address: `0x${'a'.repeat(64)}` };
+    render(<WalletAccountControl locale="zh-CN" />);
+
+    const desktopTrigger = screen.getByRole('button', { name: '钱包账户' });
     fireEvent.click(desktopTrigger);
     expect(screen.getByRole('button', { name: '断开连接' })).toBeInTheDocument();
   });

@@ -1,14 +1,16 @@
 'use client';
 
-import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
-import { ArrowUpRight, QrCode, RefreshCw, Sparkles } from 'lucide-react';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
+import { ArrowUpRight, ChevronDown, QrCode, RefreshCw, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useAnkerPortfolio } from '../hooks/useAnkerPortfolio';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useProductNoteMarketStates } from '../hooks/useProductNoteMarketStates';
 import { useProductNoteEventIndex } from '../hooks/useProductNoteEventIndex';
 import { useWalletFunds } from '../hooks/useWalletFunds';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
-import { copyForLocale, DEFAULT_LOCALE, type Locale } from '../i18n';
+import { copyForLocale, DEFAULT_LOCALE, localizedPath, type Locale } from '../i18n';
 import { netCouponAfterFee } from '../products/feePolicy';
 import type { AnkerProductNoteRecord } from '../sui/ankerPortfolio';
 import { DEFAULT_ANKER_CONFIG } from '../sui/ankerTransactions';
@@ -18,22 +20,20 @@ import { AppHeader } from './AppHeader';
 import { ClaimSuccessDialog } from './ClaimSuccessDialog';
 import type { ConfirmedClaim } from './PortfolioClaimAction';
 import { formatCashAmount, shortId } from './PortfolioFormat';
-import { PortfolioMobileDisconnect } from './PortfolioMobileDisconnect';
 import { ProductNoteCard } from './PortfolioProductNoteCard';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
 import { WalletConnectButton } from './WalletConnectButton';
-import { Badge, Button, Card } from '../ui';
+import { Badge, Button, buttonClassName, Card } from '../ui';
 
-type PositionFilter = 'all' | 'ready' | 'active' | 'completed';
-type PositionBucket = Exclude<PositionFilter, 'all'>;
+type PositionBucket = 'ready' | 'active' | 'completed';
 
-const FILTER_TABS: { key: PositionFilter }[] = [
-  { key: 'all' },
-  { key: 'ready' },
-  { key: 'active' },
-  { key: 'completed' },
-];
+// No "All" tab: ready/active/completed partition the positions, and mixing
+// settled history into the to-do view is what made the page scroll forever.
+const FILTER_TABS: { key: PositionBucket }[] = [{ key: 'ready' }, { key: 'active' }, { key: 'completed' }];
+
+/** Completed positions only ever grow — the list shows a page at a time. */
+const COMPLETED_PAGE_SIZE = 10;
 
 // Filter bucket derived from each Position plus its Expiry Market settlement state.
 function positionBucket(
@@ -53,12 +53,17 @@ export { SubscriptionDigestValue, depositedCashText, noteStatusBadge } from './P
 export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
   const copy = copyForLocale(locale);
   const account = useCurrentAccount();
-  const dAppKit = useDAppKit();
   const portfolioQuery = useAnkerPortfolio();
   const funds = useWalletFunds();
-  const [filter, setFilter] = useState<PositionFilter>('all');
+  // Null until the user picks a tab — the view then defaults to the first
+  // non-empty bucket, so a wall of settled positions never buries a claim.
+  const [filter, setFilter] = useState<PositionBucket | null>(null);
+  const [completedShown, setCompletedShown] = useState(COMPLETED_PAGE_SIZE);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  // Phone-only rewards disclosure: the summary line replaces the rewards tiles
+  // there, so the tile hints move into this expandable detail.
+  const [rewardsOpen, setRewardsOpen] = useState(false);
   // Claim success dialog state lives at page level: the optimistic claimed-state
   // update moves the position out of the "ready" bucket, unmounting its card —
   // any dialog state kept inside the card would be wiped before it could render.
@@ -69,6 +74,10 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
   const marketStateFor = (note: AnkerProductNoteRecord) => marketStates.byMarketId[note.oracleId.toLowerCase()];
   const noteIds = notes.map((note) => note.noteId);
   const productNoteEventIndexQuery = useProductNoteEventIndex(noteIds);
+
+  // Phone pull-to-refresh replaces the removed header refresh button; desktop
+  // relies on react-query's focus refetch plus post-transaction invalidation.
+  const pull = usePullToRefresh(() => Promise.all([portfolioQuery.refetch(), funds.refresh()]));
 
   const nowMs = Date.now();
   const openNotes = notes.filter((note) => note.status === 'open');
@@ -93,43 +102,52 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
     if (weight !== 0) return weight;
     return left.expiryMs - right.expiryMs;
   });
-  const counts: Record<PositionFilter, number> = {
-    all: notes.length,
+  const counts: Record<PositionBucket, number> = {
     ready: notes.filter((note) => positionBucket(note, marketStateFor(note), nowMs) === 'ready').length,
     active: notes.filter((note) => positionBucket(note, marketStateFor(note), nowMs) === 'active').length,
     completed: notes.filter((note) => positionBucket(note, marketStateFor(note), nowMs) === 'completed').length,
   };
-  const nonEmptyBuckets = (['ready', 'active', 'completed'] as const).filter((key) => counts[key] > 0).length;
-  const showFilters = nonEmptyBuckets >= 2;
-  const activeFilter = showFilters ? filter : 'all';
+  const nonEmptyBuckets = (['ready', 'active', 'completed'] as const).filter((key) => counts[key] > 0);
+  const showFilters = nonEmptyBuckets.length >= 2;
+  // The chosen tab holds only while its bucket has positions — claiming the
+  // last ready position drops the view back to the first non-empty bucket.
+  const activeFilter: PositionBucket | null = showFilters
+    ? filter && counts[filter] > 0
+      ? filter
+      : (nonEmptyBuckets[0] ?? null)
+    : null;
+  const filteredNotes = activeFilter
+    ? sortedNotes.filter((note) => positionBucket(note, marketStateFor(note), nowMs) === activeFilter)
+    : sortedNotes;
+  // Completed positions paginate wherever they appear; ready/active never do.
+  const completedInView = filteredNotes.filter(
+    (note) => positionBucket(note, marketStateFor(note), nowMs) === 'completed',
+  ).length;
+  const hiddenCompleted = Math.max(0, completedInView - completedShown);
   const visibleNotes =
-    activeFilter === 'all'
-      ? sortedNotes
-      : sortedNotes.filter((note) => positionBucket(note, marketStateFor(note), nowMs) === activeFilter);
-
-  function handleRefresh() {
-    void portfolioQuery.refetch();
-    void funds.refresh();
-  }
+    hiddenCompleted > 0 ? filteredNotes.slice(0, filteredNotes.length - hiddenCompleted) : filteredNotes;
 
   return (
     <main className="dual-page" id="wallet-portfolio">
       <AppHeader activeProduct="portfolio" locale={locale} />
 
+      <div
+        className={[
+          'pf-pull-indicator',
+          pull.refreshing ? 'is-refreshing' : pull.pullPx > 0 ? 'is-pulling' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={{ transform: `translate(-50%, ${pull.refreshing ? 12 : Math.min(pull.pullPx, 72) - 52}px)` }}
+        aria-hidden="true"
+      >
+        <RefreshCw size={16} />
+      </div>
+
       <section className="dual-hero calculation-hero portfolio-hero">
         <div>
           <h1>{copy.portfolio.title}</h1>
         </div>
-        <Button
-          variant="secondary"
-          className="portfolio-refresh"
-          aria-label={copy.portfolio.refresh}
-          onClick={handleRefresh}
-          disabled={!account}
-        >
-          <RefreshCw size={16} />
-          <span>{copy.portfolio.refresh}</span>
-        </Button>
       </section>
 
       {account ? (
@@ -152,6 +170,41 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                     </em>
                   ) : null}
                 </span>
+                {/* Phone-only (CSS-gated): the rewards tiles compress into one
+                    line under the hero number; the tile hints live in the
+                    disclosure so the card stays four lines tall. */}
+                <button
+                  type="button"
+                  className="pf-rewards-line"
+                  aria-expanded={rewardsOpen}
+                  onClick={() => setRewardsOpen((value) => !value)}
+                >
+                  <Sparkles size={13} aria-hidden="true" />
+                  <span>
+                    {copy.portfolio.rewardsSummary(
+                      `+${formatCashAmount(expectedRewards, locale)}`,
+                      `${cumulativeRewards >= 0 ? '+' : ''}${formatCashAmount(cumulativeRewards, locale)}`,
+                    )}
+                  </span>
+                  <ChevronDown size={14} aria-hidden="true" />
+                </button>
+                {rewardsOpen ? (
+                  <dl className="pf-rewards-detail">
+                    <div>
+                      <dt>{copy.portfolio.expectedRewardsTile}</dt>
+                      <dd className="pf-rewards-expected">+{formatCashAmount(expectedRewards, locale)}</dd>
+                      <small>{copy.portfolio.expectedRewardsHint}</small>
+                    </div>
+                    <div>
+                      <dt>{copy.portfolio.cumulativeRewards}</dt>
+                      <dd className={cumulativeRewards >= 0 ? 'pf-rewards-positive' : undefined}>
+                        {cumulativeRewards >= 0 ? '+' : ''}
+                        {formatCashAmount(cumulativeRewards, locale)}
+                      </dd>
+                      <small>{copy.portfolio.cumulativeRewardsHint}</small>
+                    </div>
+                  </dl>
+                ) : null}
               </div>
               {/* Transfers are utilities, not the product loop — both stay
                   secondary; gold primary is reserved for Subscribe and Claim. */}
@@ -166,6 +219,28 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                 </Button>
               </div>
             </div>
+            {/* Phone-only (CSS-gated): Available and In position are the two
+                parts of one whole, so a proportion bar reads faster than two
+                tiles. The legend carries the numbers; the bar is decoration. */}
+            {totalAssets !== null && totalAssets > 0 ? (
+              <div className="pf-balance-split">
+                <div className="pf-balance-bar" aria-hidden="true">
+                  <span
+                    className="pf-balance-bar-available"
+                    style={{ width: `${((funds.available ?? 0) / totalAssets) * 100}%` }}
+                  />
+                </div>
+                <div className="pf-balance-legend">
+                  <span className="pf-balance-legend-available">
+                    {copy.portfolio.available}{' '}
+                    <strong>{funds.available !== null ? formatCashAmount(funds.available, locale) : '—'}</strong>
+                  </span>
+                  <span className="pf-balance-legend-locked">
+                    {copy.portfolio.inPosition} <strong>{formatCashAmount(inPosition, locale)}</strong>
+                  </span>
+                </div>
+              </div>
+            ) : null}
             <div className="di-portfolio pf-tiles">
               <div>
                 <span>{copy.portfolio.available}</span>
@@ -191,7 +266,6 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
                 <small>{copy.portfolio.cumulativeRewardsHint}</small>
               </div>
             </div>
-            <PortfolioMobileDisconnect locale={locale} onDisconnect={() => void dAppKit.disconnectWallet()} />
           </div>
         </section>
       ) : null}
@@ -215,7 +289,13 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
         </section>
       ) : portfolioQuery.isPending ? (
         <section className="calculation-section">
-          <Card variant="empty">{copy.portfolio.loadingPositions}</Card>
+          {/* Skeleton rows in the list's own shape — the page settles into
+              place instead of swapping a text card for content. */}
+          <div className="notes-skeleton" role="status" aria-label={copy.portfolio.loadingPositions}>
+            <span />
+            <span />
+            <span />
+          </div>
         </section>
       ) : portfolioQuery.error ? (
         <section className="calculation-section">
@@ -227,12 +307,29 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
         </section>
       ) : notes.length === 0 ? (
         <section className="calculation-section">
-          <Card variant="empty">{copy.portfolio.noPositions(shortId(account.address))}</Card>
+          <Card variant="empty">
+            <div className="portfolio-empty">
+              <p>{copy.portfolio.noPositions(shortId(account.address))}</p>
+              {/* An empty state is an invitation — give it the exit. */}
+              <Link
+                className={buttonClassName({ variant: 'primary' })}
+                href={localizedPath(locale, '/app/dual-investment')}
+              >
+                {copy.portfolio.noPositionsCta}
+              </Link>
+            </div>
+          </Card>
         </section>
       ) : (
         <section className="calculation-section">
           <div className="section-heading di-positions-heading">
             <h2>{copy.portfolio.yourPositions}</h2>
+            {/* Phone-only (CSS-gated): compact rows drop the per-row product
+                name, so the section carries it once — only while every
+                position is the same product. */}
+            {notes.every((note) => note.productType === 'dual-investment') ? (
+              <span className="di-positions-product">{copy.portfolio.card.buyLowBtc}</span>
+            ) : null}
             <Badge tone="positive">
               {notes.length} {notes.length === 1 ? copy.portfolio.position : copy.portfolio.positions}
             </Badge>
@@ -242,7 +339,7 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
           <p className="di-positions-note">{copy.portfolio.card.outcomeTestnet}</p>
           {showFilters ? (
             <div className="di-position-filters" role="tablist" aria-label={copy.portfolio.filterLabel}>
-              {FILTER_TABS.filter((tab) => tab.key === 'all' || counts[tab.key] > 0).map((tab) => (
+              {FILTER_TABS.filter((tab) => counts[tab.key] > 0).map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
@@ -273,6 +370,15 @@ export function PortfolioPage({ locale = DEFAULT_LOCALE }: { locale?: Locale }) 
               ))}
             </div>
           )}
+          {hiddenCompleted > 0 ? (
+            <Button
+              variant="secondary"
+              className="di-positions-more"
+              onClick={() => setCompletedShown((value) => value + COMPLETED_PAGE_SIZE)}
+            >
+              {copy.portfolio.showMoreCompleted(Math.min(hiddenCompleted, COMPLETED_PAGE_SIZE))}
+            </Button>
+          ) : null}
         </section>
       )}
       {account ? (

@@ -13,7 +13,20 @@
   display: none;
 }
 
-.pf-wallet-mobile-footer {
+/* Phone-only balance-card widgets; the desktop card keeps the tiles. */
+.pf-rewards-line,
+.pf-rewards-detail,
+.pf-balance-split {
+  display: none;
+}
+
+/* Phone-only section-level product label; desktop rows name the product. */
+.di-positions-product {
+  display: none;
+}
+
+/* Phone-only top-bar account chip; desktop keeps the account panel trigger. */
+.mobile-account-chip {
   display: none;
 }
 
@@ -51,6 +64,31 @@
   /* App shell: one compact top row and one thumb-reachable product dock. */
   .dual-page {
     padding-bottom: calc(var(--mobile-dock-height) + var(--mobile-dock-bottom) + 32px);
+  }
+
+  /* Our pull-to-refresh owns the top-edge gesture — keep the browser's
+     native pull-to-reload out of the same swipe. */
+  body {
+    overscroll-behavior-y: contain;
+  }
+
+  .pf-pull-indicator {
+    display: grid;
+  }
+
+  .pf-pull-indicator.is-pulling,
+  .pf-pull-indicator.is-refreshing {
+    opacity: 1;
+  }
+
+  .pf-pull-indicator.is-refreshing svg {
+    animation: pf-pull-spin 800ms linear infinite;
+  }
+
+  @keyframes pf-pull-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* Dual Investment floats the commit dock above the tab bar — leave room. */
@@ -163,6 +201,110 @@
     background: var(--mobile-surface-subtle);
     color: var(--mobile-text-strong);
     box-shadow: var(--shadow-hard-sm);
+  }
+
+  /* The account chip: avatar + the email shape. Identity, not money. */
+  .top-nav .mobile-account-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 150px;
+    min-height: 44px;
+    padding: 0 10px 0 6px;
+    border: var(--bw) solid var(--mobile-border-strong);
+    border-radius: 12px;
+    background: var(--mobile-surface-subtle);
+    color: var(--mobile-text-strong);
+    box-shadow: var(--shadow-hard-sm);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .mobile-account-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  /* The account sheet: identity and session rows, then sign-out. */
+  .account-sheet {
+    display: grid;
+    gap: 4px;
+  }
+
+  .account-sheet-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 40px 12px 0;
+    border-bottom: 1px solid var(--mobile-border-faint);
+  }
+
+  .account-sheet-identity .account-trigger-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .account-sheet-who {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .account-sheet-who strong {
+    overflow-wrap: anywhere;
+    font-size: 0.95rem;
+    font-weight: 850;
+  }
+
+  .account-sheet-address {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--mobile-text-muted);
+    font-size: 0.8rem;
+  }
+
+  .account-sheet-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    border-bottom: 1px solid var(--mobile-border-faint);
+    color: var(--mobile-text-strong);
+    font-size: 0.88rem;
+    font-weight: 700;
+  }
+
+  .account-sheet-row strong {
+    font-weight: 850;
+  }
+
+  .account-sheet-link {
+    text-decoration: none;
+  }
+
+  .account-sheet-link svg {
+    color: var(--mobile-text-muted);
+  }
+
+  .account-sheet-signout {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    margin-top: 2px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--coral);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 850;
+    cursor: pointer;
   }
 
   .top-nav .desktop-wallet-entry,
@@ -1140,73 +1282,156 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Portfolio: one wallet card, compact metrics, scan-friendly Positions. */
+  /* Portfolio: account layer (balance card + quick actions), then Positions.
+     The card stays four lines tall: label, hero number, rewards line, split. */
   .portfolio-hero {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
     gap: 12px;
   }
 
-  .portfolio-refresh {
-    width: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-  }
-
-  .portfolio-refresh > span {
-    display: none;
-  }
-
   .pf-wallet {
-    gap: 16px;
+    gap: 14px;
     padding: 16px;
     box-shadow: var(--shadow-hard-sm);
   }
 
   .pf-wallet-top {
-    gap: 14px;
+    gap: 12px;
+  }
+
+  .pf-wallet-total {
+    gap: 4px;
   }
 
   .pf-wallet-amount {
     font-size: clamp(1.8rem, 9vw, 2.2rem);
   }
 
+  /* The rewards line under the hero number replaces the pill and both
+     rewards tiles — one figure must not render three times on one card. */
   .pf-wallet-expected {
-    padding: 3px 9px;
-    font-size: 0.72rem;
+    display: none;
   }
 
+  .pf-rewards-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    margin-left: -2px;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: var(--mobile-positive);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .pf-rewards-line > svg:first-child {
+    color: var(--mobile-accent-strong);
+  }
+
+  .pf-rewards-line > svg:last-child {
+    color: var(--mobile-text-muted);
+    transition: transform 140ms ease;
+  }
+
+  .pf-rewards-line[aria-expanded='true'] > svg:last-child {
+    transform: rotate(180deg);
+  }
+
+  .pf-rewards-detail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+
+  .pf-rewards-detail > div {
+    display: grid;
+    gap: 2px;
+    padding: 9px 10px;
+    border-radius: 9px;
+    background: var(--mobile-surface-subtle);
+  }
+
+  .pf-rewards-detail dt {
+    color: var(--mobile-text-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+  }
+
+  .pf-rewards-detail dd {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pf-rewards-detail small {
+    color: var(--mobile-text-muted);
+    font-size: 0.68rem;
+    font-weight: 600;
+  }
+
+  /* Available / In position as one proportion bar — two parts of one whole. */
+  .pf-balance-split {
+    display: grid;
+    gap: 7px;
+  }
+
+  .pf-balance-bar {
+    display: flex;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mobile-border-strong) 16%, transparent);
+  }
+
+  .pf-balance-bar-available {
+    background: var(--mobile-accent);
+    border-radius: 999px;
+  }
+
+  .pf-balance-legend {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--mobile-text-muted);
+  }
+
+  .pf-balance-legend strong {
+    color: var(--mobile-text-strong);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pf-balance-legend-locked {
+    text-align: right;
+  }
+
+  /* Quick actions: icon-over-label tiles, ready to take a third slot when
+     activity history lands. */
   .pf-wallet-actions {
     width: 100%;
+    gap: 8px;
   }
 
   .pf-wallet-actions .anker-btn {
-    min-height: 44px;
-    padding: 0 12px;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 58px;
+    padding: 8px 12px;
+    font-size: 0.78rem;
   }
 
-  .pf-wallet-mobile-footer {
-    display: flex;
-    justify-content: flex-end;
-    padding-top: 4px;
-    border-top: 1px solid var(--mobile-border-faint);
-  }
-
-  .pf-wallet-disconnect {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    min-height: 44px;
-    padding: 0 4px;
-    border: 0;
-    background: transparent;
-    color: var(--coral);
-    font: inherit;
-    font-size: 0.82rem;
-    font-weight: 850;
-    cursor: pointer;
+  .pf-wallet-actions .anker-btn svg {
+    width: 19px;
+    height: 19px;
   }
 
   .portfolio-connect-empty {
@@ -1218,55 +1443,55 @@
     min-height: 48px;
   }
 
+  /* The tiles are the desktop breakdown; the phone card replaces them with
+     the rewards line and the Available / In position proportion bar. */
   .pf-tiles,
   .di-portfolio.pf-tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0;
-    overflow: hidden;
-    border: 1.5px solid var(--mobile-border-soft);
-    border-radius: var(--r-sm);
-    background: var(--mobile-surface-subtle);
-  }
-
-  .pf-tiles > div,
-  .di-portfolio.pf-tiles > div {
-    min-height: 82px;
-    padding: 11px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .pf-tiles > div:nth-child(odd) {
-    border-right: 1px solid var(--mobile-border-faint);
-  }
-
-  .pf-tiles > div:nth-child(n + 3) {
-    border-top: 1px solid var(--mobile-border-faint);
-  }
-
-  .pf-tiles strong,
-  .di-portfolio.pf-tiles strong {
-    font-size: clamp(1.12rem, 5.5vw, 1.4rem);
+    display: none;
   }
 
   .di-positions-heading {
     flex-direction: row;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .di-positions-heading h2 {
     font-size: 1.55rem;
   }
 
+  .di-positions-product {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border: 1px solid var(--mobile-border-soft);
+    border-radius: 999px;
+    color: var(--mobile-text-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+  }
+
+  .di-positions-more {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 12px;
+  }
+
+  /* The filter band sticks under the (sticky, 60px) top nav so deep in a
+     long list the user can still jump buckets. Full-bleed background keeps
+     rows from ghosting through the gutters while it floats. */
   .di-position-filters {
+    position: sticky;
+    top: 60px;
+    z-index: 30;
     flex-wrap: nowrap;
     gap: 8px;
-    margin-right: calc(-1 * var(--mobile-gutter));
-    padding: 2px var(--mobile-gutter) 6px 0;
+    margin: 0 calc(-1 * var(--mobile-gutter));
+    padding: 8px var(--mobile-gutter);
     overflow-x: auto;
     scrollbar-width: none;
+    background: var(--mobile-canvas);
   }
 
   .di-position-filters::-webkit-scrollbar {
@@ -1284,6 +1509,134 @@
     gap: 8px;
     padding: 12px;
     box-shadow: var(--shadow-hard-sm);
+  }
+
+  /* Positions read as one grouped list — the hard-shadow card look moves to
+     the group container so each row stops paying the per-card chrome tax. */
+  .notes-list {
+    gap: 0;
+    overflow: hidden;
+    border: var(--bw) solid var(--mobile-border-strong);
+    border-radius: var(--r-sm);
+    background: var(--mobile-surface);
+    box-shadow: var(--shadow-hard-sm);
+  }
+
+  .notes-skeleton {
+    gap: 10px;
+  }
+
+  .notes-skeleton > span {
+    height: 64px;
+    border-color: var(--mobile-border-soft);
+    border-radius: var(--r-sm);
+  }
+
+  .di-position-row.is-compact {
+    gap: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .di-position-row.is-compact + .di-position-row.is-compact {
+    border-top: 1px solid var(--mobile-border-faint);
+  }
+
+  .di-position-compact {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 64px;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+
+  .di-position-compact-main {
+    display: grid;
+    flex: 1 1 auto;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .di-position-compact-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .di-position-compact-title strong {
+    color: var(--mobile-text-strong);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .di-position-compact-reward {
+    color: var(--mobile-positive);
+    font-size: 0.8rem;
+    font-style: normal;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .di-position-compact-sub {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--mobile-text-muted);
+    font-size: 0.78rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .di-position-compact-open {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 40px;
+    width: 40px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--mobile-text-muted);
+    cursor: pointer;
+  }
+
+  .di-position-row.is-compact .di-position-claim {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 14px;
+  }
+
+  .di-position-row.is-compact .di-position-claim-message {
+    padding: 0 12px 10px;
+  }
+
+  /* Detail sheet: identity, the stat trio, then the outcome fork. */
+  .di-position-sheet {
+    display: grid;
+    gap: 12px;
+  }
+
+  .di-position-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 40px;
+  }
+
+  .di-position-sheet-head h3 {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  .di-position-sheet-claim {
+    min-height: 48px;
   }
 
   .di-position-summary {

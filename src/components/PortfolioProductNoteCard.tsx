@@ -1,8 +1,9 @@
 'use client';
 
-import { ArrowDown, Check, ChevronDown, ExternalLink } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { isDemoMode } from '../config/runtimeModes';
+import { useIsMobile } from '../hooks/useIsMobile';
 import type { PredictMarketState } from '../deepbook/predictMarketState';
 import { copyForLocale, DEFAULT_LOCALE, formatTimeToExpiry, type Locale } from '../i18n';
 import { netAprAfterCouponFee } from '../products/feePolicy';
@@ -30,7 +31,7 @@ import {
   suiExplorerObjectUrl,
   suiExplorerTxUrl,
 } from './PortfolioFormat';
-import { Badge, Button, Card, type Tone } from '../ui';
+import { Badge, Button, Card, Dialog, type Tone } from '../ui';
 
 function ProofLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -195,6 +196,11 @@ function OutcomeFork({
  * shared explainer lives in the expanded detail. Claimable rows swap the
  * settle time for the payout and carry the Claim button inline, so claiming
  * never requires expanding — the detail stays optional reading.
+ *
+ * Phones get a genuinely different tree (per the useIsMobile contract): a
+ * two-line compact row, with the full detail in a bottom sheet instead of an
+ * inline accordion — expanding in place loses the scroll position in a list
+ * this long.
  */
 export function ProductNoteCard({
   note,
@@ -210,6 +216,7 @@ export function ProductNoteCard({
   locale?: Locale;
 }) {
   const copy = copyForLocale(locale);
+  const isMobile = useIsMobile();
   const isDual = note.productType === 'dual-investment';
   const lifecycle = lifecycleForProductNote(note, marketState, Date.now());
   const status = noteStatusBadge(note, lifecycle, locale);
@@ -243,6 +250,181 @@ export function ProductNoteCard({
     : settledPayout
       ? settledPayout.rewardAfterFee
       : claimAboveEstimate(note).netPayout - note.principal;
+
+  const claimMessages = (
+    <>
+      {claimFlow.digest ? (
+        <p className="execution-message di-position-claim-message">
+          {copy.portfolio.claim.submitted} —{' '}
+          <a className="di-proof-link" href={suiExplorerTxUrl(claimFlow.digest)} target="_blank" rel="noreferrer">
+            {shortId(claimFlow.digest)}
+          </a>
+        </p>
+      ) : null}
+      {claimFlow.error ? <p className="execution-error di-position-claim-message">{claimFlow.error}</p> : null}
+    </>
+  );
+
+  const detailBody = (
+    <div className="di-position-detail">
+      {isDual ? (
+        <>
+          {lifecycle === 'awaiting_settle' ? (
+            <p className="di-fork-status">{copy.portfolio.claim.awaitingSettlement}</p>
+          ) : null}
+          <OutcomeFork note={note} marketState={marketState} lifecycle={lifecycle} locale={locale} />
+        </>
+      ) : (
+        // Legacy products have no dual outcome to fork on — keep the
+        // info-only claim block for them.
+        <ClaimActionView
+          note={note}
+          nowMs={Date.now()}
+          marketState={marketState}
+          isPending={claimFlow.isPending}
+          demoMode={demoMode}
+          locale={locale}
+          onClaim={claimFlow.claim}
+          showAction={false}
+        />
+      )}
+
+      {/* Proof links are audit affordances — label + external icon only;
+          the explorer URL is the payload, truncated IDs are redundant.
+          No fee line here: the fee breakdown lives in the claim dialog. */}
+      <div className="di-position-meta">
+        <span className="di-proof-links">
+          <ProofLink href={suiExplorerObjectUrl(note.noteId)}>
+            {copy.portfolio.card.noteId}
+            <ExternalLink size={12} aria-hidden="true" />
+          </ProofLink>
+          {isDual ? (
+            <SubscriptionDigestValue
+              owner={note.owner}
+              quoteHash={note.productId}
+              eventDigest={eventIndexEntry?.subscriptionDigest}
+              label={copy.portfolio.card.subscriptionTx}
+            />
+          ) : (
+            <span>
+              {copy.portfolio.card.productId} {note.productId || '--'}
+            </span>
+          )}
+          <ProofLink href={suiExplorerObjectUrl(note.oracleId)}>
+            {copy.portfolio.card.priceFeed}
+            <ExternalLink size={12} aria-hidden="true" />
+          </ProofLink>
+        </span>
+      </div>
+    </div>
+  );
+
+  if (isMobile) {
+    // Two lines per Position: identity + status, then the money flow. The
+    // strike is the identity — the product name lives at the section level.
+    const depositText = depositedCashText(note, eventIndexEntry);
+    const compactLine =
+      isDual && settledPayout
+        ? `${depositText} → ${
+            settledPayout.settledBelow
+              ? `≈${formatBtcAmountCompact(settledPayout.btcAmount, locale)} BTC`
+              : `${formatCashAmount(settledPayout.netPayout, locale)} dUSDC`
+          }${lifecycle === 'claimed' ? ` · ${formatExpiry(note.expiryMs, locale)}` : ''}`
+        : lifecycle === 'countdown'
+          ? `${depositText} dUSDC · ${copy.portfolio.card.settlesCountdown(formatTimeToExpiry(note.expiryMs, locale))}`
+          : `${depositText} dUSDC · ${formatExpiry(note.expiryMs, locale)}`;
+
+    return (
+      <Card as="article" className="di-position-row is-compact">
+        <div className="di-position-compact" onClick={() => setExpanded(true)}>
+          <div className="di-position-compact-main">
+            <p className="di-position-compact-title">
+              <strong>{isDual ? `@ ${formatPrice(note.targetPrice, locale)}` : copy.portfolio.card.legacyProduct}</strong>
+              {showRowClaim ? (
+                <em className="di-position-compact-reward">+{formatCashAmount(rewardEarned, locale)}</em>
+              ) : (
+                <Badge tone={status.tone}>{status.label}</Badge>
+              )}
+            </p>
+            <p className="di-position-compact-sub">{compactLine}</p>
+          </div>
+          {showRowClaim ? (
+            <Button
+              variant="primary"
+              size="sm"
+              className="di-position-claim"
+              disabled={demoMode || claimFlow.isPending}
+              title={demoMode ? copy.demo.claimDisabled : undefined}
+              onClick={(event) => {
+                event.stopPropagation();
+                claimFlow.claim();
+              }}
+            >
+              {claimFlow.isPending ? copy.portfolio.claim.submitting : copy.portfolio.claim.claimShort}
+            </Button>
+          ) : (
+            <button
+              type="button"
+              className="di-position-compact-open"
+              aria-label={copy.portfolio.card.details}
+              onClick={(event) => {
+                event.stopPropagation();
+                setExpanded(true);
+              }}
+            >
+              <ChevronRight size={17} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        {claimMessages}
+        <Dialog
+          open={expanded}
+          onClose={() => setExpanded(false)}
+          ariaLabel={copy.portfolio.card.details}
+          closeLabel={copy.common.close}
+          className="di-position-sheet"
+        >
+          <div className="di-position-sheet-head">
+            <h3>
+              {isDual
+                ? `${copy.portfolio.card.buyLowBtc} @ ${formatPrice(note.targetPrice, locale)}`
+                : copy.portfolio.card.legacyProduct}
+            </h3>
+            <Badge tone={status.tone}>{status.label}</Badge>
+          </div>
+          <dl className="di-position-inline-stats di-position-sheet-stats">
+            <div>
+              <dt>{copy.portfolio.card.deposit}</dt>
+              <dd>{depositText} dUSDC</dd>
+            </div>
+            <div>
+              <dt>{copy.portfolio.card.reward}</dt>
+              <dd className="is-reward">
+                +{formatCashAmount(rewardEarned, locale)} <em>{formatApr(rewardApr, locale)} APR</em>
+              </dd>
+            </div>
+            <div>
+              <dt>{copy.portfolio.card.settles}</dt>
+              <dd>{localizedSettlesText}</dd>
+            </div>
+          </dl>
+          {detailBody}
+          {showRowClaim ? (
+            <Button
+              variant="primary"
+              className="di-position-sheet-claim"
+              disabled={demoMode || claimFlow.isPending}
+              title={demoMode ? copy.demo.claimDisabled : undefined}
+              onClick={() => claimFlow.claim()}
+            >
+              {claimFlow.isPending ? copy.portfolio.claim.submitting : copy.portfolio.claim.claimPayout}
+            </Button>
+          ) : null}
+          {claimMessages}
+        </Dialog>
+      </Card>
+    );
+  }
 
   return (
     <Card as="article" className="di-position-row">
@@ -320,69 +502,9 @@ export function ProductNoteCard({
           </button>
         </div>
       </div>
-      {claimFlow.digest ? (
-        <p className="execution-message di-position-claim-message">
-          {copy.portfolio.claim.submitted} —{' '}
-          <a className="di-proof-link" href={suiExplorerTxUrl(claimFlow.digest)} target="_blank" rel="noreferrer">
-            {shortId(claimFlow.digest)}
-          </a>
-        </p>
-      ) : null}
-      {claimFlow.error ? <p className="execution-error di-position-claim-message">{claimFlow.error}</p> : null}
+      {claimMessages}
 
-      {expanded ? (
-        <div className="di-position-detail">
-          {isDual ? (
-            <>
-              {lifecycle === 'awaiting_settle' ? (
-                <p className="di-fork-status">{copy.portfolio.claim.awaitingSettlement}</p>
-              ) : null}
-              <OutcomeFork note={note} marketState={marketState} lifecycle={lifecycle} locale={locale} />
-            </>
-          ) : (
-            // Legacy products have no dual outcome to fork on — keep the
-            // info-only claim block for them.
-            <ClaimActionView
-              note={note}
-              nowMs={Date.now()}
-              marketState={marketState}
-              isPending={claimFlow.isPending}
-              demoMode={demoMode}
-              locale={locale}
-              onClaim={claimFlow.claim}
-              showAction={false}
-            />
-          )}
-
-          {/* Proof links are audit affordances — label + external icon only;
-              the explorer URL is the payload, truncated IDs are redundant.
-              No fee line here: the fee breakdown lives in the claim dialog. */}
-          <div className="di-position-meta">
-            <span className="di-proof-links">
-              <ProofLink href={suiExplorerObjectUrl(note.noteId)}>
-                {copy.portfolio.card.noteId}
-                <ExternalLink size={12} aria-hidden="true" />
-              </ProofLink>
-              {isDual ? (
-                <SubscriptionDigestValue
-                  owner={note.owner}
-                  quoteHash={note.productId}
-                  eventDigest={eventIndexEntry?.subscriptionDigest}
-                  label={copy.portfolio.card.subscriptionTx}
-                />
-              ) : (
-                <span>
-                  {copy.portfolio.card.productId} {note.productId || '--'}
-                </span>
-              )}
-              <ProofLink href={suiExplorerObjectUrl(note.oracleId)}>
-                {copy.portfolio.card.priceFeed}
-                <ExternalLink size={12} aria-hidden="true" />
-              </ProofLink>
-            </span>
-          </div>
-        </div>
-      ) : null}
+      {expanded ? detailBody : null}
     </Card>
   );
 }

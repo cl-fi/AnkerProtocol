@@ -152,33 +152,26 @@ test.describe('phone layout', () => {
     expect(layout.paddingBottom).toBe('0px');
   });
 
-  test('mobile wallet footer and claim actions keep their compact alignment', async ({ page }) => {
+  test('claimable position renders the compact row whose sheet carries the detail', async ({ page }) => {
     await page.setViewportSize({ width: 430, height: 900 });
     await page.goto('http://127.0.0.1:4124');
     await expect(page.locator('main#portfolio-component-fixture')).toBeVisible();
 
-    await expect(page.locator('.pf-wallet-disconnect')).toBeVisible();
-    const claim = page.locator('.di-position-claim');
-    const details = page.locator('.di-position-toggle');
-    const geometry = await Promise.all([
-      claim.boundingBox(),
-      details.boundingBox(),
-    ]).then(([claimBox, detailsBox]) => {
-      if (!claimBox || !detailsBox) throw new Error('Portfolio action controls are not measurable');
-      return {
-        claimHeight: claimBox.height,
-        detailsWidth: detailsBox.width,
-        detailsHeight: detailsBox.height,
-        centerDelta: Math.abs(
-          claimBox.y + claimBox.height / 2 - (detailsBox.y + detailsBox.height / 2),
-        ),
-      };
-    });
+    // A claimable row: two-line summary plus an inline Claim, no accordion.
+    const row = page.locator('.di-position-compact');
+    await expect(row).toBeVisible();
+    const claimBox = await page.locator('.di-position-claim').boundingBox();
+    if (!claimBox) throw new Error('Claim button is not measurable');
+    expect(claimBox.height).toBeGreaterThanOrEqual(44);
+    await expect(page.locator('.di-position-toggle')).toHaveCount(0);
 
-    expect(geometry.claimHeight).toBeGreaterThanOrEqual(44);
-    expect(geometry.detailsWidth).toBe(44);
-    expect(geometry.detailsHeight).toBe(44);
-    expect(geometry.centerDelta).toBeLessThanOrEqual(1);
+    // Tapping the row opens the bottom-sheet detail with the outcome fork.
+    await row.click();
+    const sheet = page.getByRole('dialog', { name: 'Details' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('.di-outcome-fork')).toBeVisible();
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet).toBeHidden();
   });
 
   test('subscribe action docks only after its inline position has been seen and passed', async ({ page }) => {
@@ -327,8 +320,6 @@ test.describe('phone layout', () => {
 test('desktop keeps the existing header wallet dialog entry', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === 'mobile', 'Desktop-only compatibility coverage.');
   await page.setViewportSize({ width: 1024, height: 768 });
-  await page.goto('http://127.0.0.1:4124');
-  await expect(page.locator('.pf-wallet-disconnect')).toBeHidden();
   await gotoReady(page, '/en/app/dual-investment');
 
   await expect(page.locator('.top-nav').getByRole('link', { name: 'View Portfolio' })).toBeHidden();

@@ -1,47 +1,48 @@
 'use client';
 
 import { useCurrentAccount, useDAppKit } from '@mysten/dapp-kit-react';
-import { ArrowUpRight, Check, ChevronDown, Copy, LogOut, QrCode, Wallet } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronDown, Copy, ExternalLink, LogOut, QrCode, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
+import { SUI_NETWORK } from '../config/deepbook';
 import { useWalletFunds } from '../hooks/useWalletFunds';
 import { useWalletIdentity } from '../hooks/useWalletIdentity';
 import { copyForLocale, DEFAULT_LOCALE, formattersForLocale, localizedPath, type Locale } from '../i18n';
+import { Dialog } from '../ui';
 import { GoogleMark } from './brandMarks';
-import { shortId } from './PortfolioFormat';
+import { shortId, suiExplorerAddressUrl } from './PortfolioFormat';
 import { ReceiveDialog } from './ReceiveDialog';
 import { SendDialog } from './SendDialog';
 import { WalletConnectButton } from './WalletConnectButton';
 
-function MobilePortfolioWalletLink({
-  identity,
-  locale,
-}: {
-  identity: ReturnType<typeof useWalletIdentity>;
-  locale: Locale;
-}) {
-  const copy = copyForLocale(locale);
-  return (
-    <Link
-      className="mobile-wallet-route"
-      href={`${localizedPath(locale, '/app/portfolio')}#wallet-portfolio`}
-      aria-label={copy.wallet.viewPortfolio}
-    >
-      {identity?.kind === 'social' ? (
-        <span className="account-trigger-avatar">
-          <GoogleMark size={16} />
-        </span>
-      ) : identity?.kind === 'extension' && identity.icon ? (
-        <span className="account-trigger-avatar">
-          {/* Wallet-standard icons are data: URIs, not remote assets. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={identity.icon} alt="" width={18} height={18} />
-        </span>
-      ) : (
-        <Wallet size={18} aria-hidden="true" />
-      )}
-    </Link>
-  );
+/**
+ * `ailcj8023@gmail.com` → `ailcj…@gmail.com`: the email is the identity a
+ * zkLogin user recognizes, but the top bar only has room for its shape.
+ */
+function truncateEmail(email: string) {
+  const at = email.indexOf('@');
+  if (at <= 6) return email;
+  return `${email.slice(0, 5)}…${email.slice(at)}`;
+}
+
+function IdentityAvatar({ identity, size = 16 }: { identity: ReturnType<typeof useWalletIdentity>; size?: number }) {
+  if (identity?.kind === 'social') {
+    return (
+      <span className="account-trigger-avatar">
+        <GoogleMark size={size} />
+      </span>
+    );
+  }
+  if (identity?.kind === 'extension' && identity.icon) {
+    return (
+      <span className="account-trigger-avatar">
+        {/* Wallet-standard icons are data: URIs, not remote assets. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={identity.icon} alt="" width={size} height={size} />
+      </span>
+    );
+  }
+  return <span className="account-trigger-dot" aria-hidden="true" />;
 }
 
 /**
@@ -63,6 +64,8 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
   const funds = useWalletFunds();
   const identity = useWalletIdentity();
   const [open, setOpen] = useState(false);
+  // The phone account sheet — the identity drawer behind the top-bar chip.
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -101,7 +104,13 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
   if (!account) {
     return (
       <div className="account-control">
-        <MobilePortfolioWalletLink identity={identity} locale={locale} />
+        <Link
+          className="mobile-wallet-route"
+          href={`${localizedPath(locale, '/app/portfolio')}#wallet-portfolio`}
+          aria-label={copy.wallet.viewPortfolio}
+        >
+          <Wallet size={18} aria-hidden="true" />
+        </Link>
         <div className="desktop-wallet-entry">
           <WalletConnectButton locale={locale}>
             <Wallet size={15} aria-hidden="true" />
@@ -120,7 +129,26 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
         if (open && !rootRef.current?.contains(event.relatedTarget as Node)) setOpen(false);
       }}
     >
-      <MobilePortfolioWalletLink identity={identity} locale={locale} />
+      {/* Phone entry point: the account chip. Email is the identity a web2
+          user recognizes — the address stays a detail inside the sheet. */}
+      {/* Accessible name = the visible identity label, which also keeps it
+          distinct from the desktop trigger's aria-label. */}
+      <button
+        type="button"
+        className="mobile-account-chip"
+        aria-haspopup="dialog"
+        aria-expanded={sheetOpen}
+        onClick={() => setSheetOpen(true)}
+      >
+        <IdentityAvatar identity={identity} />
+        <span className="mobile-account-chip-label">
+          {identity?.kind === 'social'
+            ? identity.email
+              ? truncateEmail(identity.email)
+              : copy.wallet.googleAccount
+            : shortId(account.address)}
+        </span>
+      </button>
       <button
         type="button"
         ref={triggerRef}
@@ -249,6 +277,67 @@ export function WalletAccountControl({ locale = DEFAULT_LOCALE }: { locale?: Loc
           </div>
         </div>
       ) : null}
+      {/* The phone account sheet: identity and session concerns only — money
+          lives on Portfolio. Low-frequency, so everything fits one drawer. */}
+      <Dialog
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        ariaLabel={copy.wallet.accountLabel}
+        closeLabel={copy.common.close}
+        className="account-sheet"
+      >
+        <div className="account-sheet-identity">
+          <IdentityAvatar identity={identity} size={20} />
+          <div className="account-sheet-who">
+            <strong>
+              {identity?.kind === 'social'
+                ? (identity.email ?? copy.wallet.googleAccount)
+                : identity?.kind === 'extension'
+                  ? identity.name
+                  : shortId(account.address)}
+            </strong>
+            <span className="account-sheet-address">
+              <code>{shortId(account.address)}</code>
+              <button
+                type="button"
+                className="account-menu-copy"
+                aria-label={copied ? copy.wallet.copied : copy.wallet.copyAddress}
+                onClick={() => {
+                  void navigator.clipboard.writeText(account.address).then(() => setCopied(true));
+                }}
+              >
+                {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+              </button>
+            </span>
+          </div>
+        </div>
+        <div className="account-sheet-row">
+          <span>{copy.wallet.network}</span>
+          <strong>Sui {SUI_NETWORK.charAt(0).toUpperCase() + SUI_NETWORK.slice(1)}</strong>
+        </div>
+        <a
+          className="account-sheet-row account-sheet-link"
+          href={suiExplorerAddressUrl(account.address)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span>{copy.wallet.viewOnExplorer}</span>
+          <ExternalLink size={15} aria-hidden="true" />
+        </a>
+        {/* No confirm step: a zkLogin sign-in is one tap to restore, so a
+            mis-tap costs nearly nothing. */}
+        <button
+          type="button"
+          className="account-sheet-signout"
+          onClick={() => {
+            setSheetOpen(false);
+            void dAppKit.disconnectWallet();
+          }}
+        >
+          <LogOut size={15} aria-hidden="true" />
+          {copy.wallet.signOut}
+        </button>
+      </Dialog>
       <ReceiveDialog open={receiveOpen} address={account.address} locale={locale} onClose={() => setReceiveOpen(false)} />
       <SendDialog open={sendOpen} locale={locale} onClose={() => setSendOpen(false)} />
     </div>
